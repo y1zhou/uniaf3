@@ -1134,14 +1134,15 @@ def from_protenix(config: ProtenixConfig) -> UniAF3Config:
         nonlocal chain_counter
         ids = []
         for _ in range(count):
-            # Generate spreadsheet-style IDs: A-Z, AA-ZA, AB-ZB, ...
+            # Reverse spreadsheet-style IDs: A-Z, AA-ZA, AB-ZB, ...
+            # This matches the convention in UniAF3Config and AlphaFold3.
             n = chain_counter
             if n < 26:
                 ids.append(chr(65 + n))
             else:
-                first = chr(65 + (n - 26) % 26)
-                second = chr(65 + (n - 26) // 26)
-                ids.append(f"{first}{second}")
+                left_char = chr(65 + (n - 26) % 26)
+                right_char = chr(65 + (n - 26) // 26)
+                ids.append(f"{left_char}{right_char}")
             chain_counter += 1
         return ids[0] if len(ids) == 1 else ids
 
