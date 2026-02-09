@@ -65,8 +65,6 @@ def _load_config(path: Path, fmt: str):
             data = yaml.safe_load(f)
         return ChaiConfig.model_validate(data)
     elif fmt == "protenix":
-        import json
-
         from uniaf3.schema.protenix import ProtenixConfig
 
         data = json.loads(path.read_text())
