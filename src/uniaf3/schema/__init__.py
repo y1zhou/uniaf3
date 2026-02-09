@@ -46,27 +46,43 @@ class UniAF3BaseConfig(BaseModel):
     Provides shared serialization, hashing, and file-loading helpers.
     """
 
-    @property
-    def yaml_str(self) -> str:
-        """Get YAML string representation of the config."""
+    def to_yaml(self, **kwargs) -> str:
+        """Get YAML string representation of the config.
+
+        Args:
+            **kwargs: Extra keyword arguments forwarded to ``BaseModel.model_dump``.
+
+        """
         yaml.SafeDumper.add_multi_representer(
             Enum, representer.SafeRepresenter.represent_str
         )
+
+        for default_arg in ("exclude_unset", "exclude_none", "exclude_computed_fields"):
+            if default_arg not in kwargs:
+                kwargs[default_arg] = True
+
         return yaml.safe_dump(
-            self.model_dump(mode="json", exclude_none=True),
-            sort_keys=False,
-            default_flow_style=None,
+            self.model_dump(**kwargs), sort_keys=False, default_flow_style=None
         )
 
-    @property
-    def json_str(self) -> str:
-        """Get JSON string representation of the config."""
-        return self.model_dump_json(indent=2, exclude_none=True)
+    def to_json(self, **kwargs) -> str:
+        """Get JSON string representation of the config.
 
+        Args:
+            **kwargs: Extra keyword arguments forwarded to ``BaseModel.model_dump_json``.
+
+        """
+        for default_arg in ("exclude_unset", "exclude_none", "exclude_computed_fields"):
+            if default_arg not in kwargs:
+                kwargs[default_arg] = True
+
+        return self.model_dump_json(indent=2, **kwargs)
+
+    @computed_field
     @property
     def hash(self) -> str:
         """Get SHA256 hash of the YAML representation."""
-        return hash_sequence(self.yaml_str)
+        return hash_sequence(self.to_yaml())
 
     @classmethod
     def from_file(cls, conf_file: str | Path) -> "UniAF3BaseConfig":
@@ -288,19 +304,7 @@ class UniAF3Config(UniAF3BaseConfig):
     @property
     def yaml_str(self) -> str:
         """Get YAML string representation of the config."""
-        yaml.SafeDumper.add_multi_representer(
-            Enum, representer.SafeRepresenter.represent_str
-        )
-        return yaml.safe_dump(
-            self.model_dump(
-                include={"sequences", "restraints"},
-                exclude_unset=True,
-                exclude_none=True,
-                exclude_computed_fields=True,
-            ),
-            sort_keys=False,
-            default_flow_style=None,
-        )
+        return self.to_yaml(include={"sequences", "restraints"})
 
     @computed_field
     @property
@@ -314,18 +318,7 @@ class UniAF3Config(UniAF3BaseConfig):
     @classmethod
     def from_file(cls, conf_file: str | Path) -> "UniAF3Config":
         """Load UniAF3 config from a file."""
-        conf_path = Path(conf_file).expanduser().resolve()
-        if not conf_path.exists():
-            raise FileNotFoundError(f"Config file not found: {conf_path}")
-        if conf_path.suffix in {".yml", ".yaml"}:
-            with open(conf_path) as f:
-                conf = cls.model_validate(yaml.safe_load(f))
-        elif conf_path.suffix == ".json":
-            conf = cls.model_validate_json(conf_path.read_bytes())
-        else:
-            raise ValueError(
-                "Unsupported config file format. Use .yaml, .yml, or .json"
-            )
+        conf = cls.from_file(conf_file)
 
         for i, seq in enumerate(conf.sequences):
             if isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein:
@@ -334,12 +327,7 @@ class UniAF3Config(UniAF3BaseConfig):
         return conf
 
 
-def dump_config(
-    conf: "UniAF3BaseConfig",
-    *,
-    fmt: str = "yaml",
-    **kwargs,
-) -> str:
+def dump_config(conf: "UniAF3BaseConfig", fmt: str = "yaml", **kwargs) -> str:
     """Serialize a config model to a string.
 
     Args:
@@ -355,30 +343,15 @@ def dump_config(
         ValueError: If *fmt* is not ``"yaml"`` or ``"json"``.
 
     """
-    yaml.SafeDumper.add_multi_representer(
-        Enum,
-        representer.SafeRepresenter.represent_str,
-    )
-
-    for default_arg in ("exclude_unset", "exclude_none", "exclude_computed_fields"):
-        if default_arg not in kwargs:
-            kwargs[default_arg] = True
-
     if fmt == "yaml":
-        return yaml.safe_dump(
-            conf.model_dump(**kwargs), sort_keys=False, default_flow_style=None
-        )
+        return conf.to_yaml(**kwargs)
     elif fmt == "json":
-        return conf.model_dump_json(indent=2, **kwargs)
+        return conf.to_json(**kwargs)
     else:
         raise ValueError(f"Unsupported format: {fmt!r}. Use 'yaml' or 'json'.")
 
 
-def write_config(
-    conf: "UniAF3BaseConfig",
-    out_file: str | Path,
-    **kwargs,
-) -> None:
+def write_config(conf: "UniAF3BaseConfig", out_file: str | Path, **kwargs) -> None:
     """Write a config model to a file.
 
     The output format is inferred from the file extension.
