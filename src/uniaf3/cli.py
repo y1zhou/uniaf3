@@ -6,10 +6,11 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from rich.syntax import Syntax
+
+from uniaf3.adapters import AnyConfig
 
 app = typer.Typer()
-console = Console()
+console = Console(tab_size=2)
 
 
 @app.callback(invoke_without_command=True, no_args_is_help=True)
@@ -38,7 +39,7 @@ class ConfigFormat(StrEnum):
     Protenix = "protenix"
 
 
-def _load_config(path: Path, fmt: str):
+def _load_config(path: Path, fmt: str) -> AnyConfig:
     """Load and validate a config file using the schema's from_file method.
 
     Args:
@@ -106,13 +107,13 @@ def validate_config(
     if format.value == "uniaf3":
         console.print(f"Config hash: [bold]{conf.hash}[/bold]")
 
-    console.print("[bold green]Config is valid![/bold green]\n")
+    console.print(
+        f"[bold green]{type(conf).__name__}[/bold green] config is valid! "
+        "Dictionary representation displayed below:\n"
+    )
 
     # Print the config in the appropriate format
-    if hasattr(conf, "yaml_str"):
-        console.print(Syntax(conf.yaml_str, "yaml", theme="one-dark"))
-    elif hasattr(conf, "json_str"):
-        console.print(Syntax(conf.json_str, "json", theme="one-dark"))
+    console.print(conf.model_dump())
 
 
 def _get_format_to_config():
