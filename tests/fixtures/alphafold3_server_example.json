@@ -1,0 +1,31 @@
+{
+  "name": "Server fold",
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "MVLSPADKTNVKAAW"
+      }
+    },
+    {
+      "dna": {
+        "id": "B",
+        "sequence": "GATTACA"
+      }
+    },
+    {
+      "ligand": {
+        "id": "C",
+        "ccdCodes": ["ATP"]
+      }
+    },
+    {
+      "ion": {
+        "id": "D",
+        "ion": "MG"
+      }
+    }
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

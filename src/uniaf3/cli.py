@@ -37,6 +37,7 @@ class ConfigFormat(StrEnum):
     Chai = "chai"
     Chai1 = "chai"
     Protenix = "protenix"
+    AlphaFold3Server = "alphafold3server"
 
 
 def _load_config(path: Path, fmt: str) -> AnyConfig:
@@ -73,6 +74,10 @@ def _load_config(path: Path, fmt: str) -> AnyConfig:
         from uniaf3.schema.protenix import ProtenixConfig
 
         return ProtenixConfig.from_file(path)
+    elif fmt == "alphafold3server":
+        from uniaf3.schema.alphafold3 import AF3ServerConfig
+
+        return AF3ServerConfig.from_file(path)
     else:
         raise ValueError(f"Unknown format: {fmt}")
 
@@ -105,6 +110,9 @@ def validate_config(
         raise typer.Exit(code=1) from exc
 
     if format.value == "uniaf3":
+        from uniaf3.schema import UniAF3Config
+
+        assert isinstance(conf, UniAF3Config)
         console.print(f"Config hash: [bold]{conf.hash}[/bold]")
 
     console.print(
@@ -119,7 +127,7 @@ def validate_config(
 def _get_format_to_config():
     """Lazily build format-to-config-class mapping."""
     from uniaf3.schema import UniAF3Config
-    from uniaf3.schema.alphafold3 import AF3Config
+    from uniaf3.schema.alphafold3 import AF3Config, AF3ServerConfig
     from uniaf3.schema.boltz import BoltzConfig
     from uniaf3.schema.chai import ChaiConfig
     from uniaf3.schema.protenix import ProtenixConfig
@@ -127,6 +135,7 @@ def _get_format_to_config():
     return {
         "uniaf3": UniAF3Config,
         "alphafold3": AF3Config,
+        "alphafold3server": AF3ServerConfig,
         "boltz": BoltzConfig,
         "chai": ChaiConfig,
         "protenix": ProtenixConfig,

@@ -128,6 +128,14 @@ class ChaiConfig(UniAF3BaseConfig):
             lines.append(e.sequence)
         return "\n".join(lines)
 
+    def to_str(self, **kwargs) -> str:
+        """Get string representation with FASTA entities and CSV restraints."""
+        parts = [self.entities_to_fasta()]
+        csv = self.restraints_to_csv()
+        if csv is not None:
+            parts.append(csv)
+        return "\n---\n".join(parts)
+
     def restraints_to_csv(self) -> str | None:
         """Convert the restraints list to a CSV string."""
         if self.restraints is None:

@@ -7,25 +7,39 @@ Each model has a ``to_*`` and ``from_*`` function pair in its own module under
 
 from __future__ import annotations
 
-from uniaf3.adapters.alphafold3 import from_alphafold3, to_alphafold3
+from uniaf3.adapters.alphafold3 import (
+    from_alphafold3,
+    from_alphafold3_server,
+    to_alphafold3,
+    to_alphafold3_server,
+)
 from uniaf3.adapters.boltz import from_boltz, to_boltz
 from uniaf3.adapters.chai import from_chai, to_chai
 from uniaf3.adapters.protenix import from_protenix, to_protenix
 from uniaf3.schema import UniAF3Config
-from uniaf3.schema.alphafold3 import AF3Config
+from uniaf3.schema.alphafold3 import AF3Config, AF3ServerConfig
 from uniaf3.schema.boltz import BoltzConfig
 from uniaf3.schema.chai import ChaiConfig
 from uniaf3.schema.protenix import ProtenixConfig
 
-AnyConfig = UniAF3Config | AF3Config | BoltzConfig | ChaiConfig | ProtenixConfig
+AnyConfig = (
+    UniAF3Config
+    | AF3Config
+    | AF3ServerConfig
+    | BoltzConfig
+    | ChaiConfig
+    | ProtenixConfig
+)
 
 __all__ = [
     "from_alphafold3",
+    "from_alphafold3_server",
     "from_boltz",
     "from_chai",
     "from_protenix",
     "from_uniaf3",
     "to_alphafold3",
+    "to_alphafold3_server",
     "to_boltz",
     "to_chai",
     "to_protenix",
@@ -48,6 +62,8 @@ def to_uniaf3(conf: AnyConfig) -> UniAF3Config:
     """
     if isinstance(conf, UniAF3Config):
         return conf
+    if isinstance(conf, AF3ServerConfig):
+        return from_alphafold3_server(conf)
     if isinstance(conf, AF3Config):
         return from_alphafold3(conf)
     if isinstance(conf, BoltzConfig):
@@ -83,6 +99,8 @@ def from_uniaf3(
         return conf
     if target is AF3Config:
         return to_alphafold3(conf, name=name)
+    if target is AF3ServerConfig:
+        return to_alphafold3_server(conf, name=name)
     if target is BoltzConfig:
         return to_boltz(conf)
     if target is ChaiConfig:

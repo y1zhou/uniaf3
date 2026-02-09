@@ -245,7 +245,17 @@ class TestChaiSchema:
             )
 
     def test_output_strs_property(self):
-        raise NotImplementedError("output_strs property not implemented yet")
+        from uniaf3.schema.chai import ChaiConfig
+
+        with open(FIXTURES / "chai_example.yaml") as f:
+            data = yaml.safe_load(f)
+        conf = ChaiConfig.model_validate(data)
+        s = conf.to_str()
+        assert isinstance(s, str)
+        # Should contain FASTA headers
+        assert ">protein|A" in s
+        # Should contain restraint CSV if restraints exist
+        assert "restraint_id" in s
 
     def test_from_file(self):
         from uniaf3.schema.chai import ChaiConfig
@@ -376,3 +386,43 @@ class TestUniAF3Schema:
         h = conf.hash
         assert isinstance(h, str)
         assert len(h) == 64  # sha256 hex digest
+
+
+# ============================================================
+# AlphaFold3 Server schema
+# ============================================================
+class TestAF3ServerSchema:
+    """Validate AF3ServerConfig against example input."""
+
+    def test_load_example(self):
+        from uniaf3.schema.alphafold3 import AF3ServerConfig
+
+        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
+        assert conf.name == "Server fold"
+        assert len(conf.sequences) == 4
+        assert conf.version == 1
+
+    def test_protein_entry(self):
+        from uniaf3.schema.alphafold3 import AF3ServerConfig
+
+        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
+        prot = conf.sequences[0].protein
+        assert prot is not None
+        assert prot.sequence == "MVLSPADKTNVKAAW"
+
+    def test_ion_entry(self):
+        from uniaf3.schema.alphafold3 import AF3ServerConfig
+
+        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
+        ion = conf.sequences[3].ion
+        assert ion is not None
+        assert ion.ion == "MG"
+
+    def test_to_str(self):
+        from uniaf3.schema.alphafold3 import AF3ServerConfig
+
+        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
+        s = conf.to_str()
+        assert isinstance(s, str)
+        parsed = orjson.loads(s)
+        assert parsed["name"] == "Server fold"

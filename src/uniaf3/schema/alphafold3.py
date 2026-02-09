@@ -149,3 +149,92 @@ class AF3Config(UniAF3BaseConfig):
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation of the config."""
         return self.to_json(**kwargs)
+
+
+class AF3ServerProtein(BaseModel):
+    """AlphaFold3 Server protein chain specification."""
+
+    id: str | list[str]
+    sequence: str
+    modifications: list[AF3ProteinModification] | None = None
+    description: str | None = None
+
+
+class AF3ServerRNA(BaseModel):
+    """AlphaFold3 Server RNA chain specification."""
+
+    id: str | list[str]
+    sequence: str
+    modifications: list[AF3NucleotideModification] | None = None
+    description: str | None = None
+
+
+class AF3ServerDNA(BaseModel):
+    """AlphaFold3 Server DNA chain specification."""
+
+    id: str | list[str]
+    sequence: str
+    modifications: list[AF3NucleotideModification] | None = None
+    description: str | None = None
+
+
+class AF3ServerLigand(BaseModel):
+    """AlphaFold3 Server ligand specification."""
+
+    id: str | list[str]
+    ccdCodes: list[str] | None = None
+    smiles: str | None = None
+    description: str | None = None
+
+    @model_validator(mode="after")
+    def check_ccd_smiles_fields(self):
+        """Ensure exactly one of ccdCodes or smiles is provided."""
+        if (self.ccdCodes is None) == (self.smiles is None):
+            raise ValueError("Exactly one of ccdCodes or smiles must be provided.")
+        return self
+
+
+class AF3ServerIon(BaseModel):
+    """AlphaFold3 Server ion specification.
+
+    The server has a separate ion type with a single CCD code.
+    """
+
+    id: str | list[str]
+    ion: str  # CCD code of the ion (e.g., "MG", "ZN")
+
+
+class AF3ServerSequenceEntry(BaseModel):
+    """Server sequence entry. Exactly one type must be set."""
+
+    protein: AF3ServerProtein | None = None
+    rna: AF3ServerRNA | None = None
+    dna: AF3ServerDNA | None = None
+    ligand: AF3ServerLigand | None = None
+    ion: AF3ServerIon | None = None
+
+    @model_validator(mode="after")
+    def check_exactly_one(self):
+        """Ensure exactly one entity type is provided."""
+        fields = [self.protein, self.rna, self.dna, self.ligand, self.ion]
+        if sum(f is not None for f in fields) != 1:
+            raise ValueError("Exactly one entity type must be provided.")
+        return self
+
+
+class AF3ServerConfig(UniAF3BaseConfig):
+    """AlphaFold3 Server input JSON config.
+
+    The server variant is simpler: no seeds, no MSA, no templates, no userCCD.
+    It also supports an explicit ion type.
+    """
+
+    name: str
+    sequences: list[AF3ServerSequenceEntry]
+    bondedAtomPairs: list[tuple[AF3BondedAtom, AF3BondedAtom]] | None = None
+    dialect: Literal["alphafold3"] = "alphafold3"
+    version: Literal[1] = 1
+
+    def to_str(self, **kwargs) -> str:
+        """Get JSON string representation."""
+        return self.to_json(**kwargs)

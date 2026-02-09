@@ -196,12 +196,12 @@ def to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixConfi
                     binder_entity = chain_to_entity.get(r.boltz_binder_chain, eidx2)
                 pocket = ProtenixPocketConstraint(
                     binder_chain=ProtenixPocketBinderChain(
-                        entity=binder_entity, copy_idx=1
+                        entity=binder_entity, copy=1
                     ),
                     contact_residues=[
                         ProtenixPocketContactResidue(
                             entity=eidx1,
-                            copy_idx=1,
+                            copy=1,
                             position=r.atom1.residue_idx,
                         )
                     ],
