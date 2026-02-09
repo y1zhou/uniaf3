@@ -1,0 +1,25 @@
+entities:
+  - entity_type: protein
+    entity_name: A
+    sequence: MVLSPADKTNVKAAW
+  - entity_type: protein
+    entity_name: B
+    sequence: MVLSPADKTNVKAAW
+  - entity_type: dna
+    entity_name: C
+    sequence: GATTACA
+  - entity_type: ligand
+    entity_name: D
+    sequence: 'N[C@@H](Cc1ccc(O)cc1)C(=O)O'
+restraints:
+  - restraint_id: restraint_0
+    chainA: A
+    res_idxA: A219@CA
+    chainB: D
+    res_idxB: D45@CB
+    max_distance_angstrom: 1.5
+    min_distance_angstrom: 0.0
+    connection_type: covalent
+    confidence: 1.0
+    comment: Example covalent bond
+seed: 42

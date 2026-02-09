@@ -1,0 +1,33 @@
+sequences:
+  - seq_type: protein
+    id:
+      - A
+      - B
+    sequence: MVLSPADKTNVKAAW
+    modifications:
+      - ccd: HY3
+        position: 1
+  - seq_type: dna
+    id: C
+    sequence: GATTACA
+  - id: D
+    ccd:
+      - ATP
+  - id: E
+    smiles: 'CC(=O)OC1C[NH+]2CCC1CC2'
+restraints:
+  - restraint_type: bond
+    atom1:
+      chain_id: A
+      residue_idx: 1
+      atom_name: CA
+      residue_name: ALA
+    atom2:
+      chain_id: D
+      residue_idx: 1
+      atom_name: C04
+      residue_name: null
+    max_distance: 0.0
+seeds:
+  - 42
+  - 123

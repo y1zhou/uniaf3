@@ -109,3 +109,19 @@ class ChaiConfig(BaseModel):
         if len(names) != len(set(names)):
             raise ValueError("All entity names must be unique.")
         return self
+
+    @property
+    def json_str(self) -> str:
+        """Get JSON string representation of the config."""
+        return self.model_dump_json(indent=2, exclude_none=True)
+
+    @property
+    def yaml_str(self) -> str:
+        """Get YAML string representation of the config."""
+        import yaml
+
+        return yaml.safe_dump(
+            self.model_dump(mode="json", exclude_none=True),
+            sort_keys=False,
+            default_flow_style=None,
+        )

@@ -1,0 +1,67 @@
+{
+  "name": "Hello fold",
+  "modelSeeds": [10, 42],
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "PVLSCGEWQL",
+        "modifications": [
+          {"ptmType": "HY3", "ptmPosition": 1},
+          {"ptmType": "P1L", "ptmPosition": 5}
+        ],
+        "description": "10-residue protein with 2 modifications"
+      }
+    },
+    {
+      "protein": {
+        "id": "B",
+        "sequence": "RPACQLW"
+      }
+    },
+    {
+      "dna": {
+        "id": "C",
+        "sequence": "GACCTCT",
+        "modifications": [
+          {"modificationType": "6OG", "basePosition": 1},
+          {"modificationType": "6MA", "basePosition": 2}
+        ]
+      }
+    },
+    {
+      "rna": {
+        "id": "E",
+        "sequence": "AGCU",
+        "modifications": [
+          {"modificationType": "2MG", "basePosition": 1},
+          {"modificationType": "5MC", "basePosition": 4}
+        ]
+      }
+    },
+    {
+      "ligand": {
+        "id": ["F", "G", "H"],
+        "ccdCodes": ["ATP"]
+      }
+    },
+    {
+      "ligand": {
+        "id": "I",
+        "ccdCodes": ["NAG", "FUC"]
+      }
+    },
+    {
+      "ligand": {
+        "id": "Z",
+        "smiles": "CC(=O)OC1C[NH+]2CCC1CC2"
+      }
+    }
+  ],
+  "bondedAtomPairs": [
+    [["A", 1, "CA"], ["F", 1, "CHA"]],
+    [["I", 1, "O6"], ["I", 2, "C1"]]
+  ],
+  "dialect": "alphafold3",
+  "version": 4
+}

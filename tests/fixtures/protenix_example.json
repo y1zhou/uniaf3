@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Test Fold Job",
+    "sequences": [
+      {
+        "proteinChain": {
+          "sequence": "PREACHINGS",
+          "count": 2,
+          "modifications": [
+            {"ptmType": "CCD_HY3", "ptmPosition": 1},
+            {"ptmType": "CCD_P1L", "ptmPosition": 5}
+          ]
+        }
+      },
+      {
+        "dnaSequence": {
+          "sequence": "GATTACA",
+          "count": 1,
+          "modifications": [
+            {"modificationType": "CCD_6OG", "basePosition": 1}
+          ]
+        }
+      },
+      {
+        "rnaSequence": {
+          "sequence": "GUAC",
+          "count": 1
+        }
+      },
+      {
+        "ligand": {
+          "ligand": "CCD_ATP",
+          "count": 1
+        }
+      },
+      {
+        "ion": {
+          "ion": "MG",
+          "count": 2
+        }
+      }
+    ],
+    "covalent_bonds": [
+      {
+        "entity1": "1",
+        "copy1": 1,
+        "position1": "2",
+        "atom1": "N6",
+        "entity2": "4",
+        "copy2": 1,
+        "position2": "1",
+        "atom2": "C1"
+      }
+    ]
+  }
+]
