@@ -86,9 +86,9 @@ class BoltzSequenceEntry(BaseModel):
         return self
 
 
+##########################################
 # Constraints
-
-
+##########################################
 class BoltzBondConstraint(BaseModel):
     """Covalent bond constraint between two atoms."""
 
@@ -135,9 +135,9 @@ class BoltzConstraintEntry(BaseModel):
         return self
 
 
+##########################################
 # Templates
-
-
+##########################################
 class BoltzTemplate(BaseModel):
     """Structural template specification."""
 
@@ -156,9 +156,9 @@ class BoltzTemplate(BaseModel):
         return self
 
 
+##########################################
 # Properties
-
-
+##########################################
 class BoltzAffinityProperty(BaseModel):
     """Affinity prediction property."""
 
@@ -169,9 +169,6 @@ class BoltzPropertyEntry(BaseModel):
     """A single property entry."""
 
     affinity: BoltzAffinityProperty | None = None
-
-
-# Top-level config
 
 
 class BoltzConfig(BaseModel):

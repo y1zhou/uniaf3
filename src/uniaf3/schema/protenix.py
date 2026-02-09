@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
+
+##########################################
 # Sequence entity types
-
-
+##########################################
 class ProtenixProteinModification(BaseModel):
     """Post-translational modification for a protein residue."""
 
@@ -106,9 +107,9 @@ class ProtenixSequenceEntry(BaseModel):
         return self
 
 
+##########################################
 # Covalent bonds
-
-
+##########################################
 class ProtenixCovalentBond(BaseModel):
     """Covalent bond between two atoms from different entities."""
 
@@ -122,9 +123,9 @@ class ProtenixCovalentBond(BaseModel):
     copy2: PositiveInt | None = None
 
 
+##########################################
 # Constraints
-
-
+##########################################
 class ProtenixContactConstraint(BaseModel):
     """Contact constraint between two residues or atoms."""
 
@@ -174,9 +175,9 @@ class ProtenixConstraint(BaseModel):
     pocket: ProtenixPocketConstraint | None = None
 
 
+##########################################
 # Top-level config
-
-
+##########################################
 class ProtenixJob(BaseModel):
     """A single Protenix inference job."""
 
