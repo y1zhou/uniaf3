@@ -10,6 +10,8 @@ from typing import Literal
 
 from pydantic import BaseModel, PositiveInt, model_validator
 
+from uniaf3.schema import UniAF3BaseConfig
+
 
 class BoltzModification(BaseModel):
     """Modification for a polymer residue (protein, DNA, or RNA)."""
@@ -171,7 +173,7 @@ class BoltzPropertyEntry(BaseModel):
     affinity: BoltzAffinityProperty | None = None
 
 
-class BoltzConfig(BaseModel):
+class BoltzConfig(UniAF3BaseConfig):
     """Top-level Boltz input YAML config."""
 
     version: Literal[1] = 1
@@ -179,19 +181,3 @@ class BoltzConfig(BaseModel):
     constraints: list[BoltzConstraintEntry] | None = None
     templates: list[BoltzTemplate] | None = None
     properties: list[BoltzPropertyEntry] | None = None
-
-    @property
-    def json_str(self) -> str:
-        """Get JSON string representation of the config."""
-        return self.model_dump_json(indent=2, exclude_none=True)
-
-    @property
-    def yaml_str(self) -> str:
-        """Get YAML string representation of the config."""
-        import yaml
-
-        return yaml.safe_dump(
-            self.model_dump(exclude_none=True),
-            sort_keys=False,
-            default_flow_style=None,
-        )

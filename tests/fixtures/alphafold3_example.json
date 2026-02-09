@@ -10,13 +10,22 @@
           {"ptmType": "HY3", "ptmPosition": 1},
           {"ptmType": "P1L", "ptmPosition": 5}
         ],
-        "description": "10-residue protein with 2 modifications"
+        "description": "10-residue protein with 2 modifications",
+        "unpairedMsaPath": "./msas/A_unpaired.a3m",
+        "pairedMsaPath": "./msas/A_paired.a3m"
       }
     },
     {
       "protein": {
         "id": "B",
-        "sequence": "RPACQLW"
+        "sequence": "RPACQLW",
+        "templates": [
+          {
+            "mmcifPath": "./templates/B_template.cif",
+            "queryIndices": [0, 1, 2],
+            "templateIndices": [0, 1, 2]
+          }
+        ]
       }
     },
     {
@@ -36,7 +45,8 @@
         "modifications": [
           {"modificationType": "2MG", "basePosition": 1},
           {"modificationType": "5MC", "basePosition": 4}
-        ]
+        ],
+        "description": "Short RNA with modifications"
       }
     },
     {
@@ -62,6 +72,7 @@
     [["A", 1, "CA"], ["F", 1, "CHA"]],
     [["I", 1, "O6"], ["I", 2, "C1"]]
   ],
+  "userCCD": "data_MY_LIGAND\n_chem_comp.id MY_LIGAND\n",
   "dialect": "alphafold3",
   "version": 4
 }

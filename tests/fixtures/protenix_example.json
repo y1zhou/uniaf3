@@ -9,7 +9,10 @@
           "modifications": [
             {"ptmType": "CCD_HY3", "ptmPosition": 1},
             {"ptmType": "CCD_P1L", "ptmPosition": 5}
-          ]
+          ],
+          "unpairedMsaPath": "./msas/prot_unpaired.a3m",
+          "pairedMsaPath": "./msas/prot_paired.a3m",
+          "templatesPath": "./templates/prot_tmpl"
         }
       },
       {
@@ -24,7 +27,8 @@
       {
         "rnaSequence": {
           "sequence": "GUAC",
-          "count": 1
+          "count": 1,
+          "unpairedMsaPath": "./msas/rna_unpaired.a3m"
         }
       },
       {
@@ -37,6 +41,12 @@
         "ion": {
           "ion": "MG",
           "count": 2
+        }
+      },
+      {
+        "ligand": {
+          "ligand": "CC(=O)OC1C[NH+]2CCC1CC2",
+          "count": 1
         }
       }
     ],
@@ -51,6 +61,29 @@
         "position2": "1",
         "atom2": "C1"
       }
-    ]
+    ],
+    "constraint": {
+      "contact": [
+        {
+          "entity1": 1,
+          "copy1": 1,
+          "position1": 3,
+          "atom1": "CA",
+          "entity2": 2,
+          "copy2": 1,
+          "position2": 2,
+          "atom2": null,
+          "max_distance": 8.0,
+          "min_distance": 0.0
+        }
+      ],
+      "pocket": {
+        "binder_chain": {"entity": 4, "copy": 1},
+        "contact_residues": [
+          {"entity": 1, "copy": 1, "position": 5}
+        ],
+        "max_distance": 6.0
+      }
+    }
   }
 ]

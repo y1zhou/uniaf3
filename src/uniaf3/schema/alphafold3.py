@@ -10,6 +10,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
 
+from uniaf3.schema import UniAF3BaseConfig
+
 
 class AF3ProteinModification(BaseModel):
     """Post-translational modification for a protein residue."""
@@ -132,7 +134,7 @@ class AF3SequenceEntry(BaseModel):
         return self
 
 
-class AF3Config(BaseModel):
+class AF3Config(UniAF3BaseConfig):
     """Top-level AlphaFold3 input JSON config."""
 
     name: str
@@ -143,19 +145,3 @@ class AF3Config(BaseModel):
     userCCDPath: str | None = None
     dialect: Literal["alphafold3"] = "alphafold3"
     version: Literal[1, 2, 3, 4] = 4
-
-    @property
-    def json_str(self) -> str:
-        """Get JSON string representation of the config."""
-        return self.model_dump_json(indent=2, exclude_none=True)
-
-    @property
-    def yaml_str(self) -> str:
-        """Get YAML string representation of the config."""
-        import yaml
-
-        return yaml.safe_dump(
-            self.model_dump(exclude_none=True),
-            sort_keys=False,
-            default_flow_style=None,
-        )

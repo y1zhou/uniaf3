@@ -4,6 +4,10 @@ sequences:
       id: [A, B]
       sequence: MVTPEGNVSLVDESLLVGVTDEDRAVRSAHQFYERLIGLWAPAVMEAAHELGVFAALAEAPADSGELARRLDCDARAMRVLLDALYAYDVIDRIHDTNGFRYLLSAEARECLLPGTLFSLVGKFMHDINVAWPAWRNLAEVVRHGARDTSGAESPNGIAQEDYESLVGGINFWAPPIVTTLSRKLRASGRSGDATASVLDVGCGTGLYSQLLLREFPRWTATGLDVERIATLANAQALRLGVEERFATRAGDFWRGGWGTGYDLVLFANIFHLQTPASAVRLMRHAAACLAPDGLVAVVDQIVDADREPKTPQDRFALLFAASMTNTGGGDAYTFQEYEEWFTAAGLQRIETLDTPMHRILLARRATEPSAVPEGQASENLYFQ
       msa: ./examples/msa/seq1.a3m
+      modifications:
+        - position: 5
+          ccd: HY3
+      cyclic: false
   - ligand:
       id: [C, D]
       ccd: SAH
@@ -14,3 +18,23 @@ constraints:
   - bond:
       atom1: [A, 145, SG]
       atom2: [C, 1, C04]
+  - contact:
+      token1: [A, 10]
+      token2: [C, 1]
+      max_distance: 8.0
+      force: true
+  - pocket:
+      binder: C
+      contacts:
+        - [A, 140]
+        - [A, 145]
+      max_distance: 6.0
+      force: false
+templates:
+  - cif: ./templates/tmpl.cif
+    chain_id: A
+    force: true
+    threshold: 2.0
+properties:
+  - affinity:
+      binder: C

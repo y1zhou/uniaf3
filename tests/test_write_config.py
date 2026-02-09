@@ -1,6 +1,5 @@
-"""Tests for the write_config utility function."""
+"""Tests for the write_config and dump_config utility functions."""
 
-import io
 import json
 from pathlib import Path
 
@@ -10,7 +9,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class TestWriteConfig:
-    """Test write_config with files and streams."""
+    """Test write_config with files."""
 
     def test_write_yaml_file(self, tmp_path):
         from uniaf3.schema import UniAF3Config, write_config
@@ -32,42 +31,41 @@ class TestWriteConfig:
         parsed = json.loads(out.read_text())
         assert "sequences" in parsed
 
-    def test_write_text_stream(self):
-        from uniaf3.schema import UniAF3Config, write_config
+
+class TestDumpConfig:
+    """Test dump_config serialization."""
+
+    def test_dump_yaml(self):
+        from uniaf3.schema import UniAF3Config, dump_config
 
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        buf = io.StringIO()
-        write_config(conf, stream=buf, format="yaml")
-        text = buf.getvalue()
+        text = dump_config(conf, fmt="yaml")
         assert "sequences" in text
 
-    def test_write_binary_stream(self):
-        from uniaf3.schema import UniAF3Config, write_config
+    def test_dump_json(self):
+        from uniaf3.schema import UniAF3Config, dump_config
 
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        buf = io.BytesIO()
-        write_config(conf, stream=buf, format="json")
-        data = buf.getvalue()
-        assert b"sequences" in data
-
-    def test_write_json_stream(self):
-        from uniaf3.schema import UniAF3Config, write_config
-
-        conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        buf = io.StringIO()
-        write_config(conf, stream=buf, format="json")
-        text = buf.getvalue()
+        text = dump_config(conf, fmt="json")
         parsed = json.loads(text)
         assert "sequences" in parsed
 
-    def test_write_model_config_to_stream(self):
+    def test_dump_model_config_yaml(self):
         from uniaf3.adapters import to_boltz
-        from uniaf3.schema import UniAF3Config, write_config
+        from uniaf3.schema import UniAF3Config, dump_config
 
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
         boltz = to_boltz(conf)
-        buf = io.StringIO()
-        write_config(boltz, stream=buf, format="yaml")
-        text = buf.getvalue()
+        text = dump_config(boltz, fmt="yaml")
         parsed = yaml.safe_load(text)
+        assert "sequences" in parsed
+
+    def test_dump_model_config_json(self):
+        from uniaf3.adapters import to_boltz
+        from uniaf3.schema import UniAF3Config, dump_config
+
+        conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
+        boltz = to_boltz(conf)
+        text = dump_config(boltz, fmt="json")
+        parsed = json.loads(text)
         assert "sequences" in parsed

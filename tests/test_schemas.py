@@ -107,6 +107,13 @@ class TestAF3Schema:
         parsed = yaml.safe_load(y)
         assert parsed["name"] == "Hello fold"
 
+    def test_from_file(self):
+        from uniaf3.schema.alphafold3 import AF3Config
+
+        conf = AF3Config.from_file(FIXTURES / "alphafold3_example.json")
+        assert conf.name == "Hello fold"
+        assert len(conf.sequences) == 7
+
     def test_invalid_ligand_both_ccd_smiles(self):
         from uniaf3.schema.alphafold3 import AF3Ligand
 
@@ -190,7 +197,7 @@ class TestBoltzSchema:
         with open(FIXTURES / "boltz_example.yaml") as f:
             data = yaml.safe_load(f)
         conf = BoltzConfig.model_validate(data)
-        assert len(conf.constraints) == 1
+        assert len(conf.constraints) == 3
         b = conf.constraints[0].bond
         assert b is not None
         assert b.atom1 == ("A", 145, "SG")
@@ -217,6 +224,13 @@ class TestBoltzSchema:
         parsed = yaml.safe_load(y)
         assert parsed["version"] == 1
 
+    def test_from_file(self):
+        from uniaf3.schema.boltz import BoltzConfig
+
+        conf = BoltzConfig.from_file(FIXTURES / "boltz_example.yaml")
+        assert conf.version == 1
+        assert len(conf.sequences) == 3
+
 
 # ============================================================
 # Chai schema
@@ -230,7 +244,7 @@ class TestChaiSchema:
         with open(FIXTURES / "chai_example.yaml") as f:
             data = yaml.safe_load(f)
         conf = ChaiConfig.model_validate(data)
-        assert len(conf.entities) == 4
+        assert len(conf.entities) == 6
         assert conf.seed == 42
 
     def test_entities(self):
@@ -249,7 +263,7 @@ class TestChaiSchema:
         with open(FIXTURES / "chai_example.yaml") as f:
             data = yaml.safe_load(f)
         conf = ChaiConfig.model_validate(data)
-        assert len(conf.restraints) == 1
+        assert len(conf.restraints) == 3
         r = conf.restraints[0]
         assert r.connection_type == "covalent"
         assert r.res_idxA == "A219@CA"
@@ -282,7 +296,7 @@ class TestChaiSchema:
         j = conf.json_str
         assert isinstance(j, str)
         parsed = json.loads(j)
-        assert len(parsed["entities"]) == 4
+        assert len(parsed["entities"]) == 6
 
     def test_yaml_str_property(self):
         from uniaf3.schema.chai import ChaiConfig
@@ -292,6 +306,13 @@ class TestChaiSchema:
         conf = ChaiConfig.model_validate(data)
         y = conf.yaml_str
         assert isinstance(y, str)
+
+    def test_from_file(self):
+        from uniaf3.schema.chai import ChaiConfig
+
+        conf = ChaiConfig.from_file(FIXTURES / "chai_example.yaml")
+        assert len(conf.entities) == 6
+        assert conf.seed == 42
 
 
 # ============================================================
@@ -309,7 +330,7 @@ class TestProtenixSchema:
         assert len(conf.jobs) == 1
         job = conf.jobs[0]
         assert job.name == "Test Fold Job"
-        assert len(job.sequences) == 5
+        assert len(job.sequences) == 6
 
     def test_protein_chain(self):
         from uniaf3.schema.protenix import ProtenixConfig
@@ -379,6 +400,13 @@ class TestProtenixSchema:
         y = conf.yaml_str
         assert isinstance(y, str)
 
+    def test_from_file(self):
+        from uniaf3.schema.protenix import ProtenixConfig
+
+        conf = ProtenixConfig.from_file(FIXTURES / "protenix_example.json")
+        assert len(conf.jobs) == 1
+        assert conf.jobs[0].name == "Test Fold Job"
+
 
 # ============================================================
 # UniAF3 schema
@@ -390,7 +418,7 @@ class TestUniAF3Schema:
         from uniaf3.schema import UniAF3Config
 
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        assert len(conf.sequences) == 4
+        assert len(conf.sequences) == 5
         assert conf.seeds == [42, 123]
 
     def test_yaml_str(self):

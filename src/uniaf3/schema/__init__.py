@@ -4,7 +4,6 @@ import hashlib
 from enum import Enum, StrEnum
 from functools import cached_property
 from pathlib import Path
-from typing import IO
 
 import yaml
 from pydantic import (
@@ -39,6 +38,63 @@ def type_key_validator(key: str, val: BaseModel, type_keys: dict[str, BaseModel]
         raise TypeError(f"Unsupported value type: {key}")
 
     return type_keys[key].model_validate(val)
+
+
+class UniAF3BaseConfig(BaseModel):
+    """Base class for all UniAF3 config models.
+
+    Provides shared serialization, hashing, and file-loading helpers.
+    """
+
+    @property
+    def yaml_str(self) -> str:
+        """Get YAML string representation of the config."""
+        yaml.SafeDumper.add_multi_representer(
+            Enum, representer.SafeRepresenter.represent_str
+        )
+        return yaml.safe_dump(
+            self.model_dump(mode="json", exclude_none=True),
+            sort_keys=False,
+            default_flow_style=None,
+        )
+
+    @property
+    def json_str(self) -> str:
+        """Get JSON string representation of the config."""
+        return self.model_dump_json(indent=2, exclude_none=True)
+
+    @property
+    def hash(self) -> str:
+        """Get SHA256 hash of the YAML representation."""
+        return hash_sequence(self.yaml_str)
+
+    @classmethod
+    def from_file(cls, conf_file: str | Path) -> "UniAF3BaseConfig":
+        """Load config from a YAML or JSON file.
+
+        Args:
+            conf_file: Path to the config file.
+
+        Returns:
+            A validated config instance.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file extension is unsupported.
+
+        """
+        conf_path = Path(conf_file).expanduser().resolve()
+        if not conf_path.exists():
+            raise FileNotFoundError(f"Config file not found: {conf_path}")
+        if conf_path.suffix in {".yml", ".yaml"}:
+            with open(conf_path) as f:
+                return cls.model_validate(yaml.safe_load(f))
+        elif conf_path.suffix == ".json":
+            return cls.model_validate_json(conf_path.read_bytes())
+        else:
+            raise ValueError(
+                "Unsupported config file format. Use .yaml, .yml, or .json"
+            )
 
 
 class Atom(BaseModel):
@@ -205,7 +261,7 @@ class Restraint(BaseModel):
     boltz_binder_chain: str | None = None  # only used for pocket restraints
 
 
-class UniAF3Config(BaseModel):
+class UniAF3Config(UniAF3BaseConfig):
     """Config schema for UniAF3."""
 
     # General settings
@@ -248,17 +304,6 @@ class UniAF3Config(BaseModel):
 
     @computed_field
     @property
-    def json_str(self) -> str:
-        """Get JSON string representation of the config."""
-        return self.model_dump_json(
-            indent=2,
-            exclude_unset=True,
-            exclude_none=True,
-            exclude_computed_fields=True,
-        )
-
-    @computed_field
-    @property
     def hash(self) -> str:
         """Get hash of the config in its YAML representation.
 
@@ -289,31 +334,25 @@ class UniAF3Config(BaseModel):
         return conf
 
 
-def write_config(
-    conf: BaseModel,
-    out_file: str | Path | None = None,
+def dump_config(
+    conf: "UniAF3BaseConfig",
     *,
-    stream: "IO[str] | IO[bytes] | None" = None,
-    format: str | None = None,
+    fmt: str = "yaml",
     **kwargs,
-):
-    """Write a Pydantic-validated config model to a file or stream.
+) -> str:
+    """Serialize a config model to a string.
 
-    Parameters
-    ----------
-    conf : BaseModel
-        The config model to write.
-    out_file : str | Path | None
-        Output file path. If *None*, ``stream`` must be provided.
-    stream : file-like object | None
-        An open file-like object (text or binary mode). If provided, the config
-        is written to this stream instead of ``out_file``.
-    format : str | None
-        Explicit output format (``"yaml"``, ``"json"``).  Inferred from
-        ``out_file`` extension when *None*.
-    **kwargs
-        Extra keyword arguments forwarded to ``model_dump`` /
-        ``model_dump_json``.
+    Args:
+        conf: The config model to serialize.
+        fmt: Output format (``"yaml"`` or ``"json"``).
+        **kwargs: Extra keyword arguments forwarded to ``model_dump`` /
+            ``model_dump_json``.
+
+    Returns:
+        The serialized config string.
+
+    Raises:
+        ValueError: If *fmt* is not ``"yaml"`` or ``"json"``.
 
     """
     yaml.SafeDumper.add_multi_representer(
@@ -325,49 +364,44 @@ def write_config(
         if default_arg not in kwargs:
             kwargs[default_arg] = True
 
-    # Determine the format
-    if format is None:
-        if out_file is not None:
-            suffix = Path(out_file).suffix.lower()
-            if suffix in {".yml", ".yaml"}:
-                format = "yaml"
-            elif suffix == ".json":
-                format = "json"
-            else:
-                raise ValueError(
-                    "Unsupported config file format. Use .yaml, .yml, or .json"
-                )
-        elif stream is not None:
-            # Default to YAML for streams without explicit format
-            format = "yaml"
-        else:
-            raise ValueError("Either out_file or stream must be provided.")
-
-    # Serialize
-    if format == "yaml":
-        text = yaml.safe_dump(
+    if fmt == "yaml":
+        return yaml.safe_dump(
             conf.model_dump(**kwargs), sort_keys=False, default_flow_style=None
         )
-    elif format == "json":
-        text = conf.model_dump_json(indent=2, **kwargs)
+    elif fmt == "json":
+        return conf.model_dump_json(indent=2, **kwargs)
     else:
-        raise ValueError(f"Unsupported format: {format!r}. Use 'yaml' or 'json'.")
+        raise ValueError(f"Unsupported format: {fmt!r}. Use 'yaml' or 'json'.")
 
-    # Write to stream or file
-    if stream is not None:
-        # Handle both text and binary streams
-        if hasattr(stream, "mode") and "b" in getattr(stream, "mode", ""):
-            stream.write(text.encode("utf-8"))
-        else:
-            try:
-                stream.write(text)
-            except TypeError:
-                # Binary stream without a mode attribute (e.g. io.BytesIO)
-                stream.write(text.encode("utf-8"))
-    elif out_file is not None:
-        out_path = Path(out_file).expanduser().resolve()
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w") as f:
-            f.write(text)
+
+def write_config(
+    conf: "UniAF3BaseConfig",
+    out_file: str | Path,
+    **kwargs,
+) -> None:
+    """Write a config model to a file.
+
+    The output format is inferred from the file extension.
+
+    Args:
+        conf: The config model to write.
+        out_file: Output file path (``.yaml``, ``.yml``, or ``.json``).
+        **kwargs: Extra keyword arguments forwarded to :func:`dump_config`.
+
+    Raises:
+        ValueError: If the file extension is unsupported.
+
+    """
+    suffix = Path(out_file).suffix.lower()
+    if suffix in {".yml", ".yaml"}:
+        fmt = "yaml"
+    elif suffix == ".json":
+        fmt = "json"
     else:
-        raise ValueError("Either out_file or stream must be provided.")
+        raise ValueError("Unsupported config file format. Use .yaml, .yml, or .json")
+
+    text = dump_config(conf, fmt=fmt, **kwargs)
+    out_path = Path(out_file).expanduser().resolve()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w") as f:
+        f.write(text)

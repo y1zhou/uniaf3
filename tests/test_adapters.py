@@ -25,7 +25,7 @@ class TestAF3Adapter:
         af3 = to_alphafold3(conf, name="test_job")
         assert af3.name == "test_job"
         assert af3.modelSeeds == [42, 123]
-        assert len(af3.sequences) == 4  # protein, dna, 2 ligands
+        assert len(af3.sequences) == 5  # protein, dna, 2 ligands, glycan
 
     def test_uniaf3_to_af3_protein(self):
         from uniaf3.adapters import to_alphafold3
@@ -94,7 +94,7 @@ class TestBoltzAdapter:
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
         boltz = to_boltz(conf)
         assert boltz.version == 1
-        assert len(boltz.sequences) == 4
+        assert len(boltz.sequences) == 5
 
     def test_uniaf3_to_boltz_constraints(self):
         from uniaf3.adapters import to_boltz
@@ -103,7 +103,7 @@ class TestBoltzAdapter:
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
         boltz = to_boltz(conf)
         assert boltz.constraints is not None
-        assert len(boltz.constraints) == 1
+        assert len(boltz.constraints) == 3
 
     def test_boltz_to_uniaf3(self):
         from uniaf3.adapters import from_boltz
@@ -124,7 +124,7 @@ class TestBoltzAdapter:
         boltz = BoltzConfig.model_validate(data)
         uni = from_boltz(boltz)
         assert uni.restraints is not None
-        assert len(uni.restraints) == 1
+        assert len(uni.restraints) == 3
         assert uni.restraints[0].restraint_type == "bond"
 
     def test_roundtrip(self):
@@ -150,8 +150,8 @@ class TestChaiAdapter:
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
         chai = to_chai(conf)
         # Protein with ids A,B expands to 2 entities
-        # DNA C, ligand D, ligand E = 3 more
-        assert len(chai.entities) == 5
+        # DNA C, ligand D, ligand E, glycan F = 4 more
+        assert len(chai.entities) == 6
 
     def test_uniaf3_to_chai_restraints(self):
         from uniaf3.adapters import to_chai
@@ -160,7 +160,7 @@ class TestChaiAdapter:
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
         chai = to_chai(conf)
         assert chai.restraints is not None
-        assert len(chai.restraints) == 1
+        assert len(chai.restraints) == 3
         assert chai.restraints[0].connection_type == "covalent"
 
     def test_chai_to_uniaf3(self):
@@ -171,7 +171,7 @@ class TestChaiAdapter:
             data = yaml.safe_load(f)
         chai = ChaiConfig.model_validate(data)
         uni = from_chai(chai)
-        assert len(uni.sequences) == 4
+        assert len(uni.sequences) == 6
 
     def test_chai_to_uniaf3_restraints(self):
         from uniaf3.adapters import from_chai
@@ -182,7 +182,7 @@ class TestChaiAdapter:
         chai = ChaiConfig.model_validate(data)
         uni = from_chai(chai)
         assert uni.restraints is not None
-        assert len(uni.restraints) == 1
+        assert len(uni.restraints) == 3
         assert uni.restraints[0].restraint_type == "bond"
 
     def test_roundtrip(self):
@@ -211,8 +211,8 @@ class TestProtenixAdapter:
         assert len(ptx.jobs) == 1
         job = ptx.jobs[0]
         assert job.name == "test_job"
-        # protein(count=2), dna, ATP ligand, SMILES ligand
-        assert len(job.sequences) == 4
+        # protein(count=2), dna, ATP ligand, SMILES ligand, glycan
+        assert len(job.sequences) == 5
 
     def test_uniaf3_to_protenix_bonds(self):
         from uniaf3.adapters import to_protenix
@@ -231,7 +231,7 @@ class TestProtenixAdapter:
         data = json.loads((FIXTURES / "protenix_example.json").read_text())
         ptx = ProtenixConfig.model_validate({"jobs": data})
         uni = from_protenix(ptx)
-        assert len(uni.sequences) == 5  # protein, dna, rna, ligand, ion
+        assert len(uni.sequences) == 6  # protein, dna, rna, ligand, ion, smiles_ligand
 
     def test_protenix_to_uniaf3_restraints(self):
         from uniaf3.adapters import from_protenix
@@ -241,7 +241,7 @@ class TestProtenixAdapter:
         ptx = ProtenixConfig.model_validate({"jobs": data})
         uni = from_protenix(ptx)
         assert uni.restraints is not None
-        assert len(uni.restraints) == 1
+        assert len(uni.restraints) == 3
         assert uni.restraints[0].restraint_type == "bond"
 
     def test_roundtrip(self):
@@ -291,7 +291,7 @@ class TestCrossModelConversion:
         uni = from_protenix(ptx)
         af3 = to_alphafold3(uni, name="ptx_to_af3")
         assert af3.name == "ptx_to_af3"
-        assert len(af3.sequences) == 5
+        assert len(af3.sequences) == 6
 
     def test_chai_to_protenix_via_uniaf3(self):
         from uniaf3.adapters import from_chai, to_protenix

@@ -7,6 +7,7 @@ sequences:
     modifications:
       - ccd: HY3
         position: 1
+    description: Hemoglobin subunit
   - seq_type: dna
     id: C
     sequence: GATTACA
@@ -15,6 +16,9 @@ sequences:
       - ATP
   - id: E
     smiles: 'CC(=O)OC1C[NH+]2CCC1CC2'
+  - id: F
+    chai_str: 'NAG(NAG)(BMA)'
+    description: Example glycan
 restraints:
   - restraint_type: bond
     atom1:
@@ -28,6 +32,37 @@ restraints:
       atom_name: C04
       residue_name: null
     max_distance: 0.0
+  - restraint_type: contact
+    atom1:
+      chain_id: A
+      residue_idx: 5
+      atom_name: ''
+      residue_name: null
+    atom2:
+      chain_id: B
+      residue_idx: 5
+      atom_name: ''
+      residue_name: null
+    max_distance: 8.0
+    enable_boltz_force: true
+  - restraint_type: pocket
+    atom1:
+      chain_id: A
+      residue_idx: 10
+      atom_name: ''
+      residue_name: null
+    atom2:
+      chain_id: D
+      residue_idx: 1
+      atom_name: ''
+      residue_name: null
+    max_distance: 6.0
+    boltz_binder_chain: D
 seeds:
   - 42
   - 123
+num_trunk_recycles: 3
+num_diffn_timesteps: 200
+num_diffn_samples: 5
+num_trunk_samples: 1
+boltz_affinity_binder_chain: D
