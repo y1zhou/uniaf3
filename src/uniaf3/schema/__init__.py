@@ -229,22 +229,41 @@ class UniAF3Config(BaseModel):
 
     @computed_field
     @property
-    def hash(self) -> str:
-        """Get hash of the config.
-
-        Note that the hash computation only considers `sequences` and `restraints`.
-        """
+    def yaml_str(self) -> str:
+        """Get YAML string representation of the config."""
         yaml.SafeDumper.add_multi_representer(
             Enum, representer.SafeRepresenter.represent_str
         )
-        self_dict = self.model_dump(
-            include={"sequences", "restraints"},
+        return yaml.safe_dump(
+            self.model_dump(
+                include={"sequences", "restraints"},
+                exclude_unset=True,
+                exclude_none=True,
+                exclude_computed_fields=True,
+            ),
+            sort_keys=False,
+            default_flow_style=None,
+        )
+
+    @computed_field
+    @property
+    def json_str(self) -> str:
+        """Get JSON string representation of the config."""
+        return self.model_dump_json(
+            indent=2,
             exclude_unset=True,
             exclude_none=True,
             exclude_computed_fields=True,
         )
-        conf_str = yaml.safe_dump(self_dict, sort_keys=False, default_flow_style=None)
-        return hash_sequence(conf_str)
+
+    @computed_field
+    @property
+    def hash(self) -> str:
+        """Get hash of the config in its YAML representation.
+
+        Note that the hash computation only considers `sequences` and `restraints`.
+        """
+        return hash_sequence(self.yaml_str)
 
     @classmethod
     def from_file(cls, conf_file: str | Path) -> "UniAF3Config":
