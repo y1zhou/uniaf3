@@ -85,11 +85,13 @@ class UniAF3BaseConfig(BaseModel):
             self.model_dump(**kwargs), option=orjson.OPT_INDENT_2
         ).decode("utf-8")
 
-    @computed_field
-    @property
-    def hash(self) -> str:
-        """Get SHA256 hash of the YAML representation."""
-        return hash_sequence(self.to_yaml())
+    def to_str(self, **kwargs) -> str:
+        """Get string representation of the config.
+
+        Different models expect different input formats, so each should implement its
+        own version of this method.
+        """
+        raise NotImplementedError("to_str method must be implemented by subclasses.")
 
     @classmethod
     def from_file(cls: type[T], conf_file: str | Path) -> T:
@@ -325,20 +327,15 @@ class UniAF3Config(UniAF3BaseConfig):
         # "--use_potentials",
     ]
 
-    @computed_field
-    @property
-    def yaml_str(self) -> str:
+    def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""
         return self.to_yaml(include={"sequences", "restraints"})
 
     @computed_field
     @property
     def hash(self) -> str:
-        """Get hash of the config in its YAML representation.
-
-        Note that the hash computation only considers `sequences` and `restraints`.
-        """
-        return hash_sequence(self.yaml_str)
+        """Get SHA256 hash of the string representation."""
+        return hash_sequence(self.to_str())
 
     @classmethod
     def from_file(cls, conf_file: str | Path) -> "UniAF3Config":

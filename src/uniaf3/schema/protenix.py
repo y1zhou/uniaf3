@@ -199,6 +199,10 @@ class ProtenixConfig(UniAF3BaseConfig):
 
     jobs: list[ProtenixJob]
 
+    def to_str(self, **kwargs) -> str:
+        """Get JSON string representation of the config."""
+        return self.to_json(**kwargs)
+
     @classmethod
     def from_file(cls, conf_file: str | Path) -> ProtenixConfig:
         """Load Protenix config from a file."""

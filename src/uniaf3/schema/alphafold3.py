@@ -145,3 +145,7 @@ class AF3Config(UniAF3BaseConfig):
     userCCDPath: str | None = None
     dialect: Literal["alphafold3"] = "alphafold3"
     version: Literal[1, 2, 3, 4] = 4
+
+    def to_str(self, **kwargs) -> str:
+        """Get JSON string representation of the config."""
+        return self.to_json(**kwargs)

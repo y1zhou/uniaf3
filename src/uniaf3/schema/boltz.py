@@ -181,3 +181,7 @@ class BoltzConfig(UniAF3BaseConfig):
     constraints: list[BoltzConstraintEntry] | None = None
     templates: list[BoltzTemplate] | None = None
     properties: list[BoltzPropertyEntry] | None = None
+
+    def to_str(self, **kwargs) -> str:
+        """Get YAML string representation of the config."""
+        return self.to_yaml(**kwargs)

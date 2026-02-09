@@ -7,6 +7,10 @@ feeds into ``chai_lab.chai1.run_inference``.
 Reference:
     https://github.com/chaidiscovery/chai-lab
     https://github.com/chaidiscovery/chai-lab/blob/main/chai_lab/chai1.py
+    https://github.com/chaidiscovery/chai-lab/tree/main/examples/msas/README.md
+    https://github.com/chaidiscovery/chai-lab/tree/main/examples/restraints/README.md
+    https://github.com/chaidiscovery/chai-lab/tree/main/examples/covalent_bonds/README.md
+
 """
 
 from __future__ import annotations
@@ -62,6 +66,9 @@ class ChaiRestraint(BaseModel):
     Residue index format: ``<residue_name><position>[@atom_name]``
     (e.g. ``A219``, ``D45@CB``).
     For pocket restraints the binder residue index can be empty.
+
+    Columns confidence, comment, and min_distance_angstrom are currently not used by
+    the model, but are included in the schema for completeness and potential future use.
     """
 
     restraint_id: str
@@ -69,10 +76,10 @@ class ChaiRestraint(BaseModel):
     res_idxA: str  # can be empty for pocket restraints
     chainB: str
     res_idxB: str
-    max_distance_angstrom: float
-    min_distance_angstrom: float = 0.0
     connection_type: ChaiRestraintType
     confidence: float = 1.0
+    max_distance_angstrom: float
+    min_distance_angstrom: float = 0.0
     comment: str | None = None
 
 
@@ -111,3 +118,30 @@ class ChaiConfig(UniAF3BaseConfig):
         if len(names) != len(set(names)):
             raise ValueError("All entity names must be unique.")
         return self
+
+    def entities_to_fasta(self) -> str:
+        """Convert the entities list to a multi-FASTA string."""
+        lines = []
+        for e in self.entities:
+            header = f">{e.entity_type.value}|{e.entity_name}"
+            lines.append(header)
+            lines.append(e.sequence)
+        return "\n".join(lines)
+
+    def restraints_to_csv(self) -> str | None:
+        """Convert the restraints list to a CSV string."""
+        if self.restraints is None:
+            return None
+        lines = [
+            "restraint_id,chainA,res_idxA,chainB,res_idxB,connection_type,"
+            "confidence,max_distance_angstrom,min_distance_angstrom,comment"
+        ]
+        for r in self.restraints:
+            line = (
+                f"{r.restraint_id},{r.chainA},{r.res_idxA},{r.chainB},"
+                f"{r.res_idxB},{r.connection_type.value},{r.confidence},"
+                f"{r.max_distance_angstrom},{r.min_distance_angstrom},"
+                f"'{r.comment or ''}'"
+            )
+            lines.append(line)
+        return "\n".join(lines)
