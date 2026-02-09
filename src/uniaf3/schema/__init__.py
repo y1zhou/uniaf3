@@ -4,8 +4,9 @@ import hashlib
 from enum import Enum, StrEnum
 from functools import cached_property
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import TypeVar
 
+import orjson
 import yaml
 from pydantic import (
     BaseModel,
@@ -80,7 +81,9 @@ class UniAF3BaseConfig(BaseModel):
             if default_arg not in kwargs:
                 kwargs[default_arg] = True
 
-        return self.model_dump_json(indent=2, **kwargs)
+        return orjson.dumps(
+            self.model_dump(**kwargs), option=orjson.OPT_INDENT_2
+        ).decode("utf-8")
 
     @computed_field
     @property
@@ -89,7 +92,7 @@ class UniAF3BaseConfig(BaseModel):
         return hash_sequence(self.to_yaml())
 
     @classmethod
-    def from_file(cls: Type[T], conf_file: str | Path) -> T:
+    def from_file(cls: type[T], conf_file: str | Path) -> T:
         """Load config from a YAML or JSON file.
 
         Args:
@@ -178,6 +181,18 @@ class Polymer(BaseModel):
         """Compute the Chai-style sequence hash."""
         return hash_sequence(self.sequence)
 
+    @model_validator(mode="after")
+    def check_modification_in_range(self):
+        """Ensure that modification positions are within the sequence length."""
+        if self.modifications is not None:
+            seq_len = len(self.sequence)
+            for mod in self.modifications:
+                if mod.position > seq_len:
+                    raise ValueError(
+                        f"Modification position {mod.position} is out of range for sequence of length {seq_len}."
+                    )
+        return self
+
 
 class ProteinSeq(Polymer):
     """Schema for individual protein sequences."""
@@ -188,7 +203,10 @@ class ProteinSeq(Polymer):
     @computed_field
     @property
     def unpaired_msa(self) -> str | None:
-        """Get path to unpaired MSA file."""
+        """Get path to unpaired MSA file.
+
+        The filename assumption comes from Chai-1 MSA search methods.
+        """
         if self.msa_dir is None:
             return None
 
@@ -201,7 +219,10 @@ class ProteinSeq(Polymer):
     @computed_field
     @property
     def paired_msa(self) -> str | None:
-        """Get path to paired MSA file."""
+        """Get path to paired MSA file.
+
+        The filename assumption comes from Chai-1 MSA search methods.
+        """
         if self.msa_dir is None:
             return None
 
