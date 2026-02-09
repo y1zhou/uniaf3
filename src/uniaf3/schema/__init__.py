@@ -4,6 +4,7 @@ import hashlib
 from enum import Enum, StrEnum
 from functools import cached_property
 from pathlib import Path
+from typing import Type, TypeVar
 
 import yaml
 from pydantic import (
@@ -38,6 +39,9 @@ def type_key_validator(key: str, val: BaseModel, type_keys: dict[str, BaseModel]
         raise TypeError(f"Unsupported value type: {key}")
 
     return type_keys[key].model_validate(val)
+
+
+T = TypeVar("T", bound="UniAF3BaseConfig")
 
 
 class UniAF3BaseConfig(BaseModel):
@@ -85,7 +89,7 @@ class UniAF3BaseConfig(BaseModel):
         return hash_sequence(self.to_yaml())
 
     @classmethod
-    def from_file(cls, conf_file: str | Path) -> "UniAF3BaseConfig":
+    def from_file(cls: Type[T], conf_file: str | Path) -> T:
         """Load config from a YAML or JSON file.
 
         Args:
@@ -318,7 +322,7 @@ class UniAF3Config(UniAF3BaseConfig):
     @classmethod
     def from_file(cls, conf_file: str | Path) -> "UniAF3Config":
         """Load UniAF3 config from a file."""
-        conf = cls.from_file(conf_file)
+        conf = super().from_file(conf_file)
 
         for i, seq in enumerate(conf.sequences):
             if isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein:
