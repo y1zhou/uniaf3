@@ -40,7 +40,8 @@ class TestDumpConfig:
 
         conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
         text = dump_config(conf, fmt="yaml")
-        assert "sequences" in text
+        parsed = yaml.safe_load(text)
+        assert "sequences" in parsed
 
     def test_dump_json(self):
         from uniaf3.schema import UniAF3Config, dump_config
@@ -59,6 +60,7 @@ class TestDumpConfig:
         text = dump_config(boltz, fmt="yaml")
         parsed = yaml.safe_load(text)
         assert "sequences" in parsed
+        assert len(parsed["sequences"]) > 0
 
     def test_dump_model_config_json(self):
         from uniaf3.adapters import to_boltz
@@ -69,3 +71,4 @@ class TestDumpConfig:
         text = dump_config(boltz, fmt="json")
         parsed = json.loads(text)
         assert "sequences" in parsed
+        assert len(parsed["sequences"]) > 0
