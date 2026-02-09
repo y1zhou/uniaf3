@@ -16,3 +16,10 @@ dependencies = [
 [project.urls]
 homepage = "https://github.com/y1zhou/uniaf3"
 issues = "https://github.com/y1zhou/uniaf3/issues"
+
+[project.scripts]
+uniaf3 = "uniaf3.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
