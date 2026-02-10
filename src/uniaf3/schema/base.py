@@ -284,8 +284,17 @@ class Restraint(BaseModel):
     description: str | None = None  # comment describing the restraint
 
     # Boltz specific fields
-    enable_boltz_force: bool = False  # use a potential to enforce the restraint
+    boltz_enable_force: bool = False  # use a potential to enforce the restraint
     boltz_binder_chain: str | None = None  # only used for pocket restraints
+
+
+class InferenceParams(BaseModel):
+    """Parameters used for inference that are not specific to any one model."""
+
+    num_trunk_recycles: int = 3  # Boltz: recycling_steps
+    num_diffn_timesteps: int = 200  # Boltz: sampling_steps
+    num_diffn_samples: int = 5  # Boltz: diffusion_samples
+    num_trunk_samples: int = 1  # >1 will add to seed and run multiple times in Chai-1
 
 
 class UniAF3Config(UniAF3BaseConfig):
@@ -297,19 +306,10 @@ class UniAF3Config(UniAF3BaseConfig):
     seeds: list[int]
 
     # Inference parameters
-    num_trunk_recycles: int = 3  # Boltz: recycling_steps
-    num_diffn_timesteps: int = 200  # Boltz: sampling_steps
-    num_diffn_samples: int = 5  # Boltz: diffusion_samples
-    num_trunk_samples: int = 1  # >1 will add to seed and run multiple times in Chai-1
+    inference_params: InferenceParams = InferenceParams()
 
     # Model-specific settings
     boltz_affinity_binder_chain: str | None = None
-    boltz_additional_cli_args: list[str] | None = [
-        "--override",
-        "--write_full_pae",
-        "--write_full_pde",
-        # "--use_potentials",
-    ]
 
     def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""
@@ -331,3 +331,32 @@ class UniAF3Config(UniAF3BaseConfig):
                 conf.sequences[i] = ProteinSeq(**seq.model_dump())
 
         return conf
+
+    @model_validator(mode="after")
+    def check_has_sequences(self):
+        """Ensure that at least one sequence is provided."""
+        if not self.sequences:
+            raise ValueError("At least one sequence must be provided.")
+        return self
+
+    @model_validator(mode="after")
+    def check_restraints_in_range(self):
+        """Ensure that restraint atom indices are within the corresponding sequence lengths."""
+        if self.restraints is not None:
+            seq_dict = {seq.id: seq for seq in self.sequences}
+            for restraint in self.restraints:
+                for atom in (restraint.atom1, restraint.atom2):
+                    if atom.chain_id not in seq_dict:
+                        raise ValueError(
+                            f"Atom chain ID {atom.chain_id} not found in sequences."
+                        )
+                    seq = seq_dict[atom.chain_id]
+                    if isinstance(seq, Ligand) or isinstance(seq, Glycan):
+                        continue  # skip ligand chains since they don't have residue indices
+
+                    seq_len = len(seq.sequence)
+                    if atom.residue_idx < 1 or atom.residue_idx > seq_len:
+                        raise ValueError(
+                            f"Atom index out of range for sequence of length {seq_len}: {atom}."
+                        )
+        return self

@@ -15,9 +15,9 @@ sequences:
     ccd:
       - ATP
   - id: E
-    smiles: 'CC(=O)OC1C[NH+]2CCC1CC2'
+    smiles: "CC(=O)OC1C[NH+]2CCC1CC2"
   - id: F
-    chai_str: 'NAG(NAG)(BMA)'
+    chai_str: "NAG(NAG)(BMA)"
     description: Example glycan
 restraints:
   - restraint_type: bond
@@ -36,25 +36,25 @@ restraints:
     atom1:
       chain_id: A
       residue_idx: 5
-      atom_name: ''
+      atom_name: ""
       residue_name: null
     atom2:
       chain_id: B
       residue_idx: 5
-      atom_name: ''
+      atom_name: ""
       residue_name: null
     max_distance: 8.0
-    enable_boltz_force: true
+    boltz_enable_force: true
   - restraint_type: pocket
     atom1:
       chain_id: A
       residue_idx: 10
-      atom_name: ''
+      atom_name: ""
       residue_name: null
     atom2:
       chain_id: D
       residue_idx: 1
-      atom_name: ''
+      atom_name: ""
       residue_name: null
     max_distance: 6.0
     boltz_binder_chain: D

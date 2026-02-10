@@ -273,7 +273,7 @@ def to_boltz(
                     token1=(r.atom1.chain_id, token1_idx),
                     token2=(r.atom2.chain_id, token2_idx),
                     max_distance=r.max_distance,
-                    force=r.enable_boltz_force,
+                    force=r.boltz_enable_force,
                 )
                 constraints.append(BoltzConstraintEntry(contact=contact))
             elif r.restraint_type == RestraintType.Pocket:
@@ -305,7 +305,7 @@ def to_boltz(
                     binder=r.boltz_binder_chain,
                     contacts=[x for x in contacts if x[0] != r.boltz_binder_chain],
                     max_distance=r.max_distance,
-                    force=r.enable_boltz_force,
+                    force=r.boltz_enable_force,
                 )
                 constraints.append(BoltzConstraintEntry(pocket=pocket))
 
@@ -437,7 +437,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                             residue_name=None,
                         ),
                         max_distance=ct.max_distance,
-                        enable_boltz_force=ct.force,
+                        boltz_enable_force=ct.force,
                     )
                 )
             elif c.pocket is not None:
@@ -463,7 +463,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                                 residue_name=None,
                             ),
                             max_distance=pk.max_distance,
-                            enable_boltz_force=pk.force,
+                            boltz_enable_force=pk.force,
                             boltz_binder_chain=pk.binder,
                         )
                     )
