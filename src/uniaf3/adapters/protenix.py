@@ -221,7 +221,7 @@ def to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixConfi
         covalent_bonds=covalent_bonds,
         constraint=constraint,
     )
-    return ProtenixConfig(jobs=[job])
+    return ProtenixConfig([job])
 
 
 def from_protenix(config: ProtenixConfig) -> UniAF3Config:
