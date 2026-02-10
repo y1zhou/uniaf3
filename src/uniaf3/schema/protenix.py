@@ -204,6 +204,18 @@ class ProtenixConfig(RootModel, UniAF3BaseConfig):
 
     root: list[ProtenixJob]
 
+    def __iter__(self):
+        """Iterate over jobs in the config."""
+        return iter(self.root)
+
+    def __getitem__(self, idx) -> ProtenixJob:
+        """Get job by index."""
+        return self.root[idx]
+
+    def __len__(self) -> int:
+        """Get number of jobs in the config."""
+        return len(self.root)
+
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation of the config."""
         return self.to_json(**kwargs)

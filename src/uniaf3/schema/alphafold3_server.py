@@ -32,7 +32,7 @@ class AF3ServerProteinModification(BaseModel):
     """AlphaFold3 Server PTM for a protein residue."""
 
     ptmType: str  # CCD code
-    position: PositiveInt  # 1-based residue position
+    ptmPosition: PositiveInt  # 1-based residue position
 
     @model_validator(mode="after")
     def check_ptm_type(self):
@@ -265,6 +265,18 @@ class AF3ServerConfig(RootModel, UniAF3BaseConfig):
     """
 
     root: list[AF3ServerJob]
+
+    def __iter__(self):
+        """Iterate over jobs in the config."""
+        return iter(self.root)
+
+    def __getitem__(self, idx) -> AF3ServerJob:
+        """Get job by index."""
+        return self.root[idx]
+
+    def __len__(self) -> int:
+        """Get number of jobs in the config."""
+        return len(self.root)
 
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation."""
