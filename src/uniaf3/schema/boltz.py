@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, PositiveInt, model_validator
 
-from uniaf3.schema import UniAF3BaseConfig
+from uniaf3.schema.base import UniAF3BaseConfig
 
 
 class BoltzModification(BaseModel):

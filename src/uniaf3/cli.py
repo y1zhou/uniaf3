@@ -59,23 +59,23 @@ def _load_config(path: Path, fmt: str) -> AnyConfig:
 
         return UniAF3Config.from_file(path)
     elif fmt == "alphafold3":
-        from uniaf3.schema.alphafold3 import AF3Config
+        from uniaf3.schema import AF3Config
 
         return AF3Config.from_file(path)
     elif fmt == "boltz":
-        from uniaf3.schema.boltz import BoltzConfig
+        from uniaf3.schema import BoltzConfig
 
         return BoltzConfig.from_file(path)
     elif fmt == "chai":
-        from uniaf3.schema.chai import ChaiConfig
+        from uniaf3.schema import ChaiConfig
 
         return ChaiConfig.from_file(path)
     elif fmt == "protenix":
-        from uniaf3.schema.protenix import ProtenixConfig
+        from uniaf3.schema import ProtenixConfig
 
         return ProtenixConfig.from_file(path)
     elif fmt == "alphafold3server":
-        from uniaf3.schema.alphafold3 import AF3ServerConfig
+        from uniaf3.schema import AF3ServerConfig
 
         return AF3ServerConfig.from_file(path)
     else:
@@ -126,11 +126,14 @@ def validate_config(
 
 def _get_format_to_config():
     """Lazily build format-to-config-class mapping."""
-    from uniaf3.schema import UniAF3Config
-    from uniaf3.schema.alphafold3 import AF3Config, AF3ServerConfig
-    from uniaf3.schema.boltz import BoltzConfig
-    from uniaf3.schema.chai import ChaiConfig
-    from uniaf3.schema.protenix import ProtenixConfig
+    from uniaf3.schema import (
+        AF3Config,
+        AF3ServerConfig,
+        BoltzConfig,
+        ChaiConfig,
+        ProtenixConfig,
+        UniAF3Config,
+    )
 
     return {
         "uniaf3": UniAF3Config,

@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
 
-from uniaf3.schema import UniAF3BaseConfig
+from uniaf3.schema.base import UniAF3BaseConfig
 
 
 class AF3ProteinModification(BaseModel):

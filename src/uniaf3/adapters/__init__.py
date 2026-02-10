@@ -16,19 +16,14 @@ from uniaf3.adapters.alphafold3 import (
 from uniaf3.adapters.boltz import from_boltz, to_boltz
 from uniaf3.adapters.chai import from_chai, to_chai
 from uniaf3.adapters.protenix import from_protenix, to_protenix
-from uniaf3.schema import UniAF3Config
-from uniaf3.schema.alphafold3 import AF3Config, AF3ServerConfig
-from uniaf3.schema.boltz import BoltzConfig
-from uniaf3.schema.chai import ChaiConfig
-from uniaf3.schema.protenix import ProtenixConfig
-
-AnyConfig = (
-    UniAF3Config
-    | AF3Config
-    | AF3ServerConfig
-    | BoltzConfig
-    | ChaiConfig
-    | ProtenixConfig
+from uniaf3.schema import (
+    AF3Config,
+    AF3ServerConfig,
+    AnyConfig,
+    BoltzConfig,
+    ChaiConfig,
+    ProtenixConfig,
+    UniAF3Config,
 )
 
 __all__ = [
