@@ -19,17 +19,16 @@ import tarfile
 import tempfile
 import time
 import typing
-from collections import namedtuple
 from enum import Enum
 from pathlib import Path
 
 import polars as pl
-
-# import pandas as pd
 import requests
 from tqdm import tqdm
 
+# from chai_lab.data.parsing.fasta import Fasta, read_fasta
 from uniaf3.schema.base import hash_sequence
+from uniaf3.vendor.chai1_fasta import Fasta, read_fasta
 
 logger = logging.getLogger(__name__)
 
@@ -39,29 +38,6 @@ TQDM_BAR_FORMAT = (
 
 # from chai_lab import __version__
 CHAI_VERSION = "0.6.1"
-
-
-# from chai_lab.data.parsing.fasta import Fasta, read_fasta
-Fasta = namedtuple("Fasta", ["header", "sequence"])
-
-
-def read_fasta(file_path: str | Path) -> list[Fasta]:
-    """Read a FASTA file and return a list of Fasta named tuples."""
-    sequences = []
-    with open(file_path) as f:
-        header, seq_lines = None, []
-        for line in f:
-            line = line.strip()
-            if line.startswith(">"):
-                if header is not None:
-                    sequences.append(Fasta(header=header, sequence="".join(seq_lines)))
-                header = line[1:]  # Remove '>'
-                seq_lines = []
-            else:
-                seq_lines.append(line)
-        if header is not None:
-            sequences.append(Fasta(header=header, sequence="".join(seq_lines)))
-    return sequences
 
 
 # from chai_lab.data.parsing.msas.aligned_pqt import expected_basename, hash_sequence
