@@ -85,13 +85,13 @@ class TestAF3Schema:
     def test_invalid_ligand_both_ccd_smiles(self):
         from uniaf3.schema.alphafold3 import AF3Ligand
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             AF3Ligand(id="X", ccdCodes=["ATP"], smiles="CC(=O)OC1C[NH+]2CCC1CC2")
 
     def test_invalid_ligand_neither_ccd_smiles(self):
         from uniaf3.schema.alphafold3 import AF3Ligand
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             AF3Ligand(id="X")
 
     def test_sequence_entry_exactly_one(self):
@@ -102,11 +102,11 @@ class TestAF3Schema:
         )
 
         # Zero entities should fail
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             AF3SequenceEntry()
 
         # Two entities set should fail
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             AF3SequenceEntry(
                 protein=AF3Protein(id="A", sequence="M"),
                 dna=AF3DNA(id="B", sequence="G"),

@@ -7,6 +7,8 @@ Each model has a ``to_*`` and ``from_*`` function pair in its own module under
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from uniaf3.adapters.alphafold3 import from_alphafold3, to_alphafold3
 from uniaf3.adapters.alphafold3_server import (
     from_alphafold3_server,
@@ -74,6 +76,8 @@ def from_uniaf3(
     target: type[AnyConfig],
     *,
     name: str = "uniaf3_job",
+    msa_dir: str | Path = ".",
+    strict: bool = False,
 ) -> AnyConfig:
     """Convert a UniAF3Config to a specific model config.
 
@@ -81,6 +85,8 @@ def from_uniaf3(
         conf: The UniAF3Config to convert.
         target: The target config class.
         name: Job name for models that require one (AF3, Protenix).
+        msa_dir: Directory to save MSA CSV files (used by Boltz).
+        strict: If True, raise errors for unsupported features.
 
     Returns:
         The target model config.
@@ -92,11 +98,11 @@ def from_uniaf3(
     if target is UniAF3Config:
         return conf
     if target is AF3Config:
-        return to_alphafold3(conf, name=name)
+        return to_alphafold3(conf, name=name, strict=strict)
     if target is AF3ServerConfig:
-        return to_alphafold3_server(conf, name=name)
+        return to_alphafold3_server(conf, name=name, strict=strict)
     if target is BoltzConfig:
-        return to_boltz(conf)
+        return to_boltz(conf, msa_dir=msa_dir, strict=strict)
     if target is ChaiConfig:
         return to_chai(conf)
     if target is ProtenixConfig:

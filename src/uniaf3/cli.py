@@ -41,7 +41,7 @@ class ConfigFormat(StrEnum):
     AF3Server = "alphafold3server"
 
 
-def _get_format_to_config() -> dict[str, AnyConfig]:
+def _get_format_to_config() -> dict[str, type[AnyConfig]]:
     """Lazily build format-to-config-class mapping."""
     from uniaf3.schema import (
         AF3Config,

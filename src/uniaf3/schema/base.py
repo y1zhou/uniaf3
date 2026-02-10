@@ -343,7 +343,13 @@ class UniAF3Config(UniAF3BaseConfig):
     def check_restraints_in_range(self):
         """Ensure that restraint atom indices are within the corresponding sequence lengths."""
         if self.restraints is not None:
-            seq_dict = {seq.id: seq for seq in self.sequences}
+            # Build chain_id → sequence mapping, handling list[str] ids
+            seq_dict: dict[str, Polymer | ProteinSeq | Ligand | Glycan] = {}
+            for seq in self.sequences:
+                ids = seq.id if isinstance(seq.id, list) else [seq.id]
+                for cid in ids:
+                    seq_dict[cid] = seq
+
             for restraint in self.restraints:
                 for atom in (restraint.atom1, restraint.atom2):
                     if atom.chain_id not in seq_dict:

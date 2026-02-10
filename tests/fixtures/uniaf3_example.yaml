@@ -61,8 +61,9 @@ restraints:
 seeds:
   - 42
   - 123
-num_trunk_recycles: 3
-num_diffn_timesteps: 200
-num_diffn_samples: 5
-num_trunk_samples: 1
+inference_params:
+  num_trunk_recycles: 3
+  num_diffn_timesteps: 200
+  num_diffn_samples: 5
+  num_trunk_samples: 1
 boltz_affinity_binder_chain: D

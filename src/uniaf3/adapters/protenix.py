@@ -229,10 +229,10 @@ def from_protenix(config: ProtenixConfig) -> UniAF3Config:
 
     Only the first job is converted when multiple jobs are present.
     """
-    if not config.jobs:
+    if len(config) == 0:
         raise ValueError("ProtenixConfig must have at least one job.")
 
-    job = config.jobs[0]
+    job = config[0]
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
 
     # NOTE: Protenix does not support assigning chain IDs to input entities.

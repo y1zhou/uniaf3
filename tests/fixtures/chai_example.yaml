@@ -20,9 +20,9 @@ entities:
 restraints:
   - restraint_id: restraint_0
     chainA: A
-    res_idxA: A219@CA
+    res_idxA: A5@CA
     chainB: D
-    res_idxB: D45@CB
+    res_idxB: D1@CB
     max_distance_angstrom: 1.5
     min_distance_angstrom: 0.0
     connection_type: covalent
@@ -30,9 +30,9 @@ restraints:
     comment: Example covalent bond
   - restraint_id: restraint_1
     chainA: A
-    res_idxA: A100
+    res_idxA: A10
     chainB: B
-    res_idxB: B50
+    res_idxB: B5
     max_distance_angstrom: 8.0
     min_distance_angstrom: 0.0
     connection_type: contact
@@ -41,7 +41,7 @@ restraints:
     chainA: D
     res_idxA: ''
     chainB: A
-    res_idxB: A145
+    res_idxB: A12
     max_distance_angstrom: 6.0
     min_distance_angstrom: 0.0
     connection_type: pocket
