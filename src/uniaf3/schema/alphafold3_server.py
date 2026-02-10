@@ -8,7 +8,7 @@ Reference:
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, PositiveInt, model_validator
+from pydantic import BaseModel, PositiveInt, RootModel, model_validator
 
 from uniaf3.schema import UniAF3BaseConfig
 
@@ -257,14 +257,14 @@ class AF3ServerJob(BaseModel):
     version: Literal[1] = 1
 
 
-class AF3ServerConfig(UniAF3BaseConfig):
+class AF3ServerConfig(RootModel, UniAF3BaseConfig):
     """AlphaFold3 Server input JSON config.
 
     The server variant is simpler: no seeds, no MSA, no templates, no userCCD.
     It also supports an explicit ion type.
     """
 
-    jobs: list[AF3ServerJob]
+    root: list[AF3ServerJob]
 
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation."""

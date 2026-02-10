@@ -6,9 +6,14 @@ Reference:
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveInt,
+    RootModel,
+    model_validator,
+)
 
 from uniaf3.schema import UniAF3BaseConfig
 
@@ -191,27 +196,14 @@ class ProtenixJob(BaseModel):
     constraint: ProtenixConstraint | None = None
 
 
-class ProtenixConfig(UniAF3BaseConfig):
+class ProtenixConfig(RootModel, UniAF3BaseConfig):
     """Top-level Protenix input config.
 
     The Protenix JSON is always a list of jobs, even for a single job.
     """
 
-    jobs: list[ProtenixJob]
+    root: list[ProtenixJob]
 
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation of the config."""
         return self.to_json(**kwargs)
-
-    @classmethod
-    def from_file(cls, conf_file: str | Path) -> ProtenixConfig:
-        """Load Protenix config from a file."""
-        import json
-
-        conf_path = Path(conf_file).expanduser().resolve()
-        if not conf_path.exists():
-            raise FileNotFoundError(f"Config file not found: {conf_path}")
-        data = json.loads(conf_path.read_text())
-        if isinstance(data, list):
-            return cls.model_validate({"jobs": data})
-        return cls.model_validate(data)
