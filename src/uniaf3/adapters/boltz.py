@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import polars as pl
+
+from uniaf3.adapters._helpers import err_unsupported_feature
 from uniaf3.schema.base import (
     Atom,
     Glycan,
@@ -30,12 +35,124 @@ from uniaf3.schema.boltz import (
     BoltzSequenceEntry,
     BoltzTemplate,
 )
+from uniaf3.vendor.chai1_fasta import read_fasta
 
 
-def to_boltz(config: UniAF3Config) -> BoltzConfig:
-    """Convert a UniAF3Config to a Boltz config."""
+def merge_chai_msa_to_csv(
+    unpaired_msa_file: str | Path | None,
+    paired_msa_file: str | Path | None,
+    msa_id: str,
+    out_dir: str | Path,
+) -> Path:
+    """Merge unpaired and paired MSAs into a single CSV file for Boltz.
+
+    Adapted from Boltz's own MSA processing code: boltz.main.compute_msa
+
+    Args:
+        unpaired_msa_file: Path to unpaired MSA file in A3M format.
+        paired_msa_file: Path to paired MSA file in A3M format.
+        msa_id: Output file name. Boltz uses `{target_id}_{entity_id}.csv`.
+        out_dir: Directory to save the output CSV file.
+
+    """
+    out_dir_path = Path(out_dir).expanduser().resolve()
+    out_dir_path.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir_path / f"{msa_id}.csv"
+
+    # fast fail if unpaired MSA file does not exist
+    if unpaired_msa_file is None:
+        raise ValueError("Unpaired MSA file must be provided.")
+    unpaired_path = Path(unpaired_msa_file).expanduser().resolve()
+    if not unpaired_path.exists():
+        raise FileNotFoundError(f"Unpaired MSA file not found: {unpaired_path}")
+
+    if paired_msa_file is not None:
+        paired_path = Path(paired_msa_file).expanduser().resolve()
+        if not paired_path.exists():
+            raise FileNotFoundError(f"Paired MSA file not found: {paired_path}")
+
+        paired_fasta = read_fasta(paired_path)
+
+        # ignore headers
+        # Boltz also does subsampling here but we skip that for now
+        paired_df = (
+            pl.DataFrame(paired_fasta)
+            .drop("header")
+            .with_row_index(name="key")
+            # filter out padding rows (rows that are all gaps)
+            .filter(
+                pl.col("sequence").str.count_matches("-", literal=True)
+                < pl.col("sequence").str.len_bytes()
+            )
+        )
+    else:
+        paired_df = pl.DataFrame([], schema=["key", "sequence"])
+
+    # combine paired-unpaired sequences
+    unpaired_fasta = read_fasta(unpaired_path)
+    if paired_df.height > 0:
+        # ignore query seq
+        unpaired_fasta = unpaired_fasta[1:]
+
+    combined_df = pl.concat(
+        [
+            paired_df,
+            pl.DataFrame(unpaired_fasta)
+            .drop("header")
+            .with_columns(pl.lit(-1).alias("key")),
+        ],
+        how="vertical_relaxed",
+    )
+    combined_df.write_csv(out_file)
+    return out_file
+
+
+def to_boltz(
+    config: UniAF3Config,
+    msa_dir: str | Path,
+    max_num_templates_per_chain: int = 4,
+    strict: bool = True,
+) -> BoltzConfig:
+    """Convert a UniAF3Config to a Boltz config.
+
+    Args:
+        config: UniAF3Config pydantic object.
+        msa_dir: Directory to save MSA CSV files for Boltz.
+        max_num_templates_per_chain: Maximum number of templates to use per chain.
+            The default is 4, which matches Chai's limit. A higher number
+            may lead to excessive GPU memory usage.
+        strict: If True, raise errors when encountering unsupported features.
+            If False, skip unsupported features with warnings.
+
+    """
+    msa_dir_path = Path(msa_dir).expanduser().resolve()
+    msa_dir_path.mkdir(parents=True, exist_ok=True)
+
     sequences: list[BoltzSequenceEntry] = []
+    templates: list[BoltzTemplate] = []
+    seq_types: dict[str, str] = {}
     for seq in config.sequences:
+        # Note the chain types for later pocket constraint processing
+        if isinstance(seq.id, list):
+            for chain_id in seq.id:
+                seq_types[chain_id] = (
+                    seq.seq_type.value if isinstance(seq, Polymer) else "ligand"
+                )
+        else:
+            seq_types[seq.id] = (
+                seq.seq_type.value if isinstance(seq, Polymer) else "ligand"
+            )
+
+        if isinstance(seq, Glycan):
+            # TODO: use SMILES as a fallback representation.
+            # need atom_idx for glycan and add constraint to keep glycan as PTM
+            # lig = BoltzLigand(id=seq.id, smiles=seq.chai_str)
+            # sequences.append(BoltzSequenceEntry(ligand=lig))
+            err_unsupported_feature(
+                strict, f"Glycans are not directly supported in Boltz: {seq}"
+            )
+            continue
+
         if isinstance(seq, ProteinSeq):
             mods = (
                 [
@@ -45,15 +162,53 @@ def to_boltz(config: UniAF3Config) -> BoltzConfig:
                 if seq.modifications
                 else None
             )
-            msa_path: str | None = seq.unpaired_msa
+            if seq.msa_dir is not None:
+                msa_csv_path = merge_chai_msa_to_csv(
+                    seq.unpaired_msa,
+                    seq.paired_msa,
+                    msa_id=seq.seq_hash,
+                    out_dir=msa_dir_path,
+                )
+            else:
+                msa_csv_path = "empty"
             protein = BoltzProtein(
                 id=seq.id,
                 sequence=seq.sequence,
-                msa=msa_path,
+                msa=str(msa_csv_path),
                 modifications=mods,
                 cyclic=seq.cyclic,
             )
             sequences.append(BoltzSequenceEntry(protein=protein))
+
+            # Protein templates are added as separate entries in Boltz
+            if not seq.templates:
+                continue
+            for i, tmpl in enumerate(seq.templates, start=1):
+                if i > max_num_templates_per_chain:
+                    break
+                tmpl_path = Path(tmpl.path).expanduser().resolve()
+                cif_path, pdb_path = None, None
+                match "".join(tmpl_path.suffixes[-2:]).lower():
+                    case ".cif" | ".cif.gz":
+                        cif_path = str(tmpl_path)
+                    case ".pdb" | ".pdb.gz":
+                        pdb_path = str(tmpl_path)
+                    case _:
+                        raise ValueError(
+                            f"Unsupported template file format: {tmpl_path}"
+                        )
+                templates.append(
+                    BoltzTemplate(
+                        cif=cif_path,
+                        pdb=pdb_path,
+                        chain_id=tmpl.query_chains,
+                        # TODO: Boltz uses gemmi.structure.entities instead of subchains
+                        # See boltz.data.parse.mmcif.parse_mmcif
+                        # template_id=tmpl.template_chains,
+                        force=tmpl.boltz_enable_force,
+                        threshold=tmpl.boltz_template_threshold,
+                    )
+                )
         elif isinstance(seq, Polymer):
             mods = (
                 [
@@ -63,15 +218,7 @@ def to_boltz(config: UniAF3Config) -> BoltzConfig:
                 if seq.modifications
                 else None
             )
-            if seq.seq_type == PolymerType.Protein:
-                protein = BoltzProtein(
-                    id=seq.id,
-                    sequence=seq.sequence,
-                    modifications=mods,
-                    cyclic=seq.cyclic,
-                )
-                sequences.append(BoltzSequenceEntry(protein=protein))
-            elif seq.seq_type == PolymerType.DNA:
+            if seq.seq_type == PolymerType.DNA:
                 dna = BoltzDNA(
                     id=seq.id,
                     sequence=seq.sequence,
@@ -93,83 +240,91 @@ def to_boltz(config: UniAF3Config) -> BoltzConfig:
             elif seq.smiles:
                 lig = BoltzLigand(id=seq.id, smiles=seq.smiles)
             else:
-                # NOTE: Boltz ligands only accept a single CCD code.
-                # Multi-CCD ligands (e.g. glycans) are not natively supported.
-                lig = BoltzLigand(id=seq.id, ccd=seq.ccd[0] if seq.ccd else None)
+                err_unsupported_feature(
+                    strict,
+                    f"Multi-CCD ligands are not supported in Boltz, maybe use SMILES instead: {seq}",
+                )
             sequences.append(BoltzSequenceEntry(ligand=lig))
-        elif isinstance(seq, Glycan):
-            # NOTE: Glycans are not directly supported in Boltz; using SMILES
-            # as a fallback representation.
-            lig = BoltzLigand(id=seq.id, smiles=seq.chai_str)
-            sequences.append(BoltzSequenceEntry(ligand=lig))
+        else:
+            err_unsupported_feature(strict, f"Unsupported sequence type {type(seq)}")
 
     # Constraints
-    constraints: list[BoltzConstraintEntry] | None = None
+    constraints: list[BoltzConstraintEntry] = []
     if config.restraints:
-        constraint_list: list[BoltzConstraintEntry] = []
         for r in config.restraints:
             if r.restraint_type == RestraintType.Covalent:
                 bond = BoltzBondConstraint(
                     atom1=(r.atom1.chain_id, r.atom1.residue_idx, r.atom1.atom_name),
                     atom2=(r.atom2.chain_id, r.atom2.residue_idx, r.atom2.atom_name),
                 )
-                constraint_list.append(BoltzConstraintEntry(bond=bond))
+                constraints.append(BoltzConstraintEntry(bond=bond))
             elif r.restraint_type == RestraintType.Contact:
+                token1_idx = (
+                    r.atom1.atom_name
+                    if seq_types[r.atom1.chain_id] == "ligand"
+                    else r.atom1.residue_idx
+                )
+                token2_idx = (
+                    r.atom2.atom_name
+                    if seq_types[r.atom2.chain_id] == "ligand"
+                    else r.atom2.residue_idx
+                )
                 contact = BoltzContactConstraint(
-                    token1=(r.atom1.chain_id, r.atom1.residue_idx),
-                    token2=(r.atom2.chain_id, r.atom2.residue_idx),
+                    token1=(r.atom1.chain_id, token1_idx),
+                    token2=(r.atom2.chain_id, token2_idx),
                     max_distance=r.max_distance,
                     force=r.enable_boltz_force,
                 )
-                constraint_list.append(BoltzConstraintEntry(contact=contact))
+                constraints.append(BoltzConstraintEntry(contact=contact))
             elif r.restraint_type == RestraintType.Pocket:
                 if r.boltz_binder_chain is None:
                     # NOTE: Pocket restraints require boltz_binder_chain to be
                     # set. Skipping this restraint.
+                    err_unsupported_feature(
+                        strict,
+                        f"Pocket restraints require boltz_binder_chain to be set. Skipping restraint: {r}",
+                    )
                     continue
+
+                token1_idx = (
+                    r.atom1.atom_name
+                    if seq_types[r.atom1.chain_id] == "ligand"
+                    else r.atom1.residue_idx
+                )
+                token2_idx = (
+                    r.atom2.atom_name
+                    if seq_types[r.atom2.chain_id] == "ligand"
+                    else r.atom2.residue_idx
+                )
+                # Exclude the binder chain because it contains dummy values
+                contacts = [
+                    (r.atom1.chain_id, token1_idx),
+                    (r.atom2.chain_id, token2_idx),
+                ]
                 pocket = BoltzPocketConstraint(
                     binder=r.boltz_binder_chain,
-                    contacts=[
-                        (r.atom1.chain_id, r.atom1.residue_idx),
-                        (r.atom2.chain_id, r.atom2.residue_idx),
-                    ],
+                    contacts=[x for x in contacts if x[0] != r.boltz_binder_chain],
                     max_distance=r.max_distance,
                     force=r.enable_boltz_force,
                 )
-                constraint_list.append(BoltzConstraintEntry(pocket=pocket))
-        constraints = constraint_list if constraint_list else None
-
-    # Templates from protein sequences
-    templates: list[BoltzTemplate] | None = None
-    template_list: list[BoltzTemplate] = []
-    for seq in config.sequences:
-        if isinstance(seq, ProteinSeq) and seq.templates:
-            for t in seq.templates:
-                tmpl = BoltzTemplate(
-                    cif=t.path,
-                    chain_id=seq.id if isinstance(seq.id, str) else seq.id[0],
-                    force=t.enable_boltz_force,
-                    threshold=t.boltz_template_threshold,
-                )
-                template_list.append(tmpl)
-    templates = template_list if template_list else None
+                constraints.append(BoltzConstraintEntry(pocket=pocket))
 
     # Properties
-    properties: list[BoltzPropertyEntry] | None = None
-    if config.boltz_affinity_binder_chain:
-        properties = [
+    properties: list[BoltzPropertyEntry] = []
+    if config.boltz_affinity_binder_chain is not None:
+        properties.append(
             BoltzPropertyEntry(
                 affinity=BoltzAffinityProperty(
                     binder=config.boltz_affinity_binder_chain
                 )
             )
-        ]
+        )
 
     return BoltzConfig(
         sequences=sequences,
-        constraints=constraints,
-        templates=templates,
-        properties=properties,
+        constraints=constraints if constraints else None,
+        templates=templates if templates else None,
+        properties=properties if properties else None,
     )
 
 

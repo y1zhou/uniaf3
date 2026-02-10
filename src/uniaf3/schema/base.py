@@ -133,7 +133,7 @@ class StructuralTemplate(BaseModel):
     query_chains: list[str] | None = None
     template_chains: list[str] | None = None
     # Boltz-specific fields
-    enable_boltz_force: bool = False  # use a potential to enforce the template
+    boltz_enable_force: bool = False  # use a potential to enforce the template
     boltz_template_threshold: float | None = (
         None  # distance (Angstroms) that the prediction can deviate from the template
     )

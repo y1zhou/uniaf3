@@ -25,7 +25,7 @@ class BoltzProtein(BaseModel):
 
     id: str | list[str]
     sequence: str
-    msa: str | None = None  # path to .a3m file, or "empty" for single-sequence
+    msa: str | None = None  # path to .csv file, or "empty" for single-sequence
     modifications: list[BoltzModification] | None = None
     cyclic: bool = False
 
