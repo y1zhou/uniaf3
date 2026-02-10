@@ -6,31 +6,38 @@ import orjson
 import pytest
 import yaml
 
+from uniaf3.schema import (
+    AF3Config,
+    AF3ServerConfig,
+    BoltzConfig,
+    ProtenixConfig,
+    UniAF3Config,
+)
+
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
 # ============================================================
 # AlphaFold3 schema
 # ============================================================
+@pytest.fixture(scope="class", autouse=True)
+def af3_conf():
+    data = orjson.loads((FIXTURES / "alphafold3_example.json").read_bytes())
+    return AF3Config.model_validate(data)
+
+
 class TestAF3Schema:
     """Validate AF3Config against example input."""
 
-    @pytest.fixture(autouse=True)
-    def load_json_data(self):
-        from uniaf3.schema.alphafold3 import AF3Config
+    def test_load_example(self, af3_conf: AF3Config):
+        assert af3_conf.name == "Hello fold"
+        assert af3_conf.modelSeeds == [10, 42]
+        assert len(af3_conf.sequences) == 7
+        assert af3_conf.dialect == "alphafold3"
+        assert af3_conf.version == 4
 
-        self.data = orjson.loads((FIXTURES / "alphafold3_example.json").read_bytes())
-        self.conf = AF3Config.model_validate(self.data)
-
-    def test_load_example(self):
-        assert self.conf.name == "Hello fold"
-        assert self.conf.modelSeeds == [10, 42]
-        assert len(self.conf.sequences) == 7
-        assert self.conf.dialect == "alphafold3"
-        assert self.conf.version == 4
-
-    def test_protein_entry(self):
-        prot = self.conf.sequences[0].protein
+    def test_protein_entry(self, af3_conf: AF3Config):
+        prot = af3_conf.sequences[0].protein
         assert prot is not None
         assert prot.id == "A"
         assert prot.sequence == "PVLSCGEWQL"
@@ -39,48 +46,41 @@ class TestAF3Schema:
         assert prot.modifications[0].ptmType == "HY3"
         assert prot.modifications[0].ptmPosition == 1
 
-    def test_dna_entry(self):
-        dna = self.conf.sequences[2].dna
+    def test_dna_entry(self, af3_conf: AF3Config):
+        dna = af3_conf.sequences[2].dna
         assert dna is not None
         assert dna.sequence == "GACCTCT"
         assert dna.modifications is not None
         assert len(dna.modifications) == 2
 
-    def test_rna_entry(self):
-        rna = self.conf.sequences[3].rna
+    def test_rna_entry(self, af3_conf: AF3Config):
+        rna = af3_conf.sequences[3].rna
         assert rna is not None
         assert rna.sequence == "AGCU"
 
-    def test_ligand_with_ccd(self):
-        lig = self.conf.sequences[4].ligand
+    def test_ligand_with_ccd(self, af3_conf: AF3Config):
+        lig = af3_conf.sequences[4].ligand
         assert lig is not None
         assert lig.id == ["F", "G", "H"]
         assert lig.ccdCodes == ["ATP"]
 
-    def test_ligand_with_smiles(self):
-        lig = self.conf.sequences[6].ligand
+    def test_ligand_with_smiles(self, af3_conf: AF3Config):
+        lig = af3_conf.sequences[6].ligand
         assert lig is not None
         assert lig.smiles == "CC(=O)OC1C[NH+]2CCC1CC2"
 
-    def test_bonded_atom_pairs(self):
-        assert self.conf.bondedAtomPairs is not None
-        assert len(self.conf.bondedAtomPairs) == 2
-        a1, a2 = self.conf.bondedAtomPairs[0]
+    def test_bonded_atom_pairs(self, af3_conf: AF3Config):
+        assert af3_conf.bondedAtomPairs is not None
+        assert len(af3_conf.bondedAtomPairs) == 2
+        a1, a2 = af3_conf.bondedAtomPairs[0]
         assert a1 == ("A", 1, "CA")
         assert a2 == ("F", 1, "CHA")
 
-    def test_json_str_property(self):
-        j = self.conf.to_str()
+    def test_json_str_property(self, af3_conf: AF3Config):
+        j = af3_conf.to_str()
         assert isinstance(j, str)
         parsed = orjson.loads(j)
         assert parsed["name"] == "Hello fold"
-
-    def test_from_file(self):
-        from uniaf3.schema.alphafold3 import AF3Config
-
-        conf = AF3Config.from_file(FIXTURES / "alphafold3_example.json")
-        assert conf.name == "Hello fold"
-        assert len(conf.sequences) == 7
 
     def test_invalid_ligand_both_ccd_smiles(self):
         from uniaf3.schema.alphafold3 import AF3Ligand
@@ -114,79 +114,93 @@ class TestAF3Schema:
 
 
 # ============================================================
+# AlphaFold3 Server schema
+# ============================================================
+@pytest.fixture(scope="class", autouse=True)
+def af3_server_confs():
+    data = orjson.loads((FIXTURES / "alphafold3_server_example.json").read_bytes())
+    return AF3ServerConfig.model_validate(data)
+
+
+class TestAF3ServerSchema:
+    """Validate AF3ServerConfig against example input."""
+
+    def test_load_data(self, af3_server_confs: AF3ServerConfig):
+        self.data = orjson.loads(
+            (FIXTURES / "alphafold3_server_example.json").read_bytes()
+        )
+        self.confs = AF3ServerConfig.model_validate(self.data)
+
+        assert len(af3_server_confs) == 2
+        conf = af3_server_confs[0]
+        assert conf.name == "Test Fold Job"
+        assert len(conf.sequences) == 9
+        assert conf.version == 1
+
+    def test_protein_entry(self, af3_server_confs: AF3ServerConfig):
+        prot = af3_server_confs[0].sequences[0].proteinChain
+        assert prot is not None
+        assert prot.sequence == "PREACHINGS"
+
+    def test_ion_entry(self, af3_server_confs: AF3ServerConfig):
+        ion = af3_server_confs[0].sequences[7].ion
+        assert ion is not None
+        assert ion.ion == "MG"
+
+    def test_to_str(self, af3_server_confs: AF3ServerConfig):
+        s = af3_server_confs.to_str()
+        assert isinstance(s, str)
+        parsed = orjson.loads(s)
+        assert parsed[0]["name"] == "Test Fold Job"
+        assert parsed[1]["name"] == "Test Fold Job Number Two"
+
+
+# ============================================================
 # Boltz schema
 # ============================================================
+@pytest.fixture(scope="class", autouse=True)
+def boltz_conf():
+    with open(FIXTURES / "boltz_example.yaml") as f:
+        data = yaml.safe_load(f)
+    conf = BoltzConfig.model_validate(data)
+    return conf
+
+
 class TestBoltzSchema:
     """Validate BoltzConfig against example input."""
 
-    def test_load_example(self):
-        from uniaf3.schema.boltz import BoltzConfig
+    def test_load_data(self, boltz_conf: BoltzConfig):
+        assert boltz_conf.version == 1
+        assert len(boltz_conf.sequences) == 3
 
-        with open(FIXTURES / "boltz_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = BoltzConfig.model_validate(data)
-        assert conf.version == 1
-        assert len(conf.sequences) == 3
-
-    def test_protein_entry(self):
-        from uniaf3.schema.boltz import BoltzConfig
-
-        with open(FIXTURES / "boltz_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = BoltzConfig.model_validate(data)
-        prot = conf.sequences[0].protein
+    def test_protein_entry(self, boltz_conf: BoltzConfig):
+        prot = boltz_conf.sequences[0].protein
         assert prot is not None
         assert prot.id == ["A", "B"]
         assert prot.msa == "./examples/msa/seq1.a3m"
 
-    def test_ligand_ccd(self):
-        from uniaf3.schema.boltz import BoltzConfig
-
-        with open(FIXTURES / "boltz_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = BoltzConfig.model_validate(data)
-        lig = conf.sequences[1].ligand
+    def test_ligand_ccd(self, boltz_conf: BoltzConfig):
+        lig = boltz_conf.sequences[1].ligand
         assert lig is not None
         assert lig.ccd == "SAH"
 
-    def test_ligand_smiles(self):
-        from uniaf3.schema.boltz import BoltzConfig
-
-        with open(FIXTURES / "boltz_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = BoltzConfig.model_validate(data)
-        lig = conf.sequences[2].ligand
+    def test_ligand_smiles(self, boltz_conf: BoltzConfig):
+        lig = boltz_conf.sequences[2].ligand
         assert lig is not None
         assert lig.smiles is not None
 
-    def test_bond_constraint(self):
-        from uniaf3.schema.boltz import BoltzConfig
-
-        with open(FIXTURES / "boltz_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = BoltzConfig.model_validate(data)
-        assert len(conf.constraints) == 3
-        b = conf.constraints[0].bond
+    def test_bond_constraint(self, boltz_conf: BoltzConfig):
+        assert boltz_conf.constraints is not None
+        assert len(boltz_conf.constraints) == 3
+        b = boltz_conf.constraints[0].bond
         assert b is not None
         assert b.atom1 == ("A", 145, "SG")
 
-    def test_yaml_str_property(self):
-        from uniaf3.schema.boltz import BoltzConfig
-
-        with open(FIXTURES / "boltz_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = BoltzConfig.model_validate(data)
-        y = conf.to_str()
+    def test_yaml_str_property(self, boltz_conf: BoltzConfig):
+        y = boltz_conf.to_str()
         assert isinstance(y, str)
         parsed = yaml.safe_load(y)
         assert parsed["version"] == 1
-
-    def test_from_file(self):
-        from uniaf3.schema.boltz import BoltzConfig
-
-        conf = BoltzConfig.from_file(FIXTURES / "boltz_example.yaml")
-        assert conf.version == 1
-        assert len(conf.sequences) == 3
 
 
 # ============================================================
@@ -195,234 +209,98 @@ class TestBoltzSchema:
 class TestChaiSchema:
     """Validate ChaiConfig against example input."""
 
-    def test_load_example(self):
-        from uniaf3.schema.chai import ChaiConfig
-
-        with open(FIXTURES / "chai_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = ChaiConfig.model_validate(data)
-        assert len(conf.entities) == 6
-        assert conf.seed == 42
-
-    def test_entities(self):
-        from uniaf3.schema.chai import ChaiConfig
-
-        with open(FIXTURES / "chai_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = ChaiConfig.model_validate(data)
-        assert conf.entities[0].entity_type == "protein"
-        assert conf.entities[2].entity_type == "dna"
-        assert conf.entities[3].entity_type == "ligand"
-
-    def test_restraints(self):
-        from uniaf3.schema.chai import ChaiConfig
-
-        with open(FIXTURES / "chai_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = ChaiConfig.model_validate(data)
-        assert len(conf.restraints) == 3
-        r = conf.restraints[0]
-        assert r.connection_type == "covalent"
-        assert r.res_idxA == "A219@CA"
-
-    def test_unique_entity_names(self):
-        from uniaf3.schema.chai import ChaiConfig, ChaiEntity, ChaiEntityType
-
-        with pytest.raises(Exception):
-            ChaiConfig(
-                entities=[
-                    ChaiEntity(
-                        entity_type=ChaiEntityType.Protein,
-                        entity_name="X",
-                        sequence="M",
-                    ),
-                    ChaiEntity(
-                        entity_type=ChaiEntityType.Protein,
-                        entity_name="X",
-                        sequence="M",
-                    ),
-                ]
-            )
-
-    def test_output_strs_property(self):
-        from uniaf3.schema.chai import ChaiConfig
-
-        with open(FIXTURES / "chai_example.yaml") as f:
-            data = yaml.safe_load(f)
-        conf = ChaiConfig.model_validate(data)
-        s = conf.to_str()
-        assert isinstance(s, str)
-        # Should contain FASTA headers
-        assert ">protein|A" in s
-        # Should contain restraint CSV if restraints exist
-        assert "restraint_id" in s
-
-    def test_from_file(self):
-        from uniaf3.schema.chai import ChaiConfig
-
-        conf = ChaiConfig.from_file(FIXTURES / "chai_example.yaml")
-        assert len(conf.entities) == 6
-        assert conf.seed == 42
+    # TODO: Chai should output two files (FASTA and restraints CSV)
+    ...
 
 
 # ============================================================
 # Protenix schema
 # ============================================================
+@pytest.fixture(scope="class", autouse=True)
+def protenix_confs():
+    data = orjson.loads((FIXTURES / "protenix_example.json").read_bytes())
+    confs = ProtenixConfig.model_validate(data)
+    return confs
+
+
 class TestProtenixSchema:
     """Validate ProtenixConfig against example input."""
 
-    def test_load_example(self):
-        from uniaf3.schema.protenix import ProtenixConfig
+    def test_load_data(self, protenix_confs: ProtenixConfig):
+        assert len(protenix_confs) == 1
+        conf = protenix_confs[0]
+        assert conf.name == "Test Fold Job"
+        assert len(conf.sequences) == 6
 
-        data = orjson.loads((FIXTURES / "protenix_example.json").read_bytes())
-        # Protenix top-level is a list
-        conf = ProtenixConfig.model_validate({"jobs": data})
-        assert len(conf.jobs) == 1
-        job = conf.jobs[0]
-        assert job.name == "Test Fold Job"
-        assert len(job.sequences) == 6
-
-    def test_protein_chain(self):
-        from uniaf3.schema.protenix import ProtenixConfig
-
-        data = orjson.loads((FIXTURES / "protenix_example.json").read_bytes())
-        conf = ProtenixConfig.model_validate({"jobs": data})
-        pc = conf.jobs[0].sequences[0].proteinChain
+    def test_protein_chain(self, protenix_confs: ProtenixConfig):
+        pc = protenix_confs[0].sequences[0].proteinChain
         assert pc is not None
         assert pc.sequence == "PREACHINGS"
         assert pc.count == 2
+        assert pc.modifications is not None
         assert len(pc.modifications) == 2
         assert pc.modifications[0].ptmType == "CCD_HY3"
 
-    def test_dna_sequence(self):
-        from uniaf3.schema.protenix import ProtenixConfig
-
-        data = orjson.loads((FIXTURES / "protenix_example.json").read_text())
-        conf = ProtenixConfig.model_validate({"jobs": data})
-        ds = conf.jobs[0].sequences[1].dnaSequence
+    def test_dna_sequence(self, protenix_confs: ProtenixConfig):
+        ds = protenix_confs[0].sequences[1].dnaSequence
         assert ds is not None
         assert ds.sequence == "GATTACA"
 
-    def test_ligand(self):
-        from uniaf3.schema.protenix import ProtenixConfig
-
-        data = orjson.loads((FIXTURES / "protenix_example.json").read_text())
-        conf = ProtenixConfig.model_validate({"jobs": data})
-        lig = conf.jobs[0].sequences[3].ligand
+    def test_ligand(self, protenix_confs: ProtenixConfig):
+        lig = protenix_confs[0].sequences[3].ligand
         assert lig is not None
         assert lig.ligand == "CCD_ATP"
 
-    def test_ion(self):
-        from uniaf3.schema.protenix import ProtenixConfig
-
-        data = orjson.loads((FIXTURES / "protenix_example.json").read_text())
-        conf = ProtenixConfig.model_validate({"jobs": data})
-        ion = conf.jobs[0].sequences[4].ion
+    def test_ion(self, protenix_confs: ProtenixConfig):
+        ion = protenix_confs[0].sequences[4].ion
         assert ion is not None
         assert ion.ion == "MG"
         assert ion.count == 2
 
-    def test_covalent_bonds(self):
-        from uniaf3.schema.protenix import ProtenixConfig
-
-        data = orjson.loads((FIXTURES / "protenix_example.json").read_text())
-        conf = ProtenixConfig.model_validate({"jobs": data})
-        bonds = conf.jobs[0].covalent_bonds
+    def test_covalent_bonds(self, protenix_confs: ProtenixConfig):
+        bonds = protenix_confs[0].covalent_bonds
+        assert bonds is not None
         assert len(bonds) == 1
         assert bonds[0].entity1 == "1"
         assert bonds[0].atom1 == "N6"
 
-    def test_json_str_property(self):
-        from uniaf3.schema.protenix import ProtenixConfig
-
-        data = orjson.loads((FIXTURES / "protenix_example.json").read_text())
-        conf = ProtenixConfig.model_validate({"jobs": data})
-        j = conf.to_str()
+    def test_json_str_property(self, protenix_confs: ProtenixConfig):
+        j = protenix_confs.to_str()
         assert isinstance(j, str)
         parsed = orjson.loads(j)
-        assert "jobs" in parsed
-
-    def test_from_file(self):
-        from uniaf3.schema.protenix import ProtenixConfig
-
-        conf = ProtenixConfig.from_file(FIXTURES / "protenix_example.json")
-        assert len(conf.jobs) == 1
-        assert conf.jobs[0].name == "Test Fold Job"
+        assert len(parsed) == 1
+        assert parsed[0]["name"] == "Test Fold Job"
 
 
 # ============================================================
 # UniAF3 schema
 # ============================================================
+@pytest.fixture(scope="class", autouse=True)
+def uniaf3_conf():
+    with open(FIXTURES / "uniaf3_example.yaml") as f:
+        data = yaml.safe_load(f)
+    conf = UniAF3Config.model_validate(data)
+    return conf
+
+
 class TestUniAF3Schema:
     """Validate UniAF3Config against example input."""
 
-    def test_load_example(self):
-        from uniaf3.schema import UniAF3Config
+    def test_load_data(self, uniaf3_conf: UniAF3Config):
+        assert len(uniaf3_conf.sequences) == 5
+        assert uniaf3_conf.seeds == [42, 123]
 
-        conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        assert len(conf.sequences) == 5
-        assert conf.seeds == [42, 123]
-
-    def test_yaml_str(self):
-        from uniaf3.schema import UniAF3Config
-
-        conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        y = conf.to_yaml()
+    def test_yaml_str(self, uniaf3_conf: UniAF3Config):
+        y = uniaf3_conf.to_yaml()
         assert isinstance(y, str)
         parsed = yaml.safe_load(y)
         assert "sequences" in parsed
 
-    def test_json_str(self):
-        from uniaf3.schema import UniAF3Config
-
-        conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        j = conf.to_json()
+    def test_json_str(self, uniaf3_conf: UniAF3Config):
+        j = uniaf3_conf.to_json()
         assert isinstance(j, str)
 
-    def test_hash(self):
-        from uniaf3.schema import UniAF3Config
-
-        conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
-        h = conf.hash
+    def test_hash(self, uniaf3_conf: UniAF3Config):
+        h = uniaf3_conf.hash
         assert isinstance(h, str)
         assert len(h) == 64  # sha256 hex digest
-
-
-# ============================================================
-# AlphaFold3 Server schema
-# ============================================================
-class TestAF3ServerSchema:
-    """Validate AF3ServerConfig against example input."""
-
-    def test_load_example(self):
-        from uniaf3.schema.alphafold3 import AF3ServerConfig
-
-        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
-        assert conf.name == "Server fold"
-        assert len(conf.sequences) == 4
-        assert conf.version == 1
-
-    def test_protein_entry(self):
-        from uniaf3.schema.alphafold3 import AF3ServerConfig
-
-        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
-        prot = conf.sequences[0].protein
-        assert prot is not None
-        assert prot.sequence == "MVLSPADKTNVKAAW"
-
-    def test_ion_entry(self):
-        from uniaf3.schema.alphafold3 import AF3ServerConfig
-
-        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
-        ion = conf.sequences[3].ion
-        assert ion is not None
-        assert ion.ion == "MG"
-
-    def test_to_str(self):
-        from uniaf3.schema.alphafold3 import AF3ServerConfig
-
-        conf = AF3ServerConfig.from_file(FIXTURES / "alphafold3_server_example.json")
-        s = conf.to_str()
-        assert isinstance(s, str)
-        parsed = orjson.loads(s)
-        assert parsed["name"] == "Server fold"

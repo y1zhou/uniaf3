@@ -102,5 +102,26 @@
     ],
     "dialect": "alphafoldserver",
     "version": 1
+  },
+  {
+    "name": "Test Fold Job Number Two",
+    "modelSeeds": [],
+    "sequences": [
+      {
+        "proteinChain": {
+          "sequence": "TEACHINGS",
+          "count": 1,
+          "maxTemplateDate": "2024-05-08"
+        }
+      },
+      {
+        "dnaSequence": {
+          "sequence": "TAGGACA",
+          "count": 1
+        }
+      }
+    ],
+    "dialect": "alphafoldserver",
+    "version": 1
   }
 ]
