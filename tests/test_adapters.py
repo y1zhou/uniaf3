@@ -6,65 +6,53 @@ All conversions go through UniAF3Config as an intermediate layer.
 from pathlib import Path
 
 import pytest
-import yaml
 
-from uniaf3.schema import AF3Config, UniAF3Config
-from uniaf3.schema.base import Polymer
+from uniaf3.schema import BoltzConfig, UniAF3Config
+
+# ruff: noqa: S101
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture(scope="module", autouse=True)
 def uniaf3_conf():
-    with open(FIXTURES / "uniaf3_example.yaml") as f:
-        data = yaml.safe_load(f)
-    conf = UniAF3Config.model_validate(data)
+    conf = UniAF3Config.from_file(FIXTURES / "uniaf3_example.yaml")
     return conf
 
 
 # ============================================================
-# UniAF3 → AlphaFold3 → UniAF3
+# UniAF3 → Boltz → UniAF3
 # ============================================================
 @pytest.fixture(scope="class", autouse=True)
-def af3_conf(uniaf3_conf: UniAF3Config):
-    from uniaf3.adapters import to_alphafold3
+def boltz_conf(uniaf3_conf: UniAF3Config):
+    from uniaf3.adapters import to_boltz
 
-    af3 = to_alphafold3(uniaf3_conf, name="test_job")
-    return af3
+    boltz = to_boltz(uniaf3_conf, msa_dir=Path.cwd(), strict=False)
+    return boltz
 
 
-class TestAF3Adapter:
-    """Test round-trip conversion through AlphaFold3."""
+class TestBoltzAdapter:
+    """Test round-trip conversion through Boltz."""
 
-    def test_uniaf3_to_af3(self, af3_conf: AF3Config, uniaf3_conf: UniAF3Config):
+    def test_unsupported_glycan(self, uniaf3_conf):
+        from uniaf3.adapters import to_boltz
 
-        assert af3_conf.name == "test_job"
-        assert af3_conf.modelSeeds == uniaf3_conf.seeds
-        assert len(af3_conf.sequences) == len(
-            uniaf3_conf.sequences
-        )  # protein, dna, 2 ligands, glycan
-
-    def test_uniaf3_to_af3_seqs(self, af3_conf: AF3Config, uniaf3_conf: UniAF3Config):
-        for af3_seq, uniaf3_seq in zip(
-            af3_conf.sequences, uniaf3_conf.sequences, strict=True
+        with pytest.raises(
+            ValueError, match="Glycans are not directly supported in Boltz"
         ):
-            # Get the non-None field
-            for s in (af3_seq.protein, af3_seq.dna, af3_seq.rna, af3_seq.ligand):
-                if s is not None:
-                    break
+            _ = to_boltz(uniaf3_conf, msa_dir=Path.cwd(), strict=True)
 
-            assert s.id == uniaf3_seq.id
-            if isinstance(uniaf3_seq, Polymer):
-                assert s.sequence == uniaf3_seq.sequence
-                if s.modifications is not None:
-                    for af3_mod, uni_mod in zip(
-                        s.modifications, uniaf3_seq.modifications, strict=True
-                    ):
-                        assert af3_mod.ptmType == uni_mod.ccd
-                        assert af3_mod.ptmPosition == uni_mod.position
+    def test_uniaf3_to_boltz(self, boltz_conf: BoltzConfig, uniaf3_conf: UniAF3Config):
 
-    def test_af3_to_uniaf3(self, af3_conf: AF3Config, uniaf3_conf: UniAF3Config):
-        from uniaf3.adapters import from_alphafold3
+        assert boltz_conf.version == 1
+        assert (
+            len(boltz_conf.sequences) == len(uniaf3_conf.sequences) - 1
+        )  # protein, dna, 2 ligands; 1 glycan dropped
 
-        uni = from_alphafold3(af3_conf)
-        assert uni.hash == uniaf3_conf.hash
+        assert boltz_conf.constraints is not None
+        assert uniaf3_conf.restraints is not None
+        assert len(boltz_conf.constraints) == len(uniaf3_conf.restraints)
+
+        assert boltz_conf.templates is None
+
+        assert boltz_conf.properties is not None
