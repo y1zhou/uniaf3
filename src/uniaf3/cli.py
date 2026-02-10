@@ -23,7 +23,7 @@ def callback():
 
 
 ##########################################
-# CLI Commands
+# Helper functions
 ##########################################
 class ConfigFormat(StrEnum):
     """Supported input config formats."""
@@ -38,6 +38,28 @@ class ConfigFormat(StrEnum):
     Chai1 = "chai"
     Protenix = "protenix"
     AlphaFold3Server = "alphafold3server"
+    AF3Server = "alphafold3server"
+
+
+def _get_format_to_config() -> dict[str, AnyConfig]:
+    """Lazily build format-to-config-class mapping."""
+    from uniaf3.schema import (
+        AF3Config,
+        AF3ServerConfig,
+        BoltzConfig,
+        ChaiConfig,
+        ProtenixConfig,
+        UniAF3Config,
+    )
+
+    return {
+        "uniaf3": UniAF3Config,
+        "alphafold3": AF3Config,
+        "alphafold3server": AF3ServerConfig,
+        "boltz": BoltzConfig,
+        "chai": ChaiConfig,
+        "protenix": ProtenixConfig,
+    }
 
 
 def _load_config(path: Path, fmt: str) -> AnyConfig:
@@ -54,34 +76,16 @@ def _load_config(path: Path, fmt: str) -> AnyConfig:
         ValueError: If the format is unknown.
 
     """
-    if fmt == "uniaf3":
-        from uniaf3.schema import UniAF3Config
-
-        return UniAF3Config.from_file(path)
-    elif fmt == "alphafold3":
-        from uniaf3.schema import AF3Config
-
-        return AF3Config.from_file(path)
-    elif fmt == "boltz":
-        from uniaf3.schema import BoltzConfig
-
-        return BoltzConfig.from_file(path)
-    elif fmt == "chai":
-        from uniaf3.schema import ChaiConfig
-
-        return ChaiConfig.from_file(path)
-    elif fmt == "protenix":
-        from uniaf3.schema import ProtenixConfig
-
-        return ProtenixConfig.from_file(path)
-    elif fmt == "alphafold3server":
-        from uniaf3.schema import AF3ServerConfig
-
-        return AF3ServerConfig.from_file(path)
-    else:
+    parser_map = _get_format_to_config()
+    parser = parser_map.get(fmt)
+    if parser is None:
         raise ValueError(f"Unknown format: {fmt}")
+    return parser.from_file(path)
 
 
+##########################################
+# CLI Commands
+##########################################
 @app.command(name="validate")
 def validate_config(
     input_config_file: Annotated[
@@ -103,10 +107,16 @@ def validate_config(
     ] = ConfigFormat.UniAF3,
 ) -> None:
     """Validate an input config file and print its contents."""
+    from pydantic import ValidationError
+
     try:
         conf = _load_config(input_config_file, format.value)
+
+    except ValidationError as exc:
+        console.print(f"[bold yellow]Validation error:[/bold yellow] {exc}")
+        raise typer.Exit(code=1) from exc
     except Exception as exc:
-        console.print(f"[bold red]Validation error:[/bold red] {exc}")
+        console.print(f"[bold red]Error loading config:[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
 
     if format.value == "uniaf3":
@@ -122,27 +132,6 @@ def validate_config(
 
     # Print the config in the appropriate format
     console.print(conf.model_dump())
-
-
-def _get_format_to_config():
-    """Lazily build format-to-config-class mapping."""
-    from uniaf3.schema import (
-        AF3Config,
-        AF3ServerConfig,
-        BoltzConfig,
-        ChaiConfig,
-        ProtenixConfig,
-        UniAF3Config,
-    )
-
-    return {
-        "uniaf3": UniAF3Config,
-        "alphafold3": AF3Config,
-        "alphafold3server": AF3ServerConfig,
-        "boltz": BoltzConfig,
-        "chai": ChaiConfig,
-        "protenix": ProtenixConfig,
-    }
 
 
 @app.command(name="convert")
@@ -182,10 +171,12 @@ def convert_config(
     try:
         src_conf = _load_config(input_config_file, from_format.value)
         uni_conf = to_uniaf3(src_conf)
-        fmt_map = _get_format_to_config()
-        dst_conf = from_uniaf3(
-            uni_conf, fmt_map[to_format.value], name=input_config_file.stem
-        )
+        parser_map = _get_format_to_config()
+        parser = parser_map.get(to_format.value)
+        if parser is None:
+            raise ValueError(f"Unknown output format: {to_format.value}")
+
+        dst_conf = from_uniaf3(uni_conf, parser, name=input_config_file.stem)
         write_config(dst_conf, output_config_file)
         console.print(
             f"[bold green]Converted {from_format.value} → {to_format.value}[/bold green]"

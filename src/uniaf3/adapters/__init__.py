@@ -7,10 +7,9 @@ Each model has a ``to_*`` and ``from_*`` function pair in its own module under
 
 from __future__ import annotations
 
-from uniaf3.adapters.alphafold3 import (
-    from_alphafold3,
+from uniaf3.adapters.alphafold3 import from_alphafold3, to_alphafold3
+from uniaf3.adapters.alphafold3_server import (
     from_alphafold3_server,
-    to_alphafold3,
     to_alphafold3_server,
 )
 from uniaf3.adapters.boltz import from_boltz, to_boltz

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from uniaf3.adapters._helpers import _ensure_list
-from uniaf3.schema import (
+from uniaf3.schema.base import (
     Atom,
     Glycan,
     Ligand,

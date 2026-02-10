@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from uniaf3.adapters._helpers import _KNOWN_ION_CCD_CODES, _ensure_list
-from uniaf3.schema import (
+from uniaf3.schema.base import (
     Atom,
     Glycan,
     Ligand,
