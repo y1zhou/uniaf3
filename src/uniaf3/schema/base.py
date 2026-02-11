@@ -288,13 +288,17 @@ class Restraint(BaseModel):
     boltz_binder_chain: str | None = None  # only used for pocket restraints
 
 
-class InferenceParams(BaseModel):
-    """Parameters used for inference that are not specific to any one model."""
+class AuxiliaryParams(BaseModel):
+    """Parameters used for inference or model-specific settings."""
 
     num_trunk_recycles: int = 3  # Boltz: recycling_steps
     num_diffn_timesteps: int = 200  # Boltz: sampling_steps
     num_diffn_samples: int = 5  # Boltz: diffusion_samples
     num_trunk_samples: int = 1  # >1 will add to seed and run multiple times in Chai-1
+
+    # Model-specific settings
+    name: str | None = None  # optional name for the config, used in AF3 server
+    boltz_affinity_binder_chain: str | None = None
 
 
 class UniAF3Config(UniAF3BaseConfig):
@@ -305,11 +309,8 @@ class UniAF3Config(UniAF3BaseConfig):
     restraints: list[Restraint] | None = None
     seeds: list[int]
 
-    # Inference parameters
-    inference_params: InferenceParams = InferenceParams()
-
-    # Model-specific settings
-    boltz_affinity_binder_chain: str | None = None
+    # Inference parameters and model-specific settings
+    aux: AuxiliaryParams = AuxiliaryParams()
 
     def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""

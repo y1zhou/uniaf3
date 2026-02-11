@@ -5,8 +5,8 @@ from __future__ import annotations
 from uniaf3.adapters._helpers import _ensure_list
 from uniaf3.schema.base import (
     Atom,
+    AuxiliaryParams,
     Glycan,
-    InferenceParams,
     Ligand,
     Polymer,
     PolymerType,
@@ -143,10 +143,10 @@ def to_chai(config: UniAF3Config) -> ChaiConfig:
     return ChaiConfig(
         entities=entities,
         restraints=restraints,
-        num_trunk_recycles=config.inference_params.num_trunk_recycles,
-        num_diffn_timesteps=config.inference_params.num_diffn_timesteps,
-        num_diffn_samples=config.inference_params.num_diffn_samples,
-        num_trunk_samples=config.inference_params.num_trunk_samples,
+        num_trunk_recycles=config.aux.num_trunk_recycles,
+        num_diffn_timesteps=config.aux.num_diffn_timesteps,
+        num_diffn_samples=config.aux.num_diffn_samples,
+        num_trunk_samples=config.aux.num_trunk_samples,
         seed=config.seeds[0] if config.seeds else None,
     )
 
@@ -262,7 +262,7 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
         sequences=sequences,
         restraints=restraints,
         seeds=seeds,
-        inference_params=InferenceParams(
+        aux=AuxiliaryParams(
             num_trunk_recycles=config.num_trunk_recycles,
             num_diffn_timesteps=config.num_diffn_timesteps,
             num_diffn_samples=config.num_diffn_samples,
