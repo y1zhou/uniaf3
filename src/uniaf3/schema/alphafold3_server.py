@@ -5,6 +5,7 @@ Reference:
     https://github.com/google-deepmind/alphafold3/blob/main/docs/input.md#alphafold-server-json-compatibility
 """
 
+from collections.abc import Iterable
 from datetime import date
 from typing import Literal
 
@@ -266,7 +267,7 @@ class AF3ServerConfig(RootModel, UniAF3BaseConfig):
 
     root: list[AF3ServerJob]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[AF3ServerJob]:
         """Iterate over jobs in the config."""
         return iter(self.root)
 

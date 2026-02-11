@@ -35,8 +35,8 @@ from uniaf3.schema.protenix import (
 )
 
 
-def to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixConfig:
-    """Convert a UniAF3Config to a Protenix config."""
+def _to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixJob:
+    """Convert a UniAF3Config to a Protenix job."""
     sequences: list[ProtenixSequenceEntry] = []
 
     # Build a chain-id → entity-index mapping for covalent bonds
@@ -215,24 +215,31 @@ def to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixConfi
                 pocket=pocket,
             )
 
-    job = ProtenixJob(
+    return ProtenixJob(
         name=name,
         sequences=sequences,
         covalent_bonds=covalent_bonds,
         constraint=constraint,
     )
-    return ProtenixConfig([job])
 
 
-def from_protenix(config: ProtenixConfig) -> UniAF3Config:
-    """Convert a Protenix config to a UniAF3Config.
+def to_protenix(config: list[UniAF3Config], name: str = "uniaf3_job") -> ProtenixConfig:
+    """Convert a list of UniAF3Config to a Protenix config."""
+    if isinstance(config, UniAF3Config):
+        # Allow passing a single UniAF3Config for convenience
+        config = [config]
 
-    Only the first job is converted when multiple jobs are present.
-    """
-    if len(config) == 0:
-        raise ValueError("ProtenixConfig must have at least one job.")
+    if len(config) == 1:
+        names = [name]
+    else:
+        names = [f"{name}_{i}" for i in range(1, len(config) + 1)]
+    return ProtenixConfig(
+        [_to_protenix(c, name=names[i]) for i, c in enumerate(config)]
+    )
 
-    job = config[0]
+
+def _from_protenix(job: ProtenixJob) -> UniAF3Config:
+    """Convert a Protenix job to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
 
     # NOTE: Protenix does not support assigning chain IDs to input entities.
@@ -428,3 +435,11 @@ def from_protenix(config: ProtenixConfig) -> UniAF3Config:
         restraints=restraints,
         seeds=[42],  # NOTE: Protenix config does not include seeds
     )
+
+
+def from_protenix(config: ProtenixConfig) -> list[UniAF3Config]:
+    """Convert a Protenix config to a list of UniAF3Config."""
+    if len(config) == 0:
+        raise ValueError("ProtenixConfig must have at least one job.")
+
+    return [_from_protenix(job) for job in config]

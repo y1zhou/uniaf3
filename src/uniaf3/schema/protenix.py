@@ -6,6 +6,8 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -204,7 +206,7 @@ class ProtenixConfig(RootModel, UniAF3BaseConfig):
 
     root: list[ProtenixJob]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[ProtenixJob]:
         """Iterate over jobs in the config."""
         return iter(self.root)
 

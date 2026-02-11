@@ -31,17 +31,17 @@ from uniaf3.schema.base import (
 )
 
 
-def to_alphafold3_server(
+def _to_alphafold3_server(
     config: UniAF3Config, name: str = "uniaf3_job", strict: bool = True
-) -> AF3ServerConfig:
-    """Convert a UniAF3Config to an AlphaFold3 Server config.
+) -> AF3ServerJob:
+    """Convert a UniAF3Config to an AlphaFold3 Server job.
 
     The server config is simpler — no MSA, no templates, no userCCD.
     Ions (detected from known CCD codes) get their own entity type.
 
     Args:
         config: UniAF3Config pydantic object.
-        name: Job name for the AF3 Server config.
+        name: Job name for the AF3 Server job.
         strict: If True, raise errors when encountering unsupported features.
 
     """
@@ -136,30 +136,38 @@ def to_alphafold3_server(
                 )
 
     # NOTE: AF3 Server does not support restraints/bonded atom pairs.
-    job = AF3ServerJob(
-        name=name,
-        modelSeeds=config.seeds,
-        sequences=sequences,
-    )
-    return AF3ServerConfig([job])
+    return AF3ServerJob(name=name, modelSeeds=config.seeds, sequences=sequences)
 
 
-def from_alphafold3_server(config: AF3ServerConfig) -> UniAF3Config:
-    """Convert an AlphaFold3 Server config to a UniAF3Config.
-
-    Only the first job is converted when multiple jobs are present.
+def to_alphafold3_server(
+    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = True
+) -> AF3ServerConfig:
+    """Convert a list of UniAF3Config to an AlphaFold3 Server config.
 
     Args:
-        config: AF3ServerConfig pydantic object.
-
-    Returns:
-        A UniAF3Config.
+        config: A list of UniAF3Config pydantic objects.
+        name: Job name for the AF3 Server config.
+        strict: If True, raise errors when encountering unsupported features.
 
     """
-    if len(config) == 0:
-        raise ValueError("AF3ServerConfig must have at least one job.")
+    if isinstance(config, UniAF3Config):
+        # Allow passing a single config for convenience
+        config = [config]
 
-    job = config[0]
+    if len(config) == 1:
+        names = [name]
+    else:
+        names = [f"{name}_{i}" for i in range(1, len(config) + 1)]
+    return AF3ServerConfig(
+        [
+            _to_alphafold3_server(c, name=names[i], strict=strict)
+            for i, c in enumerate(config)
+        ]
+    )
+
+
+def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
+    """Convert a single AF3ServerJob to UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
 
     # NOTE: AF3 Server uses count-based copies, not chain IDs.
@@ -258,3 +266,19 @@ def from_alphafold3_server(config: AF3ServerConfig) -> UniAF3Config:
         sequences=sequences,
         seeds=job.modelSeeds if job.modelSeeds else [42],
     )
+
+
+def from_alphafold3_server(config: AF3ServerConfig) -> list[UniAF3Config]:
+    """Convert an AlphaFold3 Server config to a list of UniAF3Config.
+
+    Args:
+        config: AF3ServerConfig pydantic object.
+
+    Returns:
+        A list of UniAF3Config.
+
+    """
+    if len(config) == 0:
+        raise ValueError("AF3ServerConfig must have at least one job.")
+
+    return [_from_alphafold3_server(job) for job in config]
