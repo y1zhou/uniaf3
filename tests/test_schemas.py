@@ -1,7 +1,5 @@
 """Tests for model-specific schema validation."""
 
-from pathlib import Path
-
 import orjson
 import pytest
 import yaml
@@ -14,18 +12,11 @@ from uniaf3.schema import (
     UniAF3Config,
 )
 
-FIXTURES = Path(__file__).parent / "fixtures"
 
-
+# ruff: noqa: S101
 # ============================================================
 # AlphaFold3 schema
 # ============================================================
-@pytest.fixture(scope="class", autouse=True)
-def af3_conf():
-    data = orjson.loads((FIXTURES / "alphafold3_example.json").read_bytes())
-    return AF3Config.model_validate(data)
-
-
 class TestAF3Schema:
     """Validate AF3Config against example input."""
 
@@ -116,21 +107,10 @@ class TestAF3Schema:
 # ============================================================
 # AlphaFold3 Server schema
 # ============================================================
-@pytest.fixture(scope="class", autouse=True)
-def af3_server_confs():
-    data = orjson.loads((FIXTURES / "alphafold3_server_example.json").read_bytes())
-    return AF3ServerConfig.model_validate(data)
-
-
 class TestAF3ServerSchema:
     """Validate AF3ServerConfig against example input."""
 
     def test_load_data(self, af3_server_confs: AF3ServerConfig):
-        self.data = orjson.loads(
-            (FIXTURES / "alphafold3_server_example.json").read_bytes()
-        )
-        self.confs = AF3ServerConfig.model_validate(self.data)
-
         assert len(af3_server_confs) == 2
         conf = af3_server_confs[0]
         assert conf.name == "Test Fold Job"
@@ -158,14 +138,6 @@ class TestAF3ServerSchema:
 # ============================================================
 # Boltz schema
 # ============================================================
-@pytest.fixture(scope="class", autouse=True)
-def boltz_conf():
-    with open(FIXTURES / "boltz_example.yaml") as f:
-        data = yaml.safe_load(f)
-    conf = BoltzConfig.model_validate(data)
-    return conf
-
-
 class TestBoltzSchema:
     """Validate BoltzConfig against example input."""
 
@@ -216,13 +188,6 @@ class TestChaiSchema:
 # ============================================================
 # Protenix schema
 # ============================================================
-@pytest.fixture(scope="class", autouse=True)
-def protenix_confs():
-    data = orjson.loads((FIXTURES / "protenix_example.json").read_bytes())
-    confs = ProtenixConfig.model_validate(data)
-    return confs
-
-
 class TestProtenixSchema:
     """Validate ProtenixConfig against example input."""
 
@@ -275,14 +240,6 @@ class TestProtenixSchema:
 # ============================================================
 # UniAF3 schema
 # ============================================================
-@pytest.fixture(scope="class", autouse=True)
-def uniaf3_conf():
-    with open(FIXTURES / "uniaf3_example.yaml") as f:
-        data = yaml.safe_load(f)
-    conf = UniAF3Config.model_validate(data)
-    return conf
-
-
 class TestUniAF3Schema:
     """Validate UniAF3Config against example input."""
 
