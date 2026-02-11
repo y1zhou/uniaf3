@@ -140,7 +140,7 @@ def test_seeds_from_job(af3s_uni: list[UniAF3Config]):
 
 
 ##########################################
-# UniAF3Config -> AF3ServerConfig -> UniAF3Config
+# AF3ServerConfig -> UniAF3Config -> AF3ServerConfig
 ##########################################
 def test_roundtrip_nums(af3s_rt: AF3ServerConfig, af3_server_confs: AF3ServerConfig):
     assert len(af3s_rt) == len(af3_server_confs) == 2

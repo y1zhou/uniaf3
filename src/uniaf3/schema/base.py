@@ -245,7 +245,10 @@ class Ligand(BaseModel):
 
 
 class Glycan(BaseModel):
-    """Schema for individual glycans."""
+    """Schema for individual glycans.
+
+    <https://github.com/chaidiscovery/chai-lab/blob/main/examples/covalent_bonds/README.md>
+    """
 
     id: str | list[str]  # chain ID(s)
     chai_str: str  # glycan string in Chai notation (modified CCD codes)
@@ -280,7 +283,9 @@ class Restraint(BaseModel):
     restraint_type: RestraintType
     atom1: Atom
     atom2: Atom
-    max_distance: float  # maximum distance (Angstroms); ignored for covalent bonds
+    max_distance: float = (
+        6.0  # maximum distance (Angstroms); ignored for covalent bonds
+    )
     description: str | None = None  # comment describing the restraint
 
     # Boltz specific fields
