@@ -68,6 +68,18 @@ class AF3ServerProtein(BaseModel):
                 raise ValueError("maxTemplateDate cannot be later than 2025-02-03.")
         return self
 
+    @model_validator(mode="after")
+    def check_modification_in_range(self):
+        """Ensure all modifications are within the sequence length."""
+        if self.modifications is not None:
+            seq_len = len(self.sequence)
+            for mod in self.modifications:
+                if mod.ptmPosition > seq_len:
+                    raise ValueError(
+                        f"Modification position {mod.ptmPosition} exceeds sequence length {seq_len}."
+                    )
+        return self
+
 
 class AF3ServerRNAModification(BaseModel):
     """AlphaFold3 Server RNA chemical modifications."""
@@ -94,6 +106,18 @@ class AF3ServerRNA(BaseModel):
     modifications: list[AF3ServerRNAModification] | None = None
     count: PositiveInt = 1
 
+    @model_validator(mode="after")
+    def check_modification_in_range(self):
+        """Ensure all modifications are within the sequence length."""
+        if self.modifications is not None:
+            seq_len = len(self.sequence)
+            for mod in self.modifications:
+                if mod.basePosition > seq_len:
+                    raise ValueError(
+                        f"Modification position {mod.basePosition} exceeds sequence length {seq_len}."
+                    )
+        return self
+
 
 class AF3ServerDNAModification(BaseModel):
     """AlphaFold3 Server DNA chemical modifications."""
@@ -119,6 +143,18 @@ class AF3ServerDNA(BaseModel):
     sequence: str  # Only A,T,G,C allowed
     modifications: list[AF3ServerDNAModification] | None = None
     count: PositiveInt = 1
+
+    @model_validator(mode="after")
+    def check_modification_in_range(self):
+        """Ensure all modifications are within the sequence length."""
+        if self.modifications is not None:
+            seq_len = len(self.sequence)
+            for mod in self.modifications:
+                if mod.basePosition > seq_len:
+                    raise ValueError(
+                        f"Modification position {mod.basePosition} exceeds sequence length {seq_len}."
+                    )
+        return self
 
 
 class AF3ServerLigand(BaseModel):
