@@ -7,6 +7,7 @@ Reference:
 from __future__ import annotations
 
 from collections.abc import Iterable
+from pathlib import Path
 
 from pydantic import (
     BaseModel,
@@ -36,8 +37,8 @@ class ProtenixProteinChain(BaseModel):
     sequence: str
     count: PositiveInt = 1
     modifications: list[ProtenixProteinModification] | None = None
-    pairedMsaPath: str | None = None
     unpairedMsaPath: str | None = None
+    pairedMsaPath: str | None = None
     templatesPath: str | None = None
 
 
@@ -122,33 +123,62 @@ class ProtenixSequenceEntry(BaseModel):
 # Covalent bonds
 ##########################################
 class ProtenixCovalentBond(BaseModel):
-    """Covalent bond between two atoms from different entities."""
+    """Covalent bond between two atoms from different entities.
 
-    entity1: str  # 1-based entity number (as string)
-    position1: str  # 1-based residue/ligand-part position (as string)
-    atom1: str  # atom name or atom index
-    entity2: str
-    position2: str
-    atom2: str
+    The entity number corresponds to the order in which the entity appears in the
+    sequences list.
+
+    The copy index must be both specified or both None. When both are empty, bonds will
+    be created between all pairs of copies for the two entities, e.g. for two entities
+    with two coplies, two bonds will be created between copy1=1 and copy2=1, and between
+    copy1=2 and copy2=2. In this case the two entities must have the same number of
+    copies.
+
+    The position value varies based on the entity type: for polymers it is the residue
+    position, for ligands composed of multiple CCD codes, it is the serial number of the
+    ligand part. For ligands with a single CCD code, it should always be 1.
+
+    The atom value should be the atom name for polymers and CCD ligands, and the
+    atom index for SMILES ligands.
+    """
+
+    entity1: PositiveInt  # 1-based entity number
     copy1: PositiveInt | None = None  # optional copy index (1-based)
+    position1: PositiveInt  # 1-based residue/ligand-part position
+    atom1: str  # atom name or atom index
+    entity2: PositiveInt
     copy2: PositiveInt | None = None
+    position2: PositiveInt
+    atom2: str
+
+    @model_validator(mode="after")
+    def check_copy_indices(self):
+        """Ensure copy indices are both specified or both None."""
+        if (self.copy1 is None) != (self.copy2 is None):
+            raise ValueError("copy1 and copy2 must be both specified or both None.")
+        return self
 
 
 ##########################################
 # Constraints
 ##########################################
 class ProtenixContactConstraint(BaseModel):
-    """Contact constraint between two residues or atoms."""
+    """Contact constraint between two residues or atoms.
 
-    entity1: int
-    copy1: int
-    position1: int
+    Unlike covalent bonds, the copy indices must be specified, and the atom fields are
+    optional. If atoms are omitted, the distance constraint is applied at the token
+    granularity by default, specifically the central atom of the token.
+    """
+
+    entity1: PositiveInt  # 1-based entity number
+    copy1: PositiveInt  # 1-based copy index
+    position1: PositiveInt  # 1-based residue/ligand-part position
     atom1: str | None = None
-    entity2: int
-    copy2: int
-    position2: int
+    entity2: PositiveInt
+    copy2: PositiveInt
+    position2: PositiveInt
     atom2: str | None = None
-    max_distance: float
+    max_distance: float = 6.0
     min_distance: float = 0.0
 
 
@@ -157,8 +187,8 @@ class ProtenixPocketBinderChain(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    entity: int
-    copy_idx: int = Field(alias="copy")  # 1-based copy index
+    entity: PositiveInt
+    copy_idx: PositiveInt = Field(alias="copy")  # 1-based copy index
 
 
 class ProtenixPocketContactResidue(BaseModel):
@@ -166,9 +196,9 @@ class ProtenixPocketContactResidue(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    entity: int
-    copy_idx: int = Field(alias="copy")  # 1-based copy index
-    position: int
+    entity: PositiveInt
+    copy_idx: PositiveInt = Field(alias="copy")  # 1-based copy index
+    position: PositiveInt
 
 
 class ProtenixPocketConstraint(BaseModel):
@@ -176,7 +206,7 @@ class ProtenixPocketConstraint(BaseModel):
 
     binder_chain: ProtenixPocketBinderChain
     contact_residues: list[ProtenixPocketContactResidue]
-    max_distance: float
+    max_distance: float = 6.0
 
 
 class ProtenixConstraint(BaseModel):
@@ -221,3 +251,10 @@ class ProtenixConfig(RootModel, UniAF3BaseConfig):
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation of the config."""
         return self.to_json(**kwargs)
+
+    def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
+        """Dump the config to a JSON file in the specified output directory."""
+        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(self.to_str(**kwargs))
