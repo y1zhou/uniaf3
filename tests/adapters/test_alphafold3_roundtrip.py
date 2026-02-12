@@ -178,19 +178,23 @@ def test_roundtrip_seeds(af3_rt: AF3Config, af3_conf: AF3Config):
 
 
 def test_roundtrip_protein_sequence(af3_rt: AF3Config, af3_conf: AF3Config):
-    src = af3_conf.sequences[0].protein
-    assert src is not None
-    prot = af3_rt.sequences[0].protein
-    assert prot is not None
+    for src, prot in zip(af3_conf.sequences, af3_rt.sequences, strict=True):
+        if src.protein is not None:
+            assert src.protein == prot.protein
 
-    assert prot.sequence == src.sequence
-    assert prot.id == src.id
 
-    assert prot.modifications is not None
-    assert src.modifications is not None
-    for rt_mod, src_mod in zip(prot.modifications, src.modifications, strict=True):
-        assert rt_mod.ptmType == src_mod.ptmType
-        assert rt_mod.ptmPosition == src_mod.ptmPosition
+def test_roundtrip_polymer(af3_rt: AF3Config, af3_conf: AF3Config):
+    for src, dna in zip(af3_conf.sequences, af3_rt.sequences, strict=True):
+        if src.dna is not None:
+            assert src.dna == dna.dna
+        elif src.rna is not None:
+            assert src.rna == dna.rna
+
+
+def test_roundtrip_ligand(af3_rt: AF3Config, af3_conf: AF3Config):
+    for src, lig in zip(af3_conf.sequences, af3_rt.sequences, strict=True):
+        if src.ligand is not None:
+            assert src.ligand == lig.ligand
 
 
 def test_roundtrip_covalent_bond(af3_rt: AF3Config, af3_conf: AF3Config):

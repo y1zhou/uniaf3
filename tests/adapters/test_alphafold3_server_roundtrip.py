@@ -150,14 +150,32 @@ def test_roundtrip_nums(af3s_rt: AF3ServerConfig, af3_server_confs: AF3ServerCon
 def test_roundtrip_protein_sequence(
     af3s_rt: AF3ServerConfig, af3_server_confs: AF3ServerConfig
 ):
-    src = af3_server_confs[0].sequences[0].proteinChain
-    assert src is not None
-    prot = af3s_rt[0].sequences[0].proteinChain
-    assert prot is not None
-    assert prot == src
+    for src, prot in zip(
+        af3_server_confs[0].sequences, af3s_rt[0].sequences, strict=True
+    ):
+        if src.proteinChain is not None:
+            assert prot.proteinChain == src.proteinChain
 
-    assert src.modifications is not None
-    assert prot.modifications is not None
-    for mod_rt, mod_src in zip(prot.modifications, src.modifications, strict=True):
-        assert mod_rt.ptmType == mod_src.ptmType
-        assert mod_rt.ptmPosition == mod_src.ptmPosition
+
+def test_roundtrip_polymer_sequence(
+    af3s_rt: AF3ServerConfig, af3_server_confs: AF3ServerConfig
+):
+    for src, prot in zip(
+        af3_server_confs[0].sequences, af3s_rt[0].sequences, strict=True
+    ):
+        if src.dnaSequence is not None:
+            assert prot.dnaSequence == src.dnaSequence
+        elif src.rnaSequence is not None:
+            assert prot.rnaSequence == src.rnaSequence
+
+
+def test_roundtrip_ligand_and_ion(
+    af3s_rt: AF3ServerConfig, af3_server_confs: AF3ServerConfig
+):
+    for src, prot in zip(
+        af3_server_confs[0].sequences, af3s_rt[0].sequences, strict=True
+    ):
+        if src.ligand is not None:
+            assert prot.ligand == src.ligand
+        elif src.ion is not None:
+            assert prot.ion == src.ion

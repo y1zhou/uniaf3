@@ -3,7 +3,7 @@
 import pytest
 
 from uniaf3.schema import ProtenixConfig, UniAF3Config
-from uniaf3.schema.base import Ligand, Polymer, PolymerType, ProteinSeq, RestraintType
+from uniaf3.schema.base import Ligand, Polymer, PolymerType, ProteinSeq
 
 
 @pytest.fixture(scope="module")
@@ -105,11 +105,10 @@ def test_smiles_ligand(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConf
 def test_covalent_bond_restraint(
     ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig
 ):
-    assert ptx_uni[0].restraints is not None
-    bonds = [
-        r for r in ptx_uni[0].restraints if r.restraint_type == RestraintType.Covalent
-    ]
+    bonds = ptx_uni[0].covalent_bonds
+    assert bonds is not None
     assert len(bonds) == 1
+    assert protenix_confs[0].covalent_bonds is not None
     src = protenix_confs[0].covalent_bonds[0]
     bond = bonds[0]
     assert bond.atom1.atom_name == src.atom1
@@ -119,21 +118,23 @@ def test_covalent_bond_restraint(
 
 
 def test_contact_restraint(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig):
-    assert ptx_uni[0].restraints is not None
-    contacts = [
-        r for r in ptx_uni[0].restraints if r.restraint_type == RestraintType.Contact
-    ]
+    contacts = ptx_uni[0].contact_restraints
+    assert contacts is not None
     assert len(contacts) == 1
     src = protenix_confs[0].constraint.contact[0]
     ct = contacts[0]
     assert ct.max_distance == src.max_distance
+    assert ct.token1.chain_id == "A"
+    assert ct.token1.residue_idx == src.position1
+    assert ct.token1.atom_name == src.atom1
+    assert ct.token2.chain_id == "B"
+    assert ct.token2.residue_idx == src.position2
+    assert ct.token2.atom_name is None
 
 
 def test_pocket_restraint(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig):
-    assert ptx_uni[0].restraints is not None
-    pockets = [
-        r for r in ptx_uni[0].restraints if r.restraint_type == RestraintType.Pocket
-    ]
+    pockets = ptx_uni[0].pocket_restraints
+    assert pockets is not None
     assert len(pockets) == 1
     src = protenix_confs[0].constraint.pocket
     pk = pockets[0]
@@ -156,50 +157,45 @@ def test_roundtrip_sequence_count(
     assert len(ptx_rt[0].sequences) == len(protenix_confs[0].sequences) == 6
 
 
-def test_roundtrip_protein_sequence(
+def test_roundtrip_protein(ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig):
+    for rt_conf, src_conf in zip(ptx_rt, protenix_confs, strict=True):
+        for src, prot in zip(src_conf.sequences, rt_conf.sequences, strict=True):
+            if src.proteinChain is not None:
+                assert prot.proteinChain == src.proteinChain
+
+
+def test_roundtrip_polymer(ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig):
+    for rt_conf, src_conf in zip(ptx_rt, protenix_confs, strict=True):
+        for src, dna in zip(src_conf.sequences, rt_conf.sequences, strict=True):
+            if src.dnaSequence is not None:
+                assert dna.dnaSequence == src.dnaSequence
+            elif src.rnaSequence is not None:
+                assert dna.rnaSequence == src.rnaSequence
+
+
+def test_roundtrip_ligand_and_ion(
     ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig
 ):
-    src = protenix_confs[0].sequences[0].proteinChain
-    assert src is not None
-    prot = ptx_rt[0].sequences[0].proteinChain
-    assert prot is not None
-    assert prot == src
-
-
-def test_roundtrip_ligand_ccd(ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig):
-    src = protenix_confs[0].sequences[3].ligand
-    assert src is not None
-    lig = ptx_rt[0].sequences[3].ligand
-    assert lig is not None
-    assert lig == src
+    for rt_conf, src_conf in zip(ptx_rt, protenix_confs, strict=True):
+        for src, lig in zip(src_conf.sequences, rt_conf.sequences, strict=True):
+            if src.ligand is not None:
+                assert lig.ligand == src.ligand
+            elif src.ion is not None:
+                assert lig.ion == src.ion
 
 
 def test_roundtrip_covalent_bond(
     ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig
 ):
-    src_bonds = protenix_confs[0].covalent_bonds
-    assert src_bonds is not None
-    rt_bonds = ptx_rt[0].covalent_bonds
-    assert rt_bonds is not None
-
-    assert rt_bonds == src_bonds
-
-
-def test_roundtrip_contact_constraint(
-    ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig
-):
-    src = protenix_confs[0].constraint.contact
-    assert src is not None
-    ct = ptx_rt[0].constraint.contact
-    assert ct is not None
-    assert ct == src
+    for rt_conf, src_conf in zip(ptx_rt, protenix_confs, strict=True):
+        for rt_bond, src_bond in zip(
+            rt_conf.covalent_bonds or [], src_conf.covalent_bonds or [], strict=True
+        ):
+            assert rt_bond == src_bond
 
 
-def test_roundtrip_pocket_restraint(
-    ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig
-):
-    src = protenix_confs[0].constraint.pocket
-    assert src is not None
-    pk = ptx_rt[0].constraint.pocket
-    assert pk is not None
-    assert pk == src
+def test_roundtrip_restraints(ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig):
+    for rt_conf, src_conf in zip(ptx_rt, protenix_confs, strict=True):
+        if src_conf.constraint is None:
+            assert rt_conf.constraint.pocket == rt_conf.constraint.pocket
+            assert rt_conf.constraint.contact == rt_conf.constraint.contact

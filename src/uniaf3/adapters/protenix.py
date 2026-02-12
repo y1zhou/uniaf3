@@ -357,10 +357,19 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
         try:
             e1_chains = entity_to_chains[bond.entity1]
             e2_chains = entity_to_chains[bond.entity2]
+
+            if bond.copy1 is not None and bond.copy2 is not None:
+                e1_chains = [e1_chains[bond.copy1 - 1]]
+                e2_chains = [e2_chains[bond.copy2 - 1]]
         except KeyError as e:
             raise KeyError(
                 f"Chain ID corresponding to entity not found for covalent bond: {bond}"
             ) from e
+        except IndexError as e:
+            raise IndexError(
+                f"Copy index out of range for covalent bond: {bond}"
+            ) from e
+
         for e1_chain, e2_chain in zip(e1_chains, e2_chains, strict=True):
             covalent_bonds.append(
                 CovalentBond(
@@ -387,30 +396,37 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             try:
                 e1_chains = entity_to_chains[ct.entity1]
                 e2_chains = entity_to_chains[ct.entity2]
+
+                e1_chain = e1_chains[ct.copy1 - 1]
+                e2_chain = e2_chains[ct.copy2 - 1]
             except KeyError as e:
                 raise KeyError(
                     f"Chain ID corresponding to entity not found for contact constraint: {ct}"
                 ) from e
-            for e1_chain, e2_chain in zip(e1_chains, e2_chains, strict=True):
-                contact_rsts.append(
-                    # Protenix can omit the atom_name field
-                    ContactRestraint(
-                        token1=Atom(
-                            chain_id=e1_chain,
-                            residue_idx=ct.position1,
-                            atom_name=ct.atom1 or "",
-                            residue_name=None,
-                        ),
-                        token2=Atom(
-                            chain_id=e2_chain,
-                            residue_idx=ct.position2,
-                            atom_name=ct.atom2 or "",
-                            residue_name=None,
-                        ),
-                        max_distance=ct.max_distance,
-                        min_distance=ct.min_distance,
-                    )
+            except IndexError as e:
+                raise IndexError(
+                    f"Copy index out of range for contact constraint: {ct}"
+                ) from e
+
+            contact_rsts.append(
+                # Protenix can omit the atom_name field
+                ContactRestraint(
+                    token1=Atom(
+                        chain_id=e1_chain,
+                        residue_idx=ct.position1,
+                        atom_name=ct.atom1 or "",
+                        residue_name=None,
+                    ),
+                    token2=Atom(
+                        chain_id=e2_chain,
+                        residue_idx=ct.position2,
+                        atom_name=ct.atom2 or "",
+                        residue_name=None,
+                    ),
+                    max_distance=ct.max_distance,
+                    min_distance=ct.min_distance,
                 )
+            )
         if (pct := job.constraint.pocket) is not None:
             try:
                 binder_chain = entity_to_chains[pct.binder_chain.entity][

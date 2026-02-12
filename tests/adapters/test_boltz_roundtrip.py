@@ -132,41 +132,23 @@ def test_roundtrip_sequences(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
 
 
 def test_roundtrip_protein_sequence(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
-    src = boltz_conf.sequences[0].protein
-    assert src is not None
-    prot = boltz_rt.sequences[0].protein
-    assert prot is not None
-    assert prot.sequence == src.sequence
-    assert prot.id == src.id
-
-    assert prot.modifications is not None
-    assert src.modifications is not None
-
-    for mod, src_mod in zip(prot.modifications, src.modifications, strict=True):
-        assert mod.ccd == src_mod.ccd
-        assert mod.position == src_mod.position
+    for src, prot in zip(boltz_conf.sequences, boltz_rt.sequences, strict=True):
+        if src.protein is not None:
+            assert src.protein == prot.protein
 
 
-def test_roundtrip_protein_templates(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
-    src = boltz_conf.templates
-    assert src is not None
-    prot = boltz_rt.templates
-    assert prot is not None
-
-    assert len(prot) == len(src) == 1
-    assert prot[0] == src[0]
+def test_roundtrip_polymer(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
+    for src, dna in zip(boltz_conf.sequences, boltz_rt.sequences, strict=True):
+        if src.dna is not None:
+            assert src.dna == dna.dna
+        elif src.rna is not None:
+            assert src.rna == dna.rna
 
 
 def test_roundtrip_ligand(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
-    src = boltz_conf.sequences[1].ligand
-    ligand = boltz_rt.sequences[1].ligand
-
-    assert src is not None
-    assert ligand is not None
-
-    assert ligand.smiles == src.smiles
-    assert ligand.id == src.id
-    assert ligand.ccd == src.ccd
+    for src, lig in zip(boltz_conf.sequences, boltz_rt.sequences, strict=True):
+        if src.ligand is not None:
+            assert src.ligand == lig.ligand
 
 
 def test_roundtrip_restraints(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
@@ -177,15 +159,18 @@ def test_roundtrip_restraints(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
         boltz_rt.constraints, boltz_conf.constraints, strict=True
     ):
         if boltz_cst.bond is not None:
-            assert rt_cst.bond.atom1 == boltz_cst.bond.atom1
-            assert rt_cst.bond.atom2 == boltz_cst.bond.atom2
+            assert rt_cst.bond == boltz_cst.bond
         elif boltz_cst.contact is not None:
-            assert rt_cst.contact.token1 == boltz_cst.contact.token1
-            assert rt_cst.contact.token2 == boltz_cst.contact.token2
-            assert rt_cst.contact.max_distance == boltz_cst.contact.max_distance
-            assert rt_cst.contact.force == boltz_cst.contact.force
+            assert rt_cst.contact == boltz_cst.contact
         elif boltz_cst.pocket is not None:
-            assert rt_cst.pocket.binder == boltz_cst.pocket.binder
-            assert rt_cst.pocket.contacts == boltz_cst.pocket.contacts
-            assert rt_cst.pocket.max_distance == boltz_cst.pocket.max_distance
-            assert rt_cst.pocket.force == boltz_cst.pocket.force
+            assert rt_cst.pocket == boltz_cst.pocket
+
+
+def test_roundtrip_protein_templates(boltz_rt: BoltzConfig, boltz_conf: BoltzConfig):
+    src = boltz_conf.templates
+    assert src is not None
+    prot = boltz_rt.templates
+    assert prot is not None
+
+    assert len(prot) == len(src) == 1
+    assert prot[0] == src[0]
