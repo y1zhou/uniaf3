@@ -51,7 +51,10 @@ class UniAF3BaseConfig(BaseModel):
                 kwargs[default_arg] = True
 
         return yaml.safe_dump(
-            self.model_dump(**kwargs), sort_keys=False, default_flow_style=None
+            self.model_dump(**kwargs),
+            sort_keys=False,
+            default_flow_style=None,
+            width=80,
         )
 
     def to_json(self, **kwargs) -> str:
@@ -76,6 +79,21 @@ class UniAF3BaseConfig(BaseModel):
         own version of this method.
         """
         raise NotImplementedError("to_str method must be implemented by subclasses.")
+
+    def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
+        """Dump the config to a series of files in the specified output directory.
+
+        Different models expect different input formats, so each should implement its
+        own version of this method.
+
+        Args:
+            output_dir: Directory to write the config file(s) to.
+            prefix: Prefix for the output filename(s).
+            **kwargs: Extra keyword arguments forwarded to the model-specific file
+                writing method.
+
+        """
+        raise NotImplementedError("to_file method must be implemented by subclasses.")
 
     @classmethod
     def from_file(cls: type[T], conf_file: str | Path) -> T:
@@ -320,6 +338,13 @@ class UniAF3Config(UniAF3BaseConfig):
     def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""
         return self.to_yaml(include={"sequences", "restraints"})
+
+    def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
+        """Dump the config to a YAML file in the specified output directory."""
+        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.yaml"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(self.to_yaml(**kwargs))
 
     @computed_field
     @property
