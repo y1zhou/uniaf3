@@ -16,6 +16,7 @@ from pydantic import (
     NonNegativeFloat,
     PositiveInt,
     RootModel,
+    computed_field,
     model_validator,
 )
 
@@ -42,6 +43,17 @@ class ProtenixProteinChain(BaseModel):
     pairedMsaPath: str | None = None
     templatesPath: str | None = None  # .a3m and .hhr supported
 
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure all modification positions are within the sequence length."""
+        seq_len = len(self.sequence)
+        for mod in self.modifications or []:
+            if not (1 <= mod.ptmPosition <= seq_len):
+                raise ValueError(
+                    f"Modification position {mod.ptmPosition} out of range for sequence of length {seq_len}."
+                )
+        return self
+
 
 class ProtenixNucleotideModification(BaseModel):
     """Chemical modification for DNA/RNA bases."""
@@ -57,6 +69,17 @@ class ProtenixDNASequence(BaseModel):
     count: PositiveInt = 1
     modifications: list[ProtenixNucleotideModification] | None = None
 
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure all modification positions are within the sequence length."""
+        seq_len = len(self.sequence)
+        for mod in self.modifications or []:
+            if not (1 <= mod.basePosition <= seq_len):
+                raise ValueError(
+                    f"Modification position {mod.basePosition} out of range for sequence of length {seq_len}."
+                )
+        return self
+
 
 class ProtenixRNASequence(BaseModel):
     """Protenix RNA single-strand specification."""
@@ -65,6 +88,17 @@ class ProtenixRNASequence(BaseModel):
     count: PositiveInt = 1
     modifications: list[ProtenixNucleotideModification] | None = None
     unpairedMsaPath: str | None = None
+
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure all modification positions are within the sequence length."""
+        seq_len = len(self.sequence)
+        for mod in self.modifications or []:
+            if not (1 <= mod.basePosition <= seq_len):
+                raise ValueError(
+                    f"Modification position {mod.basePosition} out of range for sequence of length {seq_len}."
+                )
+        return self
 
 
 class ProtenixLigand(BaseModel):
@@ -78,6 +112,16 @@ class ProtenixLigand(BaseModel):
 
     ligand: str
     count: PositiveInt = 1
+
+    @computed_field
+    def ligand_type(self) -> str:
+        """Determine the ligand type based on the ligand string."""
+        if self.ligand.startswith("CCD_"):
+            return "CCD"
+        elif self.ligand.startswith("FILE_"):
+            return "FILE"
+        else:
+            return "SMILES"
 
 
 class ProtenixIon(BaseModel):
@@ -227,6 +271,73 @@ class ProtenixJob(BaseModel):
     sequences: list[ProtenixSequenceEntry]
     covalent_bonds: list[ProtenixCovalentBond] | None = None
     constraint: ProtenixConstraint | None = None
+
+    @model_validator(mode="after")
+    def check_bonds_in_range(self):
+        """Ensure all covalent bond positions are within the sequence length."""
+        entity_lengths: dict[tuple[int, int], int] = {}
+        for entity_id, entry in enumerate(self.sequences, start=1):
+            if entry.proteinChain is not None:
+                for copy_idx in range(1, entry.proteinChain.count + 1):
+                    entity_lengths[(entity_id, copy_idx)] = len(
+                        entry.proteinChain.sequence
+                    )
+            elif entry.dnaSequence is not None:
+                for copy_idx in range(1, entry.dnaSequence.count + 1):
+                    entity_lengths[(entity_id, copy_idx)] = len(
+                        entry.dnaSequence.sequence
+                    )
+            elif entry.rnaSequence is not None:
+                for copy_idx in range(1, entry.rnaSequence.count + 1):
+                    entity_lengths[(entity_id, copy_idx)] = len(
+                        entry.rnaSequence.sequence
+                    )
+            elif entry.ligand is not None:
+                if entry.ligand.ligand_type == "CCD":
+                    # SMILES and FILE ligands always have position=1
+                    lig_len = len(entry.ligand.ligand.removeprefix("CCD_").split("_"))
+                else:
+                    lig_len = 1
+                for copy_idx in range(1, entry.ligand.count + 1):
+                    entity_lengths[(entity_id, copy_idx)] = lig_len
+            elif entry.ion is not None:
+                for copy_idx in range(1, entry.ion.count + 1):
+                    entity_lengths[(entity_id, copy_idx)] = -1
+
+        for bond in self.covalent_bonds or []:
+            seq1_len = entity_lengths.get((bond.entity1, bond.copy1 or 1))
+            if not (1 <= bond.position1 <= seq1_len):
+                raise ValueError(
+                    f"Bond position1 {bond.position1} out of range for entity {bond.entity1} copy {bond.copy1}"
+                )
+            seq2_len = entity_lengths.get((bond.entity2, bond.copy2 or 1))
+            if not (1 <= bond.position2 <= seq2_len):
+                raise ValueError(
+                    f"Bond position2 {bond.position2} out of range for entity {bond.entity2} copy {bond.copy2}"
+                )
+        if self.constraint is None:
+            return self
+        if self.constraint.contact is not None:
+            for contact in self.constraint.contact:
+                seq1_len = entity_lengths.get((contact.entity1, contact.copy1))
+                if not (1 <= contact.position1 <= seq1_len):
+                    raise ValueError(
+                        f"Contact constraint position1 {contact.position1} out of range for entity {contact.entity1} copy {contact.copy1}"
+                    )
+                seq2_len = entity_lengths.get((contact.entity2, contact.copy2))
+                if not (1 <= contact.position2 <= seq2_len):
+                    raise ValueError(
+                        f"Contact constraint position2 {contact.position2} out of range for entity {contact.entity2} copy {contact.copy2}"
+                    )
+        if self.constraint.pocket is not None:
+            for contact in self.constraint.pocket.contact_residues:
+                seq_len = entity_lengths.get((contact.entity, contact.copy_idx))
+                if not (1 <= contact.position <= seq_len):
+                    raise ValueError(
+                        f"Pocket constraint contact residue position {contact.position} out of range for entity {contact.entity} copy {contact.copy_idx}"
+                    )
+
+        return self
 
 
 class ProtenixConfig(RootModel, UniAF3BaseConfig):
