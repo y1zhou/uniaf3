@@ -154,7 +154,7 @@ def test_roundtrip_protein_sequence(
     assert src is not None
     prot = af3s_rt[0].sequences[0].proteinChain
     assert prot is not None
-    assert prot.sequence == src.sequence
+    assert prot == src
 
     assert src.modifications is not None
     assert prot.modifications is not None

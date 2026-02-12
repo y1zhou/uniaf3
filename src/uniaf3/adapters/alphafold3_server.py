@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uniaf3.adapters._helpers import (
     KNOWN_ION_CCD_CODES,
+    KNOWN_LIGAND_CCD_CODES,
     ensure_list,
     err_unsupported_feature,
 )
@@ -48,11 +49,13 @@ def _to_alphafold3_server(
     sequences: list[AF3ServerSequenceEntry] = []
     for seq in config.sequences:
         if isinstance(seq, Glycan):
-            # NOTE: AF3 Server represents glycans as modifications on protein
-            # chains, not standalone entities. Cannot convert standalone glycans.
+            # TODO: AF3 Server represents glycans as modifications on protein
+            # chains, not standalone glycan entities. We need to find the
+            # corresponding covalent bond field and merge them into the
+            # protein chain entry
             err_unsupported_feature(
                 strict,
-                f"Glycans are not directly supported in AF3 Server: {seq}",
+                f"Standalone glycans are not directly supported in AF3 Server: {seq}",
             )
             continue
 
@@ -68,6 +71,8 @@ def _to_alphafold3_server(
                     )
                     for m in seq.modifications
                 ]
+
+            # TODO: map structural templates
             protein = AF3ServerProtein(
                 sequence=seq.sequence,
                 count=len(ids),
@@ -86,9 +91,7 @@ def _to_alphafold3_server(
                     for m in seq.modifications
                 ]
             dna = AF3ServerDNA(
-                sequence=seq.sequence,
-                count=len(ids),
-                modifications=mods,
+                sequence=seq.sequence, count=len(ids), modifications=mods
             )
             sequences.append(AF3ServerSequenceEntry(dnaSequence=dna))
 
@@ -103,30 +106,42 @@ def _to_alphafold3_server(
                     for m in seq.modifications
                 ]
             rna = AF3ServerRNA(
-                sequence=seq.sequence,
-                count=len(ids),
-                modifications=mods,
+                sequence=seq.sequence, count=len(ids), modifications=mods
             )
             sequences.append(AF3ServerSequenceEntry(rnaSequence=rna))
 
         elif isinstance(seq, Ligand):
             ids = ensure_list(seq.id)
             count = len(ids)
-            if seq.ccd:
-                for ccd_code in seq.ccd:
-                    if ccd_code in KNOWN_ION_CCD_CODES:
+            if seq.ccd is not None:
+                if len(seq.ccd) > 1:
+                    err_unsupported_feature(
+                        strict,
+                        f"AF3 Server only supports one CCD code per ligand: {seq}",
+                    )
+                ccd_code = seq.ccd[0]
+                if ccd_code in KNOWN_ION_CCD_CODES:
+                    sequences.append(
+                        AF3ServerSequenceEntry(
+                            ion=AF3ServerIon(ion=ccd_code, count=count)
+                        )
+                    )
+                else:
+                    ligand_name = (
+                        ccd_code
+                        if ccd_code in KNOWN_LIGAND_CCD_CODES
+                        else f"CCD_{ccd_code}"
+                    )
+                    if ligand_name in KNOWN_LIGAND_CCD_CODES:
                         sequences.append(
                             AF3ServerSequenceEntry(
-                                ion=AF3ServerIon(ion=ccd_code, count=count)
+                                ligand=AF3ServerLigand(ligand=ligand_name, count=count)
                             )
                         )
                     else:
-                        sequences.append(
-                            AF3ServerSequenceEntry(
-                                ligand=AF3ServerLigand(
-                                    ligand=f"CCD_{ccd_code}", count=count
-                                )
-                            )
+                        err_unsupported_feature(
+                            strict,
+                            f"Unsupported ligand CCD code for AF3 Server: {ccd_code}",
                         )
             elif seq.smiles:
                 # NOTE: AF3 Server only accepts CCD ligands, not SMILES.
@@ -135,12 +150,20 @@ def _to_alphafold3_server(
                     f"AF3 Server does not support SMILES ligands: {seq}",
                 )
 
-    # NOTE: AF3 Server does not support restraints/bonded atom pairs.
+    for field in (
+        config.covalent_bonds,
+        config.contact_restraints,
+        config.pocket_restraints,
+    ):
+        if field is not None:
+            err_unsupported_feature(
+                strict, f"AF3 Server does not support constraints: {field}"
+            )
     return AF3ServerJob(name=name, modelSeeds=config.seeds, sequences=sequences)
 
 
 def to_alphafold3_server(
-    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = True
+    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = False
 ) -> AF3ServerConfig:
     """Convert a list of UniAF3Config to an AlphaFold3 Server config.
 

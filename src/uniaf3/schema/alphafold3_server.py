@@ -38,32 +38,9 @@ class AF3ServerProteinModification(BaseModel):
     @model_validator(mode="after")
     def check_ptm_type(self):
         """Ensure ptmType is a supported CCD code."""
-        supported_ptms = {
-            "CCD_SEP",
-            "CCD_TPO",
-            "CCD_PTR",
-            "CCD_NEP",
-            "CCD_HIP",
-            "CCD_ALY",
-            "CCD_MLY",
-            "CCD_M3L",
-            "CCD_MLZ",
-            "CCD_2MR",
-            "CCD_AGM",
-            "CCD_MCS",
-            "CCD_HYP",
-            "CCD_HY3",
-            "CCD_LYZ",
-            "CCD_AHB",
-            "CCD_P1L",
-            "CCD_SNN",
-            "CCD_SNC",
-            "CCD_TRF",
-            "CCD_KCR",
-            "CCD_CIR",
-            "CCD_YHA",
-        }
-        if self.ptmType not in supported_ptms:
+        from uniaf3.adapters._helpers import KNOWN_PTM_CCD_CODES
+
+        if self.ptmType not in KNOWN_PTM_CCD_CODES:
             raise ValueError(f"Unsupported ptmType: {self.ptmType}")
         return self
 
@@ -101,23 +78,9 @@ class AF3ServerRNAModification(BaseModel):
     @model_validator(mode="after")
     def check_modification_type(self):
         """Ensure modificationType is a supported CCD code."""
-        supported_mods = {
-            "CCD_PSU",
-            "CCD_5MC",
-            "CCD_OMC",
-            "CCD_4OC",
-            "CCD_5MU",
-            "CCD_OMU",
-            "CCD_UR3",
-            "CCD_A2M",
-            "CCD_MA6",
-            "CCD_6MZ",
-            "CCD_2MG",
-            "CCD_OMG",
-            "CCD_7MG",
-            "CCD_RSQ",
-        }
-        if self.modificationType not in supported_mods:
+        from uniaf3.adapters._helpers import KNOWN_RNA_MODIFICATION_CCD_CODES
+
+        if self.modificationType not in KNOWN_RNA_MODIFICATION_CCD_CODES:
             raise ValueError(
                 f"Unsupported DNA modificationType: {self.modificationType}"
             )
@@ -141,18 +104,9 @@ class AF3ServerDNAModification(BaseModel):
     @model_validator(mode="after")
     def check_modification_type(self):
         """Ensure modificationType is a supported CCD code."""
-        supported_mods = {
-            "CCD_5CM",
-            "CCD_C34",
-            "CCD_5HC",
-            "CCD_6OG",
-            "CCD_6MA",
-            "CCD_1CC",
-            "CCD_8OG",
-            "CCD_5FC",
-            "CCD_3DR",
-        }
-        if self.modificationType not in supported_mods:
+        from uniaf3.adapters._helpers import KNOWN_DNA_MODIFICATION_CCD_CODES
+
+        if self.modificationType not in KNOWN_DNA_MODIFICATION_CCD_CODES:
             raise ValueError(
                 f"Unsupported DNA modificationType: {self.modificationType}"
             )
@@ -176,28 +130,9 @@ class AF3ServerLigand(BaseModel):
     @model_validator(mode="after")
     def check_ccd_code(self):
         """Ensure the ligand is supported by the server."""
-        supported_ligands = {
-            "CCD_ADP",
-            "CCD_ATP",
-            "CCD_AMP",
-            "CCD_GTP",
-            "CCD_GDP",
-            "CCD_FAD",
-            "CCD_NAD",
-            "CCD_NAP",
-            "CCD_NDP",
-            "CCD_HEM",
-            "CCD_HEC",
-            "CCD_PLM",
-            "CCD_OLA",
-            "CCD_MYR",
-            "CCD_CIT",
-            "CCD_CLA",
-            "CCD_CHL",
-            "CCD_BCL",
-            "CCD_BCB",
-        }
-        if self.ligand not in supported_ligands:
+        from uniaf3.adapters._helpers import KNOWN_LIGAND_CCD_CODES
+
+        if self.ligand not in KNOWN_LIGAND_CCD_CODES:
             raise ValueError(f"Unsupported ligand CCD code: {self.ligand}")
         return self
 
@@ -214,8 +149,9 @@ class AF3ServerIon(BaseModel):
     @model_validator(mode="after")
     def check_ccd_code(self):
         """Ensure the ion is supported by the server."""
-        supported_ions = {"MG", "ZN", "CL", "CA", "NA", "MN", "K", "FE", "CU", "CO"}
-        if self.ion not in supported_ions:
+        from uniaf3.adapters._helpers import KNOWN_ION_CCD_CODES
+
+        if self.ion not in KNOWN_ION_CCD_CODES:
             raise ValueError(f"Unsupported ion CCD code: {self.ion}")
         return self
 
