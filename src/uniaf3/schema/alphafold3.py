@@ -65,6 +65,18 @@ class AF3Protein(BaseModel):
     pairedMsaPath: str | None = None
     templates: list[AF3Template] | None = None
 
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure all modification positions are valid for the sequence length."""
+        if self.modifications:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if not (1 <= mod.ptmPosition <= seq_length):
+                    raise ValueError(
+                        f"Modification position {mod.ptmPosition} out of range for sequence length {seq_length}."
+                    )
+        return self
+
 
 class AF3RNA(BaseModel):
     """AlphaFold3 RNA chain specification."""
@@ -76,6 +88,18 @@ class AF3RNA(BaseModel):
     unpairedMsa: str | None = None
     unpairedMsaPath: str | None = None
 
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure all modification positions are valid for the sequence length."""
+        if self.modifications:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if not (1 <= mod.basePosition <= seq_length):
+                    raise ValueError(
+                        f"Modification position {mod.basePosition} out of range for sequence length {seq_length}."
+                    )
+        return self
+
 
 class AF3DNA(BaseModel):
     """AlphaFold3 DNA chain specification."""
@@ -84,6 +108,18 @@ class AF3DNA(BaseModel):
     sequence: str
     modifications: list[AF3NucleotideModification] | None = None
     description: str | None = None
+
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure all modification positions are valid for the sequence length."""
+        if self.modifications:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if not (1 <= mod.basePosition <= seq_length):
+                    raise ValueError(
+                        f"Modification position {mod.basePosition} out of range for sequence length {seq_length}."
+                    )
+        return self
 
 
 class AF3Ligand(BaseModel):
@@ -141,11 +177,71 @@ class AF3Config(UniAF3BaseConfig):
     modelSeeds: list[int]  # at least one seed required
     sequences: list[AF3SequenceEntry]
     bondedAtomPairs: list[tuple[AF3BondedAtom, AF3BondedAtom]] | None = None
-    userCCD: str | None = None  # mutually exclusive with userCCDPath
-    userCCDPath: str | None = None
+    userCCD: str | None = None  # string in CCD mmCIF format
+    userCCDPath: str | None = None  # mutually exclusive with userCCD
     dialect: Literal["alphafold3"] = "alphafold3"
     version: Literal[1, 2, 3, 4] = 4
 
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation of the config."""
         return self.to_json(**kwargs)
+
+    @model_validator(mode="after")
+    def check_bonds_in_range(self):
+        """Ensure all bonded atom positions are valid for the sequence lengths."""
+        if self.bondedAtomPairs is None:
+            return self
+
+        # Build a mapping from entity_id to sequence length
+        entity_lengths = {}
+        for entry in self.sequences:
+            if entry.protein:
+                for eid in (
+                    entry.protein.id
+                    if isinstance(entry.protein.id, list)
+                    else [entry.protein.id]
+                ):
+                    entity_lengths[eid] = len(entry.protein.sequence)
+            elif entry.rna:
+                for eid in (
+                    entry.rna.id if isinstance(entry.rna.id, list) else [entry.rna.id]
+                ):
+                    entity_lengths[eid] = len(entry.rna.sequence)
+            elif entry.dna:
+                for eid in (
+                    entry.dna.id if isinstance(entry.dna.id, list) else [entry.dna.id]
+                ):
+                    entity_lengths[eid] = len(entry.dna.sequence)
+            elif entry.ligand:
+                if entry.ligand.smiles is not None:
+                    ligand_len = -1
+                else:
+                    ligand_len = (
+                        len(entry.ligand.ccdCodes)
+                        if entry.ligand.ccdCodes is not None
+                        else -1  # should never happen because SMILES | CCD must exist
+                    )
+                for eid in (
+                    entry.ligand.id
+                    if isinstance(entry.ligand.id, list)
+                    else [entry.ligand.id]
+                ):
+                    entity_lengths[eid] = ligand_len
+
+        # Check each bonded atom pair
+        for atom1, atom2 in self.bondedAtomPairs:
+            for atom in (atom1, atom2):
+                entity_id, residue_id, _ = atom
+                if entity_id not in entity_lengths:
+                    raise ValueError(
+                        f"Entity ID {entity_id} not found for bonded atom."
+                    )
+                if not (1 <= residue_id <= entity_lengths[entity_id]):
+                    if entity_lengths[entity_id] == -1:
+                        raise ValueError(
+                            f"Cannot specify covalent bond {atom} to SMILES ligand chain {entity_id}"
+                        )
+                    raise ValueError(
+                        f"Residue ID {residue_id} out of range for entity {entity_id} with length {entity_lengths[entity_id]}."
+                    )
+        return self
