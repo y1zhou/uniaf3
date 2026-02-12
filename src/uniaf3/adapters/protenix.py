@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from uniaf3.adapters._helpers import _KNOWN_ION_CCD_CODES, _ensure_list
+from uniaf3.adapters._helpers import (
+    KNOWN_ION_CCD_CODES,
+    ensure_list,
+    err_unsupported_feature,
+)
 from uniaf3.schema.base import (
     Atom,
+    ContactRestraint,
+    CovalentBond,
     Glycan,
     Ligand,
+    PocketRestraint,
     Polymer,
     PolymerType,
     ProteinSeq,
-    Restraint,
-    RestraintType,
     SequenceModification,
     UniAF3Config,
 )
@@ -35,22 +40,25 @@ from uniaf3.schema.protenix import (
 )
 
 
-def _to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixJob:
+def _to_protenix(
+    config: UniAF3Config, name: str = "uniaf3_job", strict: bool = True
+) -> ProtenixJob:
     """Convert a UniAF3Config to a Protenix job."""
     sequences: list[ProtenixSequenceEntry] = []
 
-    # Build a chain-id → entity-index mapping for covalent bonds
-    chain_to_entity: dict[str, int] = {}
+    # Build a chain-id -> (entity, copy) mapping
+    chain_to_entity: dict[str, tuple[int, int]] = {}
     entity_idx = 1
-    for seq in config.sequences:
-        if isinstance(seq, (Polymer, ProteinSeq)):
-            ids = _ensure_list(seq.id)
-            # NOTE: Protenix does not support assigning chain IDs to input
-            # entities. The entity number is determined by the order in the
-            # sequences list, and copies are controlled by the count field.
-            chain_to_entity.update({cid: entity_idx for cid in ids})
-            count = len(ids)
+    for entity_idx, seq in enumerate(config.sequences, start=1):
+        # NOTE: Protenix does not support assigning chain IDs to input
+        # entities. The entity number is determined by the order in the
+        # sequences list, and copies are controlled by the count field.
+        ids = ensure_list(seq.id)
+        for copy_idx, chain_id in enumerate(ids, start=1):
+            chain_to_entity[chain_id] = (entity_idx, copy_idx)
+        count = len(ids)
 
+        if isinstance(seq, (Polymer, ProteinSeq)):
             if isinstance(seq, ProteinSeq) or (
                 isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
             ):
@@ -107,14 +115,10 @@ def _to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixJob:
                         )
                     )
                 )
-            entity_idx += 1
         elif isinstance(seq, Ligand):
-            ids = _ensure_list(seq.id)
-            chain_to_entity.update({cid: entity_idx for cid in ids})
-            count = len(ids)
             if seq.ccd:
                 for ccd_code in seq.ccd:
-                    if ccd_code in _KNOWN_ION_CCD_CODES:
+                    if ccd_code in KNOWN_ION_CCD_CODES:
                         sequences.append(
                             ProtenixSequenceEntry(
                                 ion=ProtenixIon(ion=ccd_code, count=count)
@@ -134,11 +138,7 @@ def _to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixJob:
                         ligand=ProtenixLigand(ligand=seq.smiles, count=count)
                     )
                 )
-            entity_idx += 1
         elif isinstance(seq, Glycan):
-            ids = _ensure_list(seq.id)
-            chain_to_entity.update({cid: entity_idx for cid in ids})
-            count = len(ids)
             # NOTE: Glycans in Protenix are represented as multi-CCD ligands
             # or SMILES. Using the Chai notation string as SMILES is a lossy
             # conversion.
@@ -147,73 +147,91 @@ def _to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixJob:
                     ligand=ProtenixLigand(ligand=seq.chai_str, count=count)
                 )
             )
-            entity_idx += 1
 
     # Covalent bonds
-    covalent_bonds: list[ProtenixCovalentBond] | None = None
-    # Constraints
-    constraint: ProtenixConstraint | None = None
+    covalent_bonds: list[ProtenixCovalentBond] = []
+    for r in config.covalent_bonds or []:
+        try:
+            entity1, copy1 = chain_to_entity[r.atom1.chain_id]
+            entity2, copy2 = chain_to_entity[r.atom2.chain_id]
+        except KeyError as e:
+            raise KeyError(
+                f"Chain ID corresponding to entity not found for covalent bond: {r}"
+            ) from e
 
-    if config.restraints:
-        bond_list: list[ProtenixCovalentBond] = []
-        contact_list: list[ProtenixContactConstraint] = []
-        pocket: ProtenixPocketConstraint | None = None
-
-        for r in config.restraints:
-            eidx1 = chain_to_entity.get(r.atom1.chain_id, 0)
-            eidx2 = chain_to_entity.get(r.atom2.chain_id, 0)
-
-            if r.restraint_type == RestraintType.Covalent:
-                bond_list.append(
-                    ProtenixCovalentBond(
-                        entity1=str(eidx1),
-                        position1=str(r.atom1.residue_idx),
-                        atom1=r.atom1.atom_name,
-                        entity2=str(eidx2),
-                        position2=str(r.atom2.residue_idx),
-                        atom2=r.atom2.atom_name,
-                    )
-                )
-            elif r.restraint_type == RestraintType.Contact:
-                contact_list.append(
-                    ProtenixContactConstraint(
-                        entity1=eidx1,
-                        copy1=1,
-                        position1=r.atom1.residue_idx,
-                        atom1=r.atom1.atom_name if r.atom1.atom_name else None,
-                        entity2=eidx2,
-                        copy2=1,
-                        position2=r.atom2.residue_idx,
-                        atom2=r.atom2.atom_name if r.atom2.atom_name else None,
-                        max_distance=r.max_distance,
-                    )
-                )
-            elif r.restraint_type == RestraintType.Pocket:
-                # NOTE: Protenix supports only a single pocket constraint per
-                # job. The last pocket restraint wins.
-                binder_entity = eidx2
-                if r.boltz_binder_chain:
-                    binder_entity = chain_to_entity.get(r.boltz_binder_chain, eidx2)
-                pocket = ProtenixPocketConstraint(
-                    binder_chain=ProtenixPocketBinderChain(
-                        entity=binder_entity, copy=1
-                    ),
-                    contact_residues=[
-                        ProtenixPocketContactResidue(
-                            entity=eidx1,
-                            copy=1,
-                            position=r.atom1.residue_idx,
-                        )
-                    ],
-                    max_distance=r.max_distance,
-                )
-
-        covalent_bonds = bond_list if bond_list else None
-        if contact_list or pocket:
-            constraint = ProtenixConstraint(
-                contact=contact_list if contact_list else None,
-                pocket=pocket,
+        covalent_bonds.append(
+            ProtenixCovalentBond(
+                entity1=entity1,
+                copy1=copy1,
+                position1=r.atom1.residue_idx,
+                atom1=r.atom1.atom_name,
+                entity2=entity2,
+                copy2=copy2,
+                position2=r.atom2.residue_idx,
+                atom2=r.atom2.atom_name,
             )
+        )
+
+    # Constraints
+    contacts: list[ProtenixContactConstraint] = []
+    for r in config.contact_restraints or []:
+        try:
+            entity1, copy1 = chain_to_entity[r.token1.chain_id]
+            entity2, copy2 = chain_to_entity[r.token2.chain_id]
+        except KeyError as e:
+            raise KeyError(
+                f"Chain ID corresponding to entity not found for covalent bond: {r}"
+            ) from e
+
+        contacts.append(
+            ProtenixContactConstraint(
+                entity1=entity1,
+                copy1=copy1,
+                position1=r.token1.residue_idx,
+                atom1=r.token1.atom_name if r.token1.atom_name else None,
+                entity2=entity2,
+                copy2=copy2,
+                position2=r.token2.residue_idx,
+                atom2=r.token2.atom_name if r.token2.atom_name else None,
+                max_distance=r.max_distance,
+            )
+        )
+    pocket: ProtenixPocketConstraint | None = None
+    if config.pocket_restraints is not None:
+        # NOTE: Protenix supports only a single pocket constraint per
+        # job. The first pocket restraint wins.
+        if (
+            num_pockets := len(set(x.binder_chain for x in config.pocket_restraints))
+        ) > 1:
+            err_unsupported_feature(
+                strict,
+                f"Protenix only supports a single pocket constraint, got {num_pockets}",
+            )
+        r = config.pocket_restraints[0]
+        try:
+            contact_entities = [
+                (*chain_to_entity[t.chain_id], t.residue_idx) for t in r.contact_tokens
+            ]
+        except KeyError as e:
+            raise KeyError(
+                f"Chain ID corresponding to entity not found for covalent bond: {r}"
+            ) from e
+
+        binder_entity, binder_copy = chain_to_entity[r.binder_chain]
+        pocket = ProtenixPocketConstraint(
+            binder_chain=ProtenixPocketBinderChain(
+                entity=binder_entity, copy=binder_copy
+            ),
+            contact_residues=[
+                ProtenixPocketContactResidue(entity=x[0], copy=x[1], position=x[2])
+                for x in contact_entities
+            ],
+            max_distance=r.max_distance,
+        )
+
+    constraint: ProtenixConstraint | None = None
+    if contacts or pocket:
+        constraint = ProtenixConstraint(contact=contacts or None, pocket=pocket or None)
 
     return ProtenixJob(
         name=name,
@@ -223,7 +241,9 @@ def _to_protenix(config: UniAF3Config, name: str = "uniaf3_job") -> ProtenixJob:
     )
 
 
-def to_protenix(config: list[UniAF3Config], name: str = "uniaf3_job") -> ProtenixConfig:
+def to_protenix(
+    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = True
+) -> ProtenixConfig:
     """Convert a list of UniAF3Config to a Protenix config."""
     if isinstance(config, UniAF3Config):
         # Allow passing a single UniAF3Config for convenience
@@ -234,43 +254,26 @@ def to_protenix(config: list[UniAF3Config], name: str = "uniaf3_job") -> Proteni
     else:
         names = [f"{name}_{i}" for i in range(1, len(config) + 1)]
     return ProtenixConfig(
-        [_to_protenix(c, name=names[i]) for i, c in enumerate(config)]
+        [_to_protenix(c, name=names[i], strict=strict) for i, c in enumerate(config)]
     )
 
 
 def _from_protenix(job: ProtenixJob) -> UniAF3Config:
     """Convert a Protenix job to a UniAF3Config."""
-    sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
+    from uniaf3.adapters._helpers import int_to_letters
 
-    # NOTE: Protenix does not support assigning chain IDs to input entities.
+    # Protenix does not support assigning chain IDs to input entities.
     # We generate chain IDs based on entity order (A, B, C, ...).
-    chain_counter = 0
-
-    def _next_chain_ids(count: int) -> str | list[str]:
-        nonlocal chain_counter
-        ids = []
-        for _ in range(count):
-            # Reverse spreadsheet-style IDs: A-Z, AA-ZA, AB-ZB, ...
-            # This matches the convention in UniAF3Config and AlphaFold3.
-            n = chain_counter
-            if n < 26:
-                ids.append(chr(65 + n))
-            else:
-                left_char = chr(65 + (n - 26) % 26)
-                right_char = chr(65 + (n - 26) // 26)
-                ids.append(f"{left_char}{right_char}")
-            chain_counter += 1
-        return ids[0] if len(ids) == 1 else ids
+    sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
 
     # Map entity index (1-based) → chain IDs for bond conversion
     entity_to_chains: dict[int, list[str]] = {}
-    entity_idx = 1
 
-    for entry in job.sequences:
+    for entity_id, entry in enumerate(job.sequences, start=1):
         if entry.proteinChain is not None:
             pc = entry.proteinChain
-            chain_ids = _next_chain_ids(pc.count)
-            entity_to_chains[entity_idx] = _ensure_list(chain_ids)
+            chain_ids = [int_to_letters(entity_id + i) for i in range(pc.count)]
+            entity_to_chains[entity_id] = chain_ids
             mods = None
             if pc.modifications:
                 mods = [
@@ -288,8 +291,8 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             sequences.append(seq)
         elif entry.dnaSequence is not None:
             ds = entry.dnaSequence
-            chain_ids = _next_chain_ids(ds.count)
-            entity_to_chains[entity_idx] = _ensure_list(chain_ids)
+            chain_ids = [int_to_letters(entity_id + i) for i in range(ds.count)]
+            entity_to_chains[entity_id] = chain_ids
             mods = None
             if ds.modifications:
                 mods = [
@@ -308,8 +311,8 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             sequences.append(seq)
         elif entry.rnaSequence is not None:
             rs = entry.rnaSequence
-            chain_ids = _next_chain_ids(rs.count)
-            entity_to_chains[entity_idx] = _ensure_list(chain_ids)
+            chain_ids = [int_to_letters(entity_id + i) for i in range(rs.count)]
+            entity_to_chains[entity_id] = chain_ids
             mods = None
             if rs.modifications:
                 mods = [
@@ -328,8 +331,8 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             sequences.append(seq)
         elif entry.ligand is not None:
             lg = entry.ligand
-            chain_ids = _next_chain_ids(lg.count)
-            entity_to_chains[entity_idx] = _ensure_list(chain_ids)
+            chain_ids = [int_to_letters(entity_id + i) for i in range(lg.count)]
+            entity_to_chains[entity_id] = chain_ids
             ligand_str = lg.ligand
             if ligand_str.startswith("CCD_"):
                 # CCD ligand (may be multi-CCD like "CCD_NAG_BMA_BGC")
@@ -343,96 +346,105 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             sequences.append(lig)
         elif entry.ion is not None:
             io = entry.ion
-            chain_ids = _next_chain_ids(io.count)
-            entity_to_chains[entity_idx] = _ensure_list(chain_ids)
+            chain_ids = [int_to_letters(entity_id + i) for i in range(io.count)]
+            entity_to_chains[entity_id] = chain_ids
             lig = Ligand(id=chain_ids, ccd=[io.ion])
             sequences.append(lig)
-        entity_idx += 1
 
-    # Covalent bonds → restraints
-    restraints: list[Restraint] | None = None
-    if job.covalent_bonds:
-        restraint_list: list[Restraint] = []
-        for bond in job.covalent_bonds:
-            e1_chains = entity_to_chains.get(int(bond.entity1), ["?"])
-            e2_chains = entity_to_chains.get(int(bond.entity2), ["?"])
-            restraint_list.append(
-                Restraint(
-                    restraint_type=RestraintType.Covalent,
+    # Covalent bonds
+    covalent_bonds: list[CovalentBond] = []
+    for bond in job.covalent_bonds or []:
+        try:
+            e1_chains = entity_to_chains[bond.entity1]
+            e2_chains = entity_to_chains[bond.entity2]
+        except KeyError as e:
+            raise KeyError(
+                f"Chain ID corresponding to entity not found for covalent bond: {bond}"
+            ) from e
+        for e1_chain, e2_chain in zip(e1_chains, e2_chains, strict=True):
+            covalent_bonds.append(
+                CovalentBond(
                     atom1=Atom(
-                        chain_id=e1_chains[0],
-                        residue_idx=int(bond.position1),
+                        chain_id=e1_chain,
+                        residue_idx=bond.position1,
                         atom_name=bond.atom1,
                         residue_name=None,
                     ),
                     atom2=Atom(
-                        chain_id=e2_chains[0],
-                        residue_idx=int(bond.position2),
+                        chain_id=e2_chain,
+                        residue_idx=bond.position2,
                         atom_name=bond.atom2,
                         residue_name=None,
                     ),
-                    max_distance=0.0,
                 )
             )
-        restraints = restraint_list if restraint_list else None
 
     # Contact and pocket constraints → restraints
-    if job.constraint:
-        if restraints is None:
-            restraints = []
-        if job.constraint.contact:
-            for ct in job.constraint.contact:
-                e1_chains = entity_to_chains.get(ct.entity1, ["?"])
-                e2_chains = entity_to_chains.get(ct.entity2, ["?"])
-                restraints.append(
-                    Restraint(
-                        restraint_type=RestraintType.Contact,
-                        atom1=Atom(
-                            chain_id=e1_chains[0],
+    contact_rsts: list[ContactRestraint] = []
+    pocket_rsts: list[PocketRestraint] = []
+    if job.constraint is not None:
+        for ct in job.constraint.contact or []:
+            try:
+                e1_chains = entity_to_chains[ct.entity1]
+                e2_chains = entity_to_chains[ct.entity2]
+            except KeyError as e:
+                raise KeyError(
+                    f"Chain ID corresponding to entity not found for contact constraint: {ct}"
+                ) from e
+            for e1_chain, e2_chain in zip(e1_chains, e2_chains, strict=True):
+                contact_rsts.append(
+                    # Protenix can omit the atom_name field
+                    ContactRestraint(
+                        token1=Atom(
+                            chain_id=e1_chain,
                             residue_idx=ct.position1,
                             atom_name=ct.atom1 or "",
                             residue_name=None,
                         ),
-                        atom2=Atom(
-                            chain_id=e2_chains[0],
+                        token2=Atom(
+                            chain_id=e2_chain,
                             residue_idx=ct.position2,
                             atom_name=ct.atom2 or "",
                             residue_name=None,
                         ),
                         max_distance=ct.max_distance,
+                        min_distance=ct.min_distance,
                     )
                 )
-        if job.constraint.pocket:
-            pk = job.constraint.pocket
-            binder_chains = entity_to_chains.get(pk.binder_chain.entity, ["?"])
-            for cr in pk.contact_residues:
-                cr_chains = entity_to_chains.get(cr.entity, ["?"])
-                restraints.append(
-                    Restraint(
-                        restraint_type=RestraintType.Pocket,
-                        atom1=Atom(
-                            chain_id=cr_chains[0],
-                            residue_idx=cr.position,
+        if (pct := job.constraint.pocket) is not None:
+            try:
+                binder_chain = entity_to_chains[pct.binder_chain.entity][
+                    pct.binder_chain.copy_idx - 1
+                ]
+                contact_residues = [
+                    (entity_to_chains[cr.entity][cr.copy_idx], cr.position)
+                    for cr in pct.contact_residues
+                ]
+            except KeyError as e:
+                raise KeyError(
+                    f"Chain ID corresponding to entity not found for pocket: {pct}"
+                ) from e
+            pocket_rsts.append(
+                PocketRestraint(
+                    binder_chain=binder_chain,
+                    contact_tokens=[
+                        Atom(
+                            chain_id=cr_chain,
+                            residue_idx=cr_pos,
                             atom_name="",
                             residue_name=None,
-                        ),
-                        atom2=Atom(
-                            chain_id=binder_chains[0],
-                            residue_idx=1,
-                            atom_name="",
-                            residue_name=None,
-                        ),
-                        max_distance=pk.max_distance,
-                        boltz_binder_chain=binder_chains[0],
-                    )
+                        )
+                        for cr_chain, cr_pos in contact_residues
+                    ],
+                    max_distance=pct.max_distance,
                 )
-        if not restraints:
-            restraints = None
+            )
 
-    # NOTE: Protenix seeds are passed as CLI arguments, not in the JSON config.
     return UniAF3Config(
         sequences=sequences,
-        restraints=restraints,
+        covalent_bonds=covalent_bonds or None,
+        contact_restraints=contact_rsts or None,
+        pocket_restraints=pocket_rsts or None,
         seeds=[42],  # NOTE: Protenix config does not include seeds
     )
 
@@ -442,4 +454,4 @@ def from_protenix(config: ProtenixConfig) -> list[UniAF3Config]:
     if len(config) == 0:
         raise ValueError("ProtenixConfig must have at least one job.")
 
-    return [_from_protenix(job) for job in config]
+    return [_from_protenix(job) for job in config]  # ty:ignore[not-iterable]

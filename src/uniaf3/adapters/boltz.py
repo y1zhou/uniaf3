@@ -9,13 +9,15 @@ import polars as pl
 from uniaf3.adapters._helpers import err_unsupported_feature
 from uniaf3.schema.base import (
     Atom,
+    AuxiliaryParams,
+    ContactRestraint,
+    CovalentBond,
     Glycan,
     Ligand,
+    PocketRestraint,
     Polymer,
     PolymerType,
     ProteinSeq,
-    Restraint,
-    RestraintType,
     SequenceModification,
     UniAF3Config,
 )
@@ -176,7 +178,7 @@ def to_boltz(
                 sequence=seq.sequence,
                 msa=str(msa_csv_path),
                 modifications=mods,
-                cyclic=seq.cyclic,
+                cyclic=seq.boltz_cyclic,
             )
             sequences.append(BoltzSequenceEntry(protein=protein))
 
@@ -223,7 +225,7 @@ def to_boltz(
                     id=seq.id,
                     sequence=seq.sequence,
                     modifications=mods,
-                    cyclic=seq.cyclic,
+                    cyclic=seq.boltz_cyclic,
                 )
                 sequences.append(BoltzSequenceEntry(dna=dna))
             elif seq.seq_type == PolymerType.RNA:
@@ -231,7 +233,7 @@ def to_boltz(
                     id=seq.id,
                     sequence=seq.sequence,
                     modifications=mods,
-                    cyclic=seq.cyclic,
+                    cyclic=seq.boltz_cyclic,
                 )
                 sequences.append(BoltzSequenceEntry(rna=rna))
         elif isinstance(seq, Ligand):
@@ -250,72 +252,53 @@ def to_boltz(
 
     # Constraints
     constraints: list[BoltzConstraintEntry] = []
-    if config.restraints:
-        for r in config.restraints:
-            if r.restraint_type == RestraintType.Covalent:
-                bond = BoltzBondConstraint(
-                    atom1=(r.atom1.chain_id, r.atom1.residue_idx, r.atom1.atom_name),
-                    atom2=(r.atom2.chain_id, r.atom2.residue_idx, r.atom2.atom_name),
-                )
-                constraints.append(BoltzConstraintEntry(bond=bond))
-            elif r.restraint_type == RestraintType.Contact:
-                token1_idx = (
-                    r.atom1.atom_name
-                    if seq_types[r.atom1.chain_id] == "ligand"
-                    else r.atom1.residue_idx
-                )
-                token2_idx = (
-                    r.atom2.atom_name
-                    if seq_types[r.atom2.chain_id] == "ligand"
-                    else r.atom2.residue_idx
-                )
-                contact = BoltzContactConstraint(
-                    token1=(r.atom1.chain_id, token1_idx),
-                    token2=(r.atom2.chain_id, token2_idx),
-                    max_distance=r.max_distance,
-                    force=r.boltz_enable_force,
-                )
-                constraints.append(BoltzConstraintEntry(contact=contact))
-            elif r.restraint_type == RestraintType.Pocket:
-                if r.boltz_binder_chain is None:
-                    # NOTE: Pocket restraints require boltz_binder_chain to be
-                    # set. Skipping this restraint.
-                    err_unsupported_feature(
-                        strict,
-                        f"Pocket restraints require boltz_binder_chain to be set. Skipping restraint: {r}",
-                    )
-                    continue
+    for b in config.covalent_bonds or []:
+        bond = BoltzBondConstraint(
+            atom1=(b.atom1.chain_id, b.atom1.residue_idx, b.atom1.atom_name),
+            atom2=(b.atom2.chain_id, b.atom2.residue_idx, b.atom2.atom_name),
+        )
+        constraints.append(BoltzConstraintEntry(bond=bond))
 
-                token1_idx = (
-                    r.atom1.atom_name
-                    if seq_types[r.atom1.chain_id] == "ligand"
-                    else r.atom1.residue_idx
-                )
-                token2_idx = (
-                    r.atom2.atom_name
-                    if seq_types[r.atom2.chain_id] == "ligand"
-                    else r.atom2.residue_idx
-                )
-                # Exclude the binder chain because it contains dummy values
-                contacts = [
-                    (r.atom1.chain_id, token1_idx),
-                    (r.atom2.chain_id, token2_idx),
-                ]
-                pocket = BoltzPocketConstraint(
-                    binder=r.boltz_binder_chain,
-                    contacts=[x for x in contacts if x[0] != r.boltz_binder_chain],
-                    max_distance=r.max_distance,
-                    force=r.boltz_enable_force,
-                )
-                constraints.append(BoltzConstraintEntry(pocket=pocket))
+    for c in config.contact_restraints or []:
+        token1_idx = (
+            c.token1.atom_name
+            if seq_types[c.token1.chain_id] == "ligand"
+            else c.token1.residue_idx
+        )
+        token2_idx = (
+            c.token2.atom_name
+            if seq_types[c.token2.chain_id] == "ligand"
+            else c.token2.residue_idx
+        )
+        contact = BoltzContactConstraint(
+            token1=(c.token1.chain_id, token1_idx),
+            token2=(c.token2.chain_id, token2_idx),
+            max_distance=c.max_distance,
+            force=c.boltz_enable_force,
+        )
+        constraints.append(BoltzConstraintEntry(contact=contact))
+    for p in config.pocket_restraints or []:
+        token_indices = [
+            (t.chain_id, t.atom_name)
+            if seq_types[t.chain_id] == "ligand"
+            else (t.chain_id, t.residue_idx)
+            for t in p.contact_tokens
+        ]
+        pocket = BoltzPocketConstraint(
+            binder=p.binder_chain,
+            contacts=token_indices,
+            max_distance=p.max_distance,
+            force=p.boltz_enable_force,
+        )
+        constraints.append(BoltzConstraintEntry(pocket=pocket))
 
     # Properties
     properties: list[BoltzPropertyEntry] = []
-    if config.boltz_affinity_binder_chain is not None:
+    if config.aux.boltz_affinity_binder_chain is not None:
         properties.append(
             BoltzPropertyEntry(
                 affinity=BoltzAffinityProperty(
-                    binder=config.boltz_affinity_binder_chain
+                    binder=config.aux.boltz_affinity_binder_chain
                 )
             )
         )
@@ -349,7 +332,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 id=p.id,
                 sequence=p.sequence,
                 modifications=mods,
-                cyclic=p.cyclic,
+                boltz_cyclic=p.cyclic,
             )
             sequences.append(seq)
         elif entry.dna is not None:
@@ -367,7 +350,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 id=d.id,
                 sequence=d.sequence,
                 modifications=mods,
-                cyclic=d.cyclic,
+                boltz_cyclic=d.cyclic,
             )
             sequences.append(seq)
         elif entry.rna is not None:
@@ -385,7 +368,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 id=r.id,
                 sequence=r.sequence,
                 modifications=mods,
-                cyclic=r.cyclic,
+                boltz_cyclic=r.cyclic,
             )
             sequences.append(seq)
         elif entry.ligand is not None:
@@ -395,15 +378,16 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
             sequences.append(lig)
 
     # Restraints
-    restraints: list[Restraint] | None = None
+    covalent_bonds: list[CovalentBond] = []
+    pocket_rsts: list[PocketRestraint] = []
+    contact_rsts: list[ContactRestraint] = []
+    # TODO: helper function to determine if atom is in polymer or ligand
     if config.constraints:
-        restraint_list: list[Restraint] = []
         for c in config.constraints:
             if c.bond is not None:
                 b = c.bond
-                restraint_list.append(
-                    Restraint(
-                        restraint_type=RestraintType.Covalent,
+                covalent_bonds.append(
+                    CovalentBond(
                         atom1=Atom(
                             chain_id=b.atom1[0],
                             residue_idx=b.atom1[1],
@@ -416,21 +400,19 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                             atom_name=b.atom2[2],
                             residue_name=None,
                         ),
-                        max_distance=0.0,
                     )
                 )
             elif c.contact is not None:
                 ct = c.contact
-                restraint_list.append(
-                    Restraint(
-                        restraint_type=RestraintType.Contact,
-                        atom1=Atom(
+                contact_rsts.append(
+                    ContactRestraint(
+                        token1=Atom(
                             chain_id=ct.token1[0],
                             residue_idx=int(ct.token1[1]),
                             atom_name="",
                             residue_name=None,
                         ),
-                        atom2=Atom(
+                        token2=Atom(
                             chain_id=ct.token2[0],
                             residue_idx=int(ct.token2[1]),
                             atom_name="",
@@ -442,38 +424,34 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 )
             elif c.pocket is not None:
                 pk = c.pocket
-                # NOTE: Pocket constraints in Boltz map contacts as a list of
-                # (chain, residue) tuples. We convert the first contact pair
-                # into atom1/atom2 representation. This is a lossy conversion.
-                if len(pk.contacts) >= 1:
-                    first_contact = pk.contacts[0]
-                    restraint_list.append(
-                        Restraint(
-                            restraint_type=RestraintType.Pocket,
-                            atom1=Atom(
-                                chain_id=first_contact[0],
-                                residue_idx=int(first_contact[1]),
-                                atom_name="",
+                pocket_rsts.append(
+                    PocketRestraint(
+                        binder_chain=pk.binder,
+                        contact_tokens=[
+                            Atom(
+                                chain_id=t[0],
+                                residue_idx=int(t[1]),
+                                atom_name=str(t[1]),
                                 residue_name=None,
-                            ),
-                            atom2=Atom(
-                                chain_id=pk.binder,
-                                residue_idx=1,
-                                atom_name="",
-                                residue_name=None,
-                            ),
-                            max_distance=pk.max_distance,
-                            boltz_enable_force=pk.force,
-                            boltz_binder_chain=pk.binder,
-                        )
+                            )
+                            for t in pk.contacts
+                        ],
+                        max_distance=pk.max_distance,
+                        boltz_enable_force=pk.force,
                     )
-        restraints = restraint_list if restraint_list else None
+                )
 
-    # NOTE: Boltz inference parameters (recycling_steps, sampling_steps,
-    # diffusion_samples) are CLI options, not part of the YAML config.
-    # We use default values here.
+    aux = AuxiliaryParams()
+    if config.properties is not None:
+        for prop in config.properties:
+            if prop.affinity is not None:
+                aux.boltz_affinity_binder_chain = prop.affinity.binder
+
     return UniAF3Config(
         sequences=sequences,
-        restraints=restraints,
+        covalent_bonds=covalent_bonds or None,
+        pocket_restraints=pocket_rsts or None,
+        contact_restraints=contact_rsts or None,
         seeds=[42],  # NOTE: Boltz config does not include seeds
+        aux=aux,
     )

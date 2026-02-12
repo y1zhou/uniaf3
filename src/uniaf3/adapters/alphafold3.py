@@ -21,13 +21,12 @@ from uniaf3.schema.alphafold3 import (
 )
 from uniaf3.schema.base import (
     Atom,
+    CovalentBond,
     Glycan,
     Ligand,
     Polymer,
     PolymerType,
     ProteinSeq,
-    Restraint,
-    RestraintType,
     SequenceModification,
     StructuralTemplate,
     UniAF3Config,
@@ -164,36 +163,32 @@ def to_alphafold3(
             sequences.append(AF3SequenceEntry(ligand=lig))
 
     # Bonded atom pairs (only covalent bonds)
-    bonded_atom_pairs: list[tuple[AF3BondedAtom, AF3BondedAtom]] | None = None
-    if config.restraints:
-        pairs: list[tuple[AF3BondedAtom, AF3BondedAtom]] = []
-        for r in config.restraints:
-            if r.restraint_type == RestraintType.Covalent:
-                a1: AF3BondedAtom = (
-                    r.atom1.chain_id,
-                    r.atom1.residue_idx,
-                    r.atom1.atom_name,
-                )
-                a2: AF3BondedAtom = (
-                    r.atom2.chain_id,
-                    r.atom2.residue_idx,
-                    r.atom2.atom_name,
-                )
-                pairs.append((a1, a2))
-            else:
-                # NOTE: AF3 only supports covalent bond restraints.
-                # Contact and pocket restraints are dropped.
-                err_unsupported_feature(
-                    strict,
-                    f"AF3 only supports covalent bonds, skipping {r.restraint_type}: {r}",
-                )
-        bonded_atom_pairs = pairs if pairs else None
+    bonded_atom_pairs: list[tuple[AF3BondedAtom, AF3BondedAtom]] = []
+    if config.covalent_bonds:
+        for r in config.covalent_bonds:
+            a1: AF3BondedAtom = (
+                r.atom1.chain_id,
+                r.atom1.residue_idx,
+                r.atom1.atom_name,
+            )
+            a2: AF3BondedAtom = (
+                r.atom2.chain_id,
+                r.atom2.residue_idx,
+                r.atom2.atom_name,
+            )
+            bonded_atom_pairs.append((a1, a2))
+
+    if config.contact_restraints or config.pocket_restraints:
+        err_unsupported_feature(
+            strict,
+            "AF3 does not support contact or pocket restraints.",
+        )
 
     return AF3Config(
         name=name,
         modelSeeds=config.seeds,
         sequences=sequences,
-        bondedAtomPairs=bonded_atom_pairs,
+        bondedAtomPairs=bonded_atom_pairs or None,
     )
 
 
@@ -301,13 +296,11 @@ def from_alphafold3(config: AF3Config) -> UniAF3Config:
             sequences.append(lig)
 
     # Bonded atom pairs → covalent restraints
-    restraints: list[Restraint] | None = None
+    covalent_bonds: list[CovalentBond] = []
     if config.bondedAtomPairs:
-        restraint_list: list[Restraint] = []
         for a1, a2 in config.bondedAtomPairs:
-            restraint_list.append(
-                Restraint(
-                    restraint_type=RestraintType.Covalent,
+            covalent_bonds.append(
+                CovalentBond(
                     atom1=Atom(
                         chain_id=a1[0],
                         residue_idx=a1[1],
@@ -320,13 +313,11 @@ def from_alphafold3(config: AF3Config) -> UniAF3Config:
                         atom_name=a2[2],
                         residue_name=None,
                     ),
-                    max_distance=0.0,
                 )
             )
-        restraints = restraint_list if restraint_list else None
 
     return UniAF3Config(
         sequences=sequences,
-        restraints=restraints,
+        covalent_bonds=covalent_bonds or None,
         seeds=config.modelSeeds,
     )

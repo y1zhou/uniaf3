@@ -226,7 +226,7 @@ class TestProtenixSchema:
         bonds = protenix_confs[0].covalent_bonds
         assert bonds is not None
         assert len(bonds) == 1
-        assert bonds[0].entity1 == "1"
+        assert bonds[0].entity1 == 1
         assert bonds[0].atom1 == "N6"
 
     def test_json_str_property(self, protenix_confs: ProtenixConfig):

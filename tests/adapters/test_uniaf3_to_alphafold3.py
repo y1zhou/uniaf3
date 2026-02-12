@@ -83,8 +83,8 @@ def test_only_covalent_bonds(uniaf3_conf: UniAF3Config, af3: AF3Config):
     # Only covalent bonds preserved in AF3
     assert af3.bondedAtomPairs is not None
     assert len(af3.bondedAtomPairs) == 1
-    assert uniaf3_conf.restraints is not None
+    assert uniaf3_conf.covalent_bonds is not None
     a1, a2 = af3.bondedAtomPairs[0]
-    src = uniaf3_conf.restraints[0]
+    src = uniaf3_conf.covalent_bonds[0]
     assert a1 == (src.atom1.chain_id, src.atom1.residue_idx, src.atom1.atom_name)
     assert a2 == (src.atom2.chain_id, src.atom2.residue_idx, src.atom2.atom_name)

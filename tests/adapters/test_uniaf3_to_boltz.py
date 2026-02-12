@@ -38,7 +38,7 @@ def test_protein_fields(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert prot is not None
     assert prot.id == src.id
     assert prot.sequence == src.sequence
-    assert prot.cyclic == src.cyclic
+    assert prot.cyclic == src.boltz_cyclic
     # MSA: "empty" because src.msa_dir is None
     assert prot.msa == "empty"
 
@@ -64,7 +64,7 @@ def test_dna_fields(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert dna is not None
     assert dna.id == src.id
     assert dna.sequence == src.sequence
-    assert dna.cyclic == src.cyclic
+    assert dna.cyclic == src.boltz_cyclic
 
 
 def test_ligand_ccd(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
@@ -90,8 +90,8 @@ def test_ligand_smiles(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
 def test_bond_constraint(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert boltz.constraints is not None
     bond = boltz.constraints[0].bond
-    assert uniaf3_conf.restraints is not None
-    src = uniaf3_conf.restraints[0]
+    assert uniaf3_conf.covalent_bonds is not None
+    src = uniaf3_conf.covalent_bonds[0]
     assert bond is not None
     assert bond.atom1 == (
         src.atom1.chain_id,
@@ -108,11 +108,11 @@ def test_bond_constraint(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
 def test_contact_constraint(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert boltz.constraints is not None
     ct = boltz.constraints[1].contact
-    assert uniaf3_conf.restraints is not None
-    src = uniaf3_conf.restraints[1]
+    assert uniaf3_conf.contact_restraints is not None
+    src = uniaf3_conf.contact_restraints[0]
     assert ct is not None
-    assert ct.token1 == (src.atom1.chain_id, src.atom1.residue_idx)
-    assert ct.token2 == (src.atom2.chain_id, src.atom2.residue_idx)
+    assert ct.token1 == (src.token1.chain_id, src.token1.residue_idx)
+    assert ct.token2 == (src.token2.chain_id, src.token2.residue_idx)
     assert ct.max_distance == src.max_distance
     assert ct.force == src.boltz_enable_force
 
@@ -120,10 +120,10 @@ def test_contact_constraint(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
 def test_pocket_constraint(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert boltz.constraints is not None
     pk = boltz.constraints[2].pocket
-    assert uniaf3_conf.restraints is not None
-    src = uniaf3_conf.restraints[2]
+    assert uniaf3_conf.pocket_restraints is not None
+    src = uniaf3_conf.pocket_restraints[0]
     assert pk is not None
-    assert pk.binder == src.boltz_binder_chain
+    assert pk.binder == src.binder_chain
     assert pk.max_distance == src.max_distance
 
 
@@ -132,5 +132,6 @@ def test_affinity_property(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert len(boltz.properties) == 1
     assert boltz.properties[0].affinity is not None
     assert (
-        boltz.properties[0].affinity.binder == uniaf3_conf.boltz_affinity_binder_chain
+        boltz.properties[0].affinity.binder
+        == uniaf3_conf.aux.boltz_affinity_binder_chain
     )

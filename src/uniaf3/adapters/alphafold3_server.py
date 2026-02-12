@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from uniaf3.adapters._helpers import (
-    _KNOWN_ION_CCD_CODES,
-    _ensure_list,
+    KNOWN_ION_CCD_CODES,
+    ensure_list,
     err_unsupported_feature,
 )
 from uniaf3.schema.alphafold3_server import (
@@ -59,7 +59,7 @@ def _to_alphafold3_server(
         if isinstance(seq, ProteinSeq) or (
             isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
         ):
-            ids = _ensure_list(seq.id)
+            ids = ensure_list(seq.id)
             mods = None
             if seq.modifications:
                 mods = [
@@ -76,7 +76,7 @@ def _to_alphafold3_server(
             sequences.append(AF3ServerSequenceEntry(proteinChain=protein))
 
         elif isinstance(seq, Polymer) and seq.seq_type == PolymerType.DNA:
-            ids = _ensure_list(seq.id)
+            ids = ensure_list(seq.id)
             mods = None
             if seq.modifications:
                 mods = [
@@ -93,7 +93,7 @@ def _to_alphafold3_server(
             sequences.append(AF3ServerSequenceEntry(dnaSequence=dna))
 
         elif isinstance(seq, Polymer) and seq.seq_type == PolymerType.RNA:
-            ids = _ensure_list(seq.id)
+            ids = ensure_list(seq.id)
             mods = None
             if seq.modifications:
                 mods = [
@@ -110,11 +110,11 @@ def _to_alphafold3_server(
             sequences.append(AF3ServerSequenceEntry(rnaSequence=rna))
 
         elif isinstance(seq, Ligand):
-            ids = _ensure_list(seq.id)
+            ids = ensure_list(seq.id)
             count = len(ids)
             if seq.ccd:
                 for ccd_code in seq.ccd:
-                    if ccd_code in _KNOWN_ION_CCD_CODES:
+                    if ccd_code in KNOWN_ION_CCD_CODES:
                         sequences.append(
                             AF3ServerSequenceEntry(
                                 ion=AF3ServerIon(ion=ccd_code, count=count)
@@ -281,4 +281,4 @@ def from_alphafold3_server(config: AF3ServerConfig) -> list[UniAF3Config]:
     if len(config) == 0:
         raise ValueError("AF3ServerConfig must have at least one job.")
 
-    return [_from_alphafold3_server(job) for job in config]
+    return [_from_alphafold3_server(job) for job in config]  # ty:ignore[not-iterable]

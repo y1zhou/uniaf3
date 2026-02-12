@@ -3,7 +3,7 @@
 import pytest
 
 from uniaf3.schema import BoltzConfig, UniAF3Config
-from uniaf3.schema.base import Ligand, PolymerType, ProteinSeq, RestraintType
+from uniaf3.schema.base import Ligand, PolymerType, ProteinSeq
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +38,7 @@ def test_protein_fields(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
     assert prot.id == src.id
     assert prot.sequence == src.sequence
     assert prot.seq_type == PolymerType.Protein
-    assert prot.cyclic == src.cyclic
+    assert prot.boltz_cyclic == src.cyclic
 
 
 def test_protein_modifications(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
@@ -81,12 +81,11 @@ def test_ligand_smiles(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
 
 
 def test_bond_restraint(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
-    assert boltz_uni.restraints is not None
+    assert boltz_uni.covalent_bonds is not None
     assert boltz_conf.constraints is not None
-    bond = boltz_uni.restraints[0]
+    bond = boltz_uni.covalent_bonds[0]
     src = boltz_conf.constraints[0].bond
     assert src is not None
-    assert bond.restraint_type == RestraintType.Covalent
     assert bond.atom1.chain_id == src.atom1[0]
     assert bond.atom1.residue_idx == src.atom1[1]
     assert bond.atom1.atom_name == src.atom1[2]
@@ -96,29 +95,27 @@ def test_bond_restraint(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
 
 
 def test_contact_restraint(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
-    assert boltz_uni.restraints is not None
+    assert boltz_uni.contact_restraints is not None
     assert boltz_conf.constraints is not None
-    ct = boltz_uni.restraints[1]
+    ct = boltz_uni.contact_restraints[0]
     src = boltz_conf.constraints[1].contact
     assert src is not None
-    assert ct.restraint_type == RestraintType.Contact
-    assert ct.atom1.chain_id == src.token1[0]
-    assert ct.atom1.residue_idx == int(src.token1[1])
+    assert ct.token1.chain_id == src.token1[0]
+    assert ct.token1.residue_idx == int(src.token1[1])
     assert ct.max_distance == src.max_distance
     assert ct.boltz_enable_force == src.force
 
 
 def test_pocket_restraint(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
-    assert boltz_uni.restraints is not None
+    assert boltz_uni.pocket_restraints is not None
     assert boltz_conf.constraints is not None
-    pk = boltz_uni.restraints[2]
+    pk = boltz_uni.pocket_restraints[0]
     src = boltz_conf.constraints[2].pocket
     assert src is not None
-    assert pk.restraint_type == RestraintType.Pocket
-    assert pk.boltz_binder_chain == src.binder
+    assert pk.binder_chain == src.binder
     assert pk.max_distance == src.max_distance
-    # atom2 is the binder chain with a placeholder residue_idx
-    assert pk.atom2.chain_id == src.binder
+
+    assert [(t.chain_id, t.residue_idx) for t in pk.contact_tokens] == src.contacts
 
 
 def test_seeds_default(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):

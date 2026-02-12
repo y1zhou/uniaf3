@@ -66,18 +66,18 @@ def test_covalent_bond(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     job = ptx[0]
     assert job.covalent_bonds is not None
     assert len(job.covalent_bonds) == 1
-    assert uniaf3_conf.restraints is not None
-    src = uniaf3_conf.restraints[0]
+    assert uniaf3_conf.covalent_bonds is not None
+    src = uniaf3_conf.covalent_bonds[0]
     bond = job.covalent_bonds[0]
     assert bond.atom1 == src.atom1.atom_name
     assert bond.atom2 == src.atom2.atom_name
-    assert bond.position1 == str(src.atom1.residue_idx)
-    assert bond.position2 == str(src.atom2.residue_idx)
+    assert bond.position1 == src.atom1.residue_idx
+    assert bond.position2 == src.atom2.residue_idx
 
-    assert bond.entity1 == "1"
-    assert bond.entity2 == "3"
-    assert bond.copy1 == 1
-    assert bond.copy2 == 2
+    assert bond.entity1 == 1
+    assert bond.entity2 == 3
+    assert bond.copy1 == 2
+    assert bond.copy2 == 1
 
 
 def test_contact_constraint(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
@@ -85,18 +85,18 @@ def test_contact_constraint(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     assert job.constraint is not None
     assert job.constraint.contact is not None
     assert len(job.constraint.contact) == 1
-    assert uniaf3_conf.restraints is not None
+    assert uniaf3_conf.contact_restraints is not None
     ct = job.constraint.contact[0]
-    src = uniaf3_conf.restraints[1]
+    src = uniaf3_conf.contact_restraints[0]
 
-    assert ct.atom1 == src.atom1.atom_name
-    assert ct.atom2 == src.atom2.atom_name
-    assert ct.position1 == src.atom1.residue_idx
-    assert ct.position2 == src.atom2.residue_idx
+    assert ct.atom1 == src.token1.atom_name
+    assert ct.atom2 == src.token2.atom_name
+    assert ct.position1 == src.token1.residue_idx
+    assert ct.position2 == src.token2.residue_idx
     assert ct.max_distance == src.max_distance
 
-    assert ct.entity1 == "1"
-    assert ct.entity2 == "1"
+    assert ct.entity1 == 1
+    assert ct.entity2 == 1
     assert ct.copy1 == 1
     assert ct.copy2 == 2
 
@@ -105,15 +105,15 @@ def test_pocket_constraint(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     job = ptx[0]
     assert job.constraint is not None
     assert job.constraint.pocket is not None
-    assert uniaf3_conf.restraints is not None
-    src = uniaf3_conf.restraints[2]
+    assert uniaf3_conf.pocket_restraints is not None
+    src = uniaf3_conf.pocket_restraints[0]
     assert job.constraint.pocket.max_distance == src.max_distance
 
     pocket = job.constraint.pocket
     assert pocket.max_distance == src.max_distance
     assert pocket.contact_residues[0].entity == 1
     assert pocket.contact_residues[0].copy_idx == 1
-    assert pocket.contact_residues[0].position == src.atom1.residue_idx
+    assert pocket.contact_residues[0].position == src.contact_tokens[0].residue_idx
 
     assert pocket.binder_chain.entity == 3
     assert pocket.binder_chain.copy_idx == 1

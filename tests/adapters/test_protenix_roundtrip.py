@@ -138,7 +138,7 @@ def test_pocket_restraint(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixC
     src = protenix_confs[0].constraint.pocket
     pk = pockets[0]
     assert pk.max_distance == src.max_distance
-    assert pk.boltz_binder_chain is not None
+    assert pk.binder_chain is not None
 
 
 def test_seeds_default(ptx_uni: list[UniAF3Config]):

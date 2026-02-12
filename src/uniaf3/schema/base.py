@@ -130,7 +130,7 @@ class Atom(BaseModel):
     chain_id: str  # corresponding to the `id` field for the entity
     residue_idx: PositiveInt  # 1-based residue index within the chain
     atom_name: str  # e.g., "CA", "N", "C", etc. Follow rdkit for ligands
-    residue_name: str | None  # Chai requires this for restraints on proteins
+    residue_name: str | None  # Required by Chai when specifying restraints
 
 
 class SequenceModification(BaseModel):
@@ -177,7 +177,7 @@ class Polymer(BaseModel):
     sequence: str
     modifications: list[SequenceModification] | None = None
     description: str | None = None  # comment describing the chain
-    cyclic: bool = False  # Boltz only
+    boltz_cyclic: bool = False  # Boltz only
 
     @computed_field
     @cached_property
@@ -273,42 +273,94 @@ class Glycan(BaseModel):
     description: str | None = None  # comment describing the glycan
 
 
-class RestraintType(StrEnum):
-    """Enum for restraint types."""
+class CovalentBond(BaseModel):
+    """Schema for covalent bonds between two atoms from different entities.
 
-    Covalent = "bond"
-    Pocket = "pocket"
-    Contact = "contact"
-
-    def __repr__(self):
-        """Return string representation when being serialized."""
-        return self.value
-
-
-class Restraint(BaseModel):
-    """Schema for distance restraints.
-
-    Note that AF3 only supports bonded restraints.
-
-    In Boltz, the `boltz_binder_chain` should be set to the ligand chain ID that binds
-    to the pocket.
-    In Chai, the atom that does not belong to `boltz_binder_chain` would be used for
-    specifying the pocket, and for the binder chain only the chain ID is needed.
-    The atom and residue index information would be ignored.
-    Chai also expects the pocket chain to be in Chain B.
+    AF3: [chain, res_idx, atom_name]
+    Boltz: [chain, res_idx, atom_name]
+    Chai-1: chain, <{res_name}{res_idx}>@{atom_name} where the residue part can be
+        omitted for ligands. The chain ID is assigned sequentially in A-Z order
+        based on the order in the input FASTA file.
+    Protenix: [entity, copy, position, atom_name]
     """
 
-    restraint_type: RestraintType
     atom1: Atom
     atom2: Atom
-    max_distance: float = (
-        6.0  # maximum distance (Angstroms); ignored for covalent bonds
-    )
+    description: str | None = None  # comment describing the restraint
+
+
+class ContactRestraint(BaseModel):
+    """Schema for distance restraints between two atoms from different entities.
+
+    Note that AF3 and AF3-server do not support non-covalent restraints.
+    The `min_distance` field is only used by Protenix.
+
+    Boltz: [chain, res_idx/atom_name] res_idx for polymers, atom_name for ligands.
+    Chai-1: chain, {res_name}{res_idx}; only polymers supported. The chain ID is
+        assigned sequentially in A-Z order based on the order in the input FASTA file.
+    Protenix: [entity, copy, position, atom_name] where atom_name is optional.
+    """
+
+    token1: Atom
+    token2: Atom
+    max_distance: float = 6.0  # maximum distance (Angstroms)
+    min_distance: float = 0.0  # minimum distance (Angstroms)
+    description: str | None = None  # comment describing the restraint
+
+    boltz_enable_force: bool = False  # use a potential to enforce the restraint
+
+    @model_validator(mode="after")
+    def check_distance_range(self):
+        """Ensure that max_distance is greater than min_distance."""
+        if self.max_distance <= self.min_distance:
+            raise ValueError("max_distance must be greater than min_distance.")
+        if not 4.0 <= self.max_distance <= 20.0:
+            # This is required by Boltz but makes sense anyways
+            raise ValueError("max_distance should be between 4 and 20 Angstroms.")
+        return self
+
+
+class PocketRestraint(BaseModel):
+    """Schema for distance restraints.
+
+    Note that AF3 and AF3-server do not support non-covalent restraints.
+    The `min_distance` field is only used by Protenix.
+
+    Boltz: [[chain, res_idx/atom_name]] res_idx for polymers, atom_name for ligands.
+    Chai-1: [chain, {res_name}{res_idx}]; only polymers supported. The chain ID is
+        assigned sequentially in A-Z order based on the order in the input FASTA file.
+    Protenix: [[entity, copy, position]]. There can only be one pocket for Protenix,
+        meaning that all contact tokens need to have the same `binder_chain`.
+    """
+
+    binder_chain: str  # ID of the chain binding to the pocket
+    contact_tokens: list[Atom]
+    max_distance: float = 6.0  # maximum distance (Angstroms)
+    min_distance: float = 0.0  # minimum distance (Angstroms)
     description: str | None = None  # comment describing the restraint
 
     # Boltz specific fields
     boltz_enable_force: bool = False  # use a potential to enforce the restraint
-    boltz_binder_chain: str | None = None  # only used for pocket restraints
+
+    @model_validator(mode="after")
+    def check_distance_range(self):
+        """Ensure that max_distance is greater than min_distance."""
+        if self.max_distance <= self.min_distance:
+            raise ValueError("max_distance must be greater than min_distance.")
+        if not 4.0 <= self.max_distance <= 20.0:
+            # This is required by Boltz but makes sense anyways
+            raise ValueError("max_distance should be between 4 and 20 Angstroms.")
+        return self
+
+    @model_validator(mode="after")
+    def check_contact_tokens_same_binder_chain(self):
+        """Ensure that all contact tokens have the same binder chain ID."""
+        for token in self.contact_tokens:
+            if token.chain_id == self.binder_chain:
+                raise ValueError(
+                    f"Contact token chain ID cannot be the same as the binder chain ID {self.binder_chain}: {token}."
+                )
+        return self
 
 
 class AuxiliaryParams(BaseModel):
@@ -329,7 +381,9 @@ class UniAF3Config(UniAF3BaseConfig):
 
     # General settings
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan]
-    restraints: list[Restraint] | None = None
+    covalent_bonds: list[CovalentBond] | None = None
+    contact_restraints: list[ContactRestraint] | None = None
+    pocket_restraints: list[PocketRestraint] | None = None
     seeds: list[int]
 
     # Inference parameters and model-specific settings
@@ -373,7 +427,21 @@ class UniAF3Config(UniAF3BaseConfig):
     @model_validator(mode="after")
     def check_restraints_in_range(self):
         """Ensure that restraint atom indices are within the corresponding sequence lengths."""
-        if self.restraints is not None:
+        restraint_atoms: list[Atom] = []
+        if self.covalent_bonds is not None:
+            for bond in self.covalent_bonds:
+                restraint_atoms.extend([bond.atom1, bond.atom2])
+        if self.contact_restraints is not None:
+            for restraint in self.contact_restraints:
+                restraint_atoms.extend([restraint.token1, restraint.token2])
+        if self.pocket_restraints is not None:
+            restraint_atoms.extend(
+                token
+                for restraint in self.pocket_restraints
+                for token in restraint.contact_tokens
+            )
+
+        if restraint_atoms:
             # Build chain_id → sequence mapping, handling list[str] ids
             seq_dict: dict[str, Polymer | ProteinSeq | Ligand | Glycan] = {}
             for seq in self.sequences:
@@ -381,19 +449,18 @@ class UniAF3Config(UniAF3BaseConfig):
                 for cid in ids:
                     seq_dict[cid] = seq
 
-            for restraint in self.restraints:
-                for atom in (restraint.atom1, restraint.atom2):
-                    if atom.chain_id not in seq_dict:
-                        raise ValueError(
-                            f"Atom chain ID {atom.chain_id} not found in sequences."
-                        )
-                    seq = seq_dict[atom.chain_id]
-                    if isinstance(seq, Ligand) or isinstance(seq, Glycan):
-                        continue  # skip ligand chains since they don't have residue indices
+            for atom in restraint_atoms:
+                if atom.chain_id not in seq_dict:
+                    raise ValueError(
+                        f"Atom chain ID {atom.chain_id} not found in sequences."
+                    )
+                seq = seq_dict[atom.chain_id]
+                if isinstance(seq, Ligand) or isinstance(seq, Glycan):
+                    continue  # skip ligand chains since they don't have residue indices
 
-                    seq_len = len(seq.sequence)
-                    if atom.residue_idx < 1 or atom.residue_idx > seq_len:
-                        raise ValueError(
-                            f"Atom index out of range for sequence of length {seq_len}: {atom}."
-                        )
+                seq_len = len(seq.sequence)
+                if atom.residue_idx < 1 or atom.residue_idx > seq_len:
+                    raise ValueError(
+                        f"Atom index out of range for sequence of length {seq_len}: {atom}."
+                    )
         return self

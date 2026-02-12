@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from uniaf3.schema import AF3Config, UniAF3Config
-from uniaf3.schema.base import Ligand, Polymer, PolymerType, ProteinSeq, RestraintType
+from uniaf3.schema.base import Ligand, Polymer, PolymerType, ProteinSeq
 
 
 @pytest.fixture(scope="module")
@@ -153,13 +153,12 @@ def test_ligand_smiles(af3_uni: UniAF3Config, af3_conf: AF3Config):
 
 
 def test_covalent_restraints(af3_uni: UniAF3Config, af3_conf: AF3Config):
-    assert af3_uni.restraints is not None
+    assert af3_uni.covalent_bonds is not None
     assert af3_conf.bondedAtomPairs is not None
-    assert len(af3_uni.restraints) == len(af3_conf.bondedAtomPairs)
+    assert len(af3_uni.covalent_bonds) == len(af3_conf.bondedAtomPairs)
     for restraint, (a1, a2) in zip(
-        af3_uni.restraints, af3_conf.bondedAtomPairs, strict=True
+        af3_uni.covalent_bonds, af3_conf.bondedAtomPairs, strict=True
     ):
-        assert restraint.restraint_type == RestraintType.Covalent
         assert restraint.atom1.chain_id == a1[0]
         assert restraint.atom1.residue_idx == a1[1]
         assert restraint.atom1.atom_name == a1[2]

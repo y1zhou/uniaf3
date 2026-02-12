@@ -43,7 +43,7 @@ __all__ = [
 ]
 
 
-def to_uniaf3(conf: AnyConfig) -> UniAF3Config:
+def to_uniaf3(conf: AnyConfig) -> UniAF3Config | list[UniAF3Config]:
     """Convert any supported model config to UniAF3Config.
 
     Args:
@@ -72,13 +72,13 @@ def to_uniaf3(conf: AnyConfig) -> UniAF3Config:
 
 
 def from_uniaf3(
-    conf: UniAF3Config,
+    conf: UniAF3Config | list[UniAF3Config],
     target: type[AnyConfig],
     *,
     name: str = "uniaf3_job",
     msa_dir: str | Path = ".",
     strict: bool = False,
-) -> AnyConfig:
+) -> AnyConfig | list[UniAF3Config]:
     """Convert a UniAF3Config to a specific model config.
 
     Args:
@@ -98,12 +98,18 @@ def from_uniaf3(
     if target is UniAF3Config:
         return conf
     if target is AF3Config:
+        if isinstance(conf, list):
+            return [to_alphafold3(c, name=name, strict=strict) for c in conf]
         return to_alphafold3(conf, name=name, strict=strict)
     if target is AF3ServerConfig:
         return to_alphafold3_server(conf, name=name, strict=strict)
     if target is BoltzConfig:
+        if isinstance(conf, list):
+            return [to_boltz(c, msa_dir=msa_dir, strict=strict) for c in conf]
         return to_boltz(conf, msa_dir=msa_dir, strict=strict)
     if target is ChaiConfig:
+        if isinstance(conf, list):
+            return [to_chai(c) for c in conf]
         return to_chai(conf)
     if target is ProtenixConfig:
         return to_protenix(conf, name=name)
