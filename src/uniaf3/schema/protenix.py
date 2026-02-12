@@ -34,12 +34,12 @@ class ProtenixProteinModification(BaseModel):
 class ProtenixProteinChain(BaseModel):
     """Protenix protein chain specification."""
 
-    sequence: str
+    sequence: str  # May contain 20 standard and X (UNK) for unknown residues
     count: PositiveInt = 1
     modifications: list[ProtenixProteinModification] | None = None
     unpairedMsaPath: str | None = None
     pairedMsaPath: str | None = None
-    templatesPath: str | None = None
+    templatesPath: str | None = None  # .a3m and .hhr supported
 
 
 class ProtenixNucleotideModification(BaseModel):
@@ -236,7 +236,7 @@ class ProtenixConfig(RootModel, UniAF3BaseConfig):
 
     root: list[ProtenixJob]
 
-    def __iter__(self) -> Iterable[ProtenixJob]:
+    def __iter__(self) -> Iterable[ProtenixJob]:  # ty:ignore[invalid-method-override]
         """Iterate over jobs in the config."""
         return iter(self.root)
 

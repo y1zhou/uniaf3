@@ -267,7 +267,7 @@ class AF3ServerConfig(RootModel, UniAF3BaseConfig):
 
     root: list[AF3ServerJob]
 
-    def __iter__(self) -> Iterable[AF3ServerJob]:
+    def __iter__(self) -> Iterable[AF3ServerJob]:  # ty:ignore[invalid-method-override]
         """Iterate over jobs in the config."""
         return iter(self.root)
 
