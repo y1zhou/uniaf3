@@ -10,6 +10,7 @@ import orjson
 import yaml
 from pydantic import (
     BaseModel,
+    NonNegativeFloat,
     NonNegativeInt,
     PositiveInt,
     computed_field,
@@ -152,7 +153,7 @@ class StructuralTemplate(BaseModel):
     template_chains: list[str] | None = None
     # Boltz-specific fields
     boltz_enable_force: bool = False  # use a potential to enforce the template
-    boltz_template_threshold: float | None = (
+    boltz_template_threshold: NonNegativeFloat | None = (
         None  # distance (Angstroms) that the prediction can deviate from the template
     )
 
@@ -303,8 +304,8 @@ class ContactRestraint(BaseModel):
 
     token1: Atom
     token2: Atom
-    max_distance: float = 6.0  # maximum distance (Angstroms)
-    min_distance: float = 0.0  # minimum distance (Angstroms)
+    max_distance: NonNegativeFloat = 6.0  # maximum distance (Angstroms)
+    min_distance: NonNegativeFloat = 0.0  # minimum distance (Angstroms)
     description: str | None = None  # comment describing the restraint
 
     boltz_enable_force: bool = False  # use a potential to enforce the restraint
@@ -335,8 +336,8 @@ class PocketRestraint(BaseModel):
 
     binder_chain: str  # ID of the chain binding to the pocket
     contact_tokens: list[Atom]
-    max_distance: float = 6.0  # maximum distance (Angstroms)
-    min_distance: float = 0.0  # minimum distance (Angstroms)
+    max_distance: NonNegativeFloat = 6.0  # maximum distance (Angstroms)
+    min_distance: NonNegativeFloat = 0.0  # minimum distance (Angstroms)
     description: str | None = None  # comment describing the restraint
 
     # Boltz specific fields

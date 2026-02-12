@@ -13,6 +13,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    NonNegativeFloat,
     PositiveInt,
     RootModel,
     model_validator,
@@ -178,8 +179,8 @@ class ProtenixContactConstraint(BaseModel):
     copy2: PositiveInt
     position2: PositiveInt
     atom2: str | None = None
-    max_distance: float = 6.0
-    min_distance: float = 0.0
+    max_distance: NonNegativeFloat = 6.0
+    min_distance: NonNegativeFloat = 0.0
 
 
 class ProtenixPocketBinderChain(BaseModel):
@@ -206,7 +207,7 @@ class ProtenixPocketConstraint(BaseModel):
 
     binder_chain: ProtenixPocketBinderChain
     contact_residues: list[ProtenixPocketContactResidue]
-    max_distance: float = 6.0
+    max_distance: NonNegativeFloat = 6.0
 
 
 class ProtenixConstraint(BaseModel):

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, PositiveInt, model_validator
+from pydantic import BaseModel, NonNegativeFloat, PositiveInt, model_validator
 
 from uniaf3.schema.base import UniAF3BaseConfig
 
@@ -103,7 +103,7 @@ class BoltzPocketConstraint(BaseModel):
 
     binder: str  # chain ID of the binder
     contacts: list[tuple[str, int | str]]  # (chain_id, residue index or atom name)
-    max_distance: float = 6.0
+    max_distance: NonNegativeFloat = 6.0
     force: bool = False
 
 
@@ -112,7 +112,7 @@ class BoltzContactConstraint(BaseModel):
 
     token1: tuple[str, int | str]  # (chain_id, residue index or atom name)
     token2: tuple[str, int | str]
-    max_distance: float = 6.0
+    max_distance: NonNegativeFloat = 6.0
     force: bool = False
 
 
@@ -148,7 +148,9 @@ class BoltzTemplate(BaseModel):
     chain_id: str | list[str] | None = None  # which chains to template
     template_id: str | list[str] | None = None  # explicit template chain mapping
     force: bool = False  # use potential to enforce template
-    threshold: float | None = None  # distance threshold for force (Angstroms)
+    threshold: NonNegativeFloat | None = (
+        None  # distance threshold for force (Angstroms)
+    )
 
     @model_validator(mode="after")
     def check_cif_pdb_fields(self):
