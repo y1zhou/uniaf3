@@ -113,7 +113,7 @@ def to_boltz(
     config: UniAF3Config,
     msa_dir: str | Path,
     max_num_templates_per_chain: int = 4,
-    strict: bool = True,
+    strict: bool = False,
 ) -> BoltzConfig:
     """Convert a UniAF3Config to a Boltz config.
 

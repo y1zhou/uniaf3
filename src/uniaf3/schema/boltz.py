@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, NonNegativeFloat, PositiveInt, model_validator
+from pydantic import (
+    BaseModel,
+    NonNegativeFloat,
+    PositiveInt,
+    model_validator,
+)
 
 from uniaf3.schema.base import UniAF3BaseConfig
 
@@ -94,8 +99,9 @@ class BoltzSequenceEntry(BaseModel):
 class BoltzBondConstraint(BaseModel):
     """Covalent bond constraint between two atoms."""
 
-    atom1: tuple[str, int, str]  # (chain_id, 1-based residue index, atom name)
-    atom2: tuple[str, int, str]
+    # (chain_id, 1-based residue index, atom name)
+    atom1: tuple[str, PositiveInt, str]
+    atom2: tuple[str, PositiveInt, str]
 
 
 class BoltzPocketConstraint(BaseModel):

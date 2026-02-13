@@ -36,7 +36,7 @@ from uniaf3.schema.base import (
 def to_alphafold3(
     config: UniAF3Config,
     name: str = "uniaf3_job",
-    strict: bool = True,
+    strict: bool = False,
 ) -> AF3Config:
     """Convert a UniAF3Config to an AlphaFold3 config.
 

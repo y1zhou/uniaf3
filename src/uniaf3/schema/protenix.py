@@ -253,6 +253,19 @@ class ProtenixPocketConstraint(BaseModel):
     contact_residues: list[ProtenixPocketContactResidue]
     max_distance: NonNegativeFloat = 6.0
 
+    @model_validator(mode="after")
+    def check_contact_residues(self):
+        """Ensure all contact residues are not on the binder chain."""
+        for contact in self.contact_residues:
+            if (
+                contact.entity == self.binder_chain.entity
+                and contact.copy_idx == self.binder_chain.copy_idx
+            ):
+                raise ValueError(
+                    f"Contact residue {contact} cannot be the same as binder chain."
+                )
+        return self
+
 
 class ProtenixConstraint(BaseModel):
     """Constraint section for a Protenix job."""
