@@ -30,11 +30,13 @@ from uniaf3.schema.base import (
     SequenceModification,
     StructuralTemplate,
     UniAF3Config,
+    hash_sequence,
 )
 
 
 def to_alphafold3(
     config: UniAF3Config,
+    msa_dir: str | Path,
     name: str = "uniaf3_job",
     strict: bool = False,
 ) -> AF3Config:
@@ -42,6 +44,7 @@ def to_alphafold3(
 
     Args:
         config: UniAF3Config pydantic object.
+        msa_dir: Directory to save MSA files.
         name: Job name for the AF3 config.
         strict: If True, raise errors when encountering unsupported features.
             If False, skip unsupported features with warnings.
@@ -192,17 +195,19 @@ def to_alphafold3(
     )
 
 
-def from_alphafold3(config: AF3Config) -> UniAF3Config:
+def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
     """Convert an AlphaFold3 config to a UniAF3Config.
 
     Args:
         config: AF3Config pydantic object.
+        msa_dir: Directory to save MSA files.
 
     Returns:
         A UniAF3Config.
 
     """
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
+    msa_dir_path = Path(msa_dir) / "a3ms"
     for entry in config.sequences:
         if entry.protein is not None:
             p = entry.protein
@@ -215,11 +220,17 @@ def from_alphafold3(config: AF3Config) -> UniAF3Config:
                 else None
             )
             # Determine MSA dir from MSA paths
-            msa_dir = None
-            if p.unpairedMsaPath:
-                # NOTE: AF3 uses direct file paths; UniAF3 uses directory-based
-                # lookup. We set msa_dir to the parent of the unpaired MSA path.
-                msa_dir = str(Path(p.unpairedMsaPath).parent)
+            for i, f in enumerate((p.unpairedMsaPath, p.pairedMsaPath)):
+                if f is not None:
+                    msa_dir_path.mkdir(parents=True, exist_ok=True)
+                    seq_hash = hash_sequence(p.sequence)
+                    msa_type = "single" if i == 0 else "pair"
+
+                    msa_path = msa_dir_path / f"{seq_hash}.{msa_type}.a3m"
+                    if not msa_path.exists():
+                        import shutil
+
+                        shutil.copyfile(f, msa_path)
 
             templates = None
             if p.templates:
@@ -238,7 +249,7 @@ def from_alphafold3(config: AF3Config) -> UniAF3Config:
                 sequence=p.sequence,
                 modifications=mods,
                 description=p.description,
-                msa_dir=msa_dir,
+                msa_dir=str(msa_dir_path.parent),
                 templates=templates,
             )
             sequences.append(seq)

@@ -183,6 +183,24 @@ class AF3Config(UniAF3BaseConfig):
     dialect: Literal["alphafold3"] = "alphafold3"
     version: Literal[1, 2, 3, 4] = 4
 
+    @classmethod
+    def from_file(cls, conf_file: str | Path) -> AF3Config:
+        """Load UniAF3 config from a file."""
+        conf = super().from_file(conf_file)
+
+        for seq in conf.sequences:
+            if seq.protein is not None:
+                if seq.protein.pairedMsaPath is not None:
+                    seq.protein.pairedMsaPath = str(
+                        (Path(conf_file).parent / seq.protein.pairedMsaPath).resolve()
+                    )
+                if seq.protein.unpairedMsaPath is not None:
+                    seq.protein.unpairedMsaPath = str(
+                        (Path(conf_file).parent / seq.protein.unpairedMsaPath).resolve()
+                    )
+
+        return conf
+
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation of the config."""
         return self.to_json(**kwargs)

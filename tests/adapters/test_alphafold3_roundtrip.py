@@ -9,19 +9,23 @@ from uniaf3.schema.base import Ligand, Polymer, PolymerType, ProteinSeq
 
 
 @pytest.fixture(scope="module")
-def af3_uni(af3_conf: AF3Config):
+def af3_uni(
+    af3_conf: AF3Config, tmp_path_factory: pytest.TempPathFactory
+) -> UniAF3Config:
     """Convert AF3Config to UniAF3Config."""
     from uniaf3.adapters import from_alphafold3
 
-    return from_alphafold3(af3_conf)
+    return from_alphafold3(af3_conf, tmp_path_factory.mktemp("msa"))
 
 
 @pytest.fixture(scope="module")
-def af3_rt(af3_uni: UniAF3Config):
+def af3_rt(af3_uni: UniAF3Config, tmp_path_factory: pytest.TempPathFactory):
     """Convert UniAF3Config back to AF3Config, i.e. roundtrip."""
     from uniaf3.adapters import to_alphafold3
 
-    return to_alphafold3(af3_uni, name="test-roundtrip", strict=False)
+    return to_alphafold3(
+        af3_uni, tmp_path_factory.mktemp("msa"), name="test-roundtrip", strict=False
+    )
 
 
 # ruff: noqa: S101

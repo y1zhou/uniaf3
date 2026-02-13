@@ -5,14 +5,14 @@
     {
       "protein": {
         "id": "A",
-        "sequence": "PVLSCGEWQL",
+        "sequence": "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS",
         "modifications": [
           {"ptmType": "HY3", "ptmPosition": 1},
           {"ptmType": "P1L", "ptmPosition": 5}
         ],
-        "description": "10-residue protein with 2 modifications",
-        "unpairedMsaPath": "./msas/A_unpaired.a3m",
-        "pairedMsaPath": "./msas/A_paired.a3m"
+        "description": "Hemoglobin subunit with 2 modifications",
+        "unpairedMsaPath": "./dummy_msa/a3ms/f3513e4c19996aaa8fb4372b70d87dd2c3d285ba8245bf89cff77f63928dfd1f.single.a3m",
+        "pairedMsaPath": "./dummy_msa/a3ms/f3513e4c19996aaa8fb4372b70d87dd2c3d285ba8245bf89cff77f63928dfd1f.pair.a3m"
       }
     },
     {
