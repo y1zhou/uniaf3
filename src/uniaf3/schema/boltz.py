@@ -6,6 +6,7 @@ Reference:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import (
@@ -193,3 +194,10 @@ class BoltzConfig(UniAF3BaseConfig):
     def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""
         return self.to_yaml(**kwargs)
+
+    def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
+        """Dump the config to a YAML file in the specified output directory."""
+        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.yaml"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(self.to_yaml(**kwargs))

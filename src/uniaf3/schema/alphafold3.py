@@ -6,6 +6,7 @@ Reference:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
@@ -185,6 +186,13 @@ class AF3Config(UniAF3BaseConfig):
     def to_str(self, **kwargs) -> str:
         """Get JSON string representation of the config."""
         return self.to_json(**kwargs)
+
+    def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
+        """Dump the config to a JSON file in the specified output directory."""
+        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(self.to_json(**kwargs))
 
     @model_validator(mode="after")
     def check_bonds_in_range(self):
