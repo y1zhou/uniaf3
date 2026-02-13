@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from uniaf3.adapters._helpers import (
-    KNOWN_ION_CCD_CODES,
     ensure_list,
     err_unsupported_feature,
 )
@@ -26,7 +25,6 @@ from uniaf3.schema.protenix import (
     ProtenixContactConstraint,
     ProtenixCovalentBond,
     ProtenixDNASequence,
-    ProtenixIon,
     ProtenixJob,
     ProtenixLigand,
     ProtenixNucleotideModification,
@@ -38,6 +36,7 @@ from uniaf3.schema.protenix import (
     ProtenixRNASequence,
     ProtenixSequenceEntry,
 )
+from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
 
 
 def _to_protenix(
@@ -48,7 +47,6 @@ def _to_protenix(
 
     # Build a chain-id -> (entity, copy) mapping
     chain_to_entity: dict[str, tuple[int, int]] = {}
-    entity_idx = 1
     for entity_idx, seq in enumerate(config.sequences, start=1):
         # NOTE: Protenix does not support assigning chain IDs to input
         # entities. The entity number is determined by the order in the
@@ -116,22 +114,15 @@ def _to_protenix(
                     )
                 )
         elif isinstance(seq, Ligand):
-            if seq.ccd:
-                for ccd_code in seq.ccd:
-                    if ccd_code in KNOWN_ION_CCD_CODES:
-                        sequences.append(
-                            ProtenixSequenceEntry(
-                                ion=ProtenixIon(ion=ccd_code, count=count)
-                            )
+            if seq.ccd is not None:
+                # We never use the ion field in Protenix
+                sequences.append(
+                    ProtenixSequenceEntry(
+                        ligand=ProtenixLigand(
+                            ligand=f"CCD_{'_'.join(seq.ccd)}", count=count
                         )
-                    else:
-                        sequences.append(
-                            ProtenixSequenceEntry(
-                                ligand=ProtenixLigand(
-                                    ligand=f"CCD_{ccd_code}", count=count
-                                )
-                            )
-                        )
+                    )
+                )
             elif seq.smiles:
                 sequences.append(
                     ProtenixSequenceEntry(
@@ -139,12 +130,20 @@ def _to_protenix(
                     )
                 )
         elif isinstance(seq, Glycan):
-            # NOTE: Glycans in Protenix are represented as multi-CCD ligands
-            # or SMILES. Using the Chai notation string as SMILES is a lossy
-            # conversion.
+            # Protenix glycans are represented as multi-CCD ligands or SMILES.
+            # Converting from the Chai notation string is lossy since we cannot capture
+            # bonds within glycans.
+            glycans, glycan_bonds = _glycan_string_to_sugars_and_bonds(seq.chai_str)
+            if glycan_bonds:
+                err_unsupported_feature(
+                    strict,
+                    f"Glycan with bonds not supported in Protenix: {seq.chai_str}",
+                )
             sequences.append(
                 ProtenixSequenceEntry(
-                    ligand=ProtenixLigand(ligand=seq.chai_str, count=count)
+                    ligand=ProtenixLigand(
+                        ligand=f"CCD_{'_'.join(glycans)}", count=count
+                    )
                 )
             )
 
@@ -188,17 +187,17 @@ def _to_protenix(
                 entity1=entity1,
                 copy1=copy1,
                 position1=r.token1.residue_idx,
-                atom1=r.token1.atom_name if r.token1.atom_name else None,
+                atom1=r.token1.atom_name,
                 entity2=entity2,
                 copy2=copy2,
                 position2=r.token2.residue_idx,
-                atom2=r.token2.atom_name if r.token2.atom_name else None,
+                atom2=r.token2.atom_name,
                 max_distance=r.max_distance,
             )
         )
     pocket: ProtenixPocketConstraint | None = None
     if config.pocket_restraints is not None:
-        # NOTE: Protenix supports only a single pocket constraint per
+        # Protenix supports only a single pocket constraint per
         # job. The first pocket restraint wins.
         if (
             num_pockets := len(set(x.binder_chain for x in config.pocket_restraints))
@@ -242,7 +241,7 @@ def _to_protenix(
 
 
 def to_protenix(
-    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = True
+    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = False
 ) -> ProtenixConfig:
     """Convert a list of UniAF3Config to a Protenix config."""
     if isinstance(config, UniAF3Config):
@@ -267,13 +266,14 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
 
     # Map entity index (1-based) → chain IDs for bond conversion
+    seq_count: int = 1
     entity_to_chains: dict[int, list[str]] = {}
-
     for entity_id, entry in enumerate(job.sequences, start=1):
         if entry.proteinChain is not None:
             pc = entry.proteinChain
-            chain_ids = [int_to_letters(entity_id + i) for i in range(pc.count)]
+            chain_ids = [int_to_letters(seq_count + i) for i in range(pc.count)]
             entity_to_chains[entity_id] = chain_ids
+            seq_count += pc.count
             mods = None
             if pc.modifications:
                 mods = [
@@ -291,8 +291,9 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             sequences.append(seq)
         elif entry.dnaSequence is not None:
             ds = entry.dnaSequence
-            chain_ids = [int_to_letters(entity_id + i) for i in range(ds.count)]
+            chain_ids = [int_to_letters(seq_count + i) for i in range(ds.count)]
             entity_to_chains[entity_id] = chain_ids
+            seq_count += ds.count
             mods = None
             if ds.modifications:
                 mods = [
@@ -311,8 +312,9 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             sequences.append(seq)
         elif entry.rnaSequence is not None:
             rs = entry.rnaSequence
-            chain_ids = [int_to_letters(entity_id + i) for i in range(rs.count)]
+            chain_ids = [int_to_letters(seq_count + i) for i in range(rs.count)]
             entity_to_chains[entity_id] = chain_ids
+            seq_count += rs.count
             mods = None
             if rs.modifications:
                 mods = [
@@ -331,23 +333,30 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             sequences.append(seq)
         elif entry.ligand is not None:
             lg = entry.ligand
-            chain_ids = [int_to_letters(entity_id + i) for i in range(lg.count)]
+            chain_ids = [int_to_letters(seq_count + i) for i in range(lg.count)]
             entity_to_chains[entity_id] = chain_ids
+            seq_count += lg.count
             ligand_str = lg.ligand
-            if ligand_str.startswith("CCD_"):
+            ligand_type = lg.ligand_type
+
+            if ligand_type == "CCD":
                 # CCD ligand (may be multi-CCD like "CCD_NAG_BMA_BGC")
                 ccd_codes = ligand_str.removeprefix("CCD_").split("_")
                 lig = Ligand(id=chain_ids, ccd=ccd_codes)
+
+            elif ligand_type == "SMILES":
+                lig = Ligand(id=chain_ids, smiles=ligand_str)
             else:
-                # NOTE: Cannot distinguish SMILES from FILE_ path; assume
-                # SMILES if it does not start with FILE_.
-                smiles = ligand_str.removeprefix("FILE_")
-                lig = Ligand(id=chain_ids, smiles=smiles)
+                err_unsupported_feature(
+                    False, f"Unsupported FILE ligand type in Protenix entry: {lg}"
+                )
+                continue
             sequences.append(lig)
         elif entry.ion is not None:
             io = entry.ion
-            chain_ids = [int_to_letters(entity_id + i) for i in range(io.count)]
+            chain_ids = [int_to_letters(seq_count + i) for i in range(io.count)]
             entity_to_chains[entity_id] = chain_ids
+            seq_count += io.count
             lig = Ligand(id=chain_ids, ccd=[io.ion])
             sequences.append(lig)
 
@@ -414,13 +423,13 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                     token1=Atom(
                         chain_id=e1_chain,
                         residue_idx=ct.position1,
-                        atom_name=ct.atom1 or "",
+                        atom_name=ct.atom1,
                         residue_name=None,
                     ),
                     token2=Atom(
                         chain_id=e2_chain,
                         residue_idx=ct.position2,
-                        atom_name=ct.atom2 or "",
+                        atom_name=ct.atom2,
                         residue_name=None,
                     ),
                     max_distance=ct.max_distance,
@@ -447,7 +456,7 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                         Atom(
                             chain_id=cr_chain,
                             residue_idx=cr_pos,
-                            atom_name="",
+                            atom_name=None,
                             residue_name=None,
                         )
                         for cr_chain, cr_pos in contact_residues

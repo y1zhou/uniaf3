@@ -114,6 +114,7 @@ class ProtenixLigand(BaseModel):
     count: PositiveInt = 1
 
     @computed_field
+    @property
     def ligand_type(self) -> str:
         """Determine the ligand type based on the ligand string."""
         if self.ligand.startswith("CCD_"):
