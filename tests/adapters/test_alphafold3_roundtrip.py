@@ -70,10 +70,20 @@ def test_protein_msa_dir_derived(af3_uni: UniAF3Config, af3_conf: AF3Config):
     assert isinstance(prot, ProteinSeq)
     assert src is not None
     if src.unpairedMsaPath:
-        assert prot.msa_dir is not None
-        assert prot.msa_dir == str(Path(src.unpairedMsaPath).parent)
+        assert prot.unpaired_msa is not None
+        assert (
+            Path(prot.unpaired_msa).read_bytes()
+            == Path(src.unpairedMsaPath).read_bytes()
+        )
     else:
         assert prot.msa_dir is None
+    if src.pairedMsaPath:
+        assert prot.paired_msa is not None
+        assert (
+            Path(prot.paired_msa).read_bytes() == Path(src.pairedMsaPath).read_bytes()
+        )
+    else:
+        assert prot.paired_msa is None
 
 
 def test_protein_templates(af3_uni: UniAF3Config, af3_conf: AF3Config):

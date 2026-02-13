@@ -6,7 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
-from uniaf3.adapters._helpers import err_unsupported_feature
+from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -214,13 +214,8 @@ def to_boltz(
     seq_types: dict[str, str] = {}
     for seq in config.sequences:
         # Note the chain types for later pocket constraint processing
-        if isinstance(seq.id, list):
-            for chain_id in seq.id:
-                seq_types[chain_id] = (
-                    seq.seq_type.value if isinstance(seq, Polymer) else "ligand"
-                )
-        else:
-            seq_types[seq.id] = (
+        for chain_id in ensure_list(seq.id):
+            seq_types[chain_id] = (
                 seq.seq_type.value if isinstance(seq, Polymer) else "ligand"
             )
 
@@ -450,7 +445,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 msa_dir=str(msa_dir),
             )
             sequences.append(seq)
-            polymer_chains.update(p.id if isinstance(p.id, list) else [p.id])
+            polymer_chains.update(ensure_list(p.id))
         elif entry.dna is not None:
             d = entry.dna
             mods = (
@@ -469,7 +464,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 boltz_cyclic=d.cyclic,
             )
             sequences.append(seq)
-            polymer_chains.update(d.id if isinstance(d.id, list) else [d.id])
+            polymer_chains.update(ensure_list(d.id))
         elif entry.rna is not None:
             r = entry.rna
             mods = (
@@ -488,7 +483,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 boltz_cyclic=r.cyclic,
             )
             sequences.append(seq)
-            polymer_chains.update(r.id if isinstance(r.id, list) else [r.id])
+            polymer_chains.update(ensure_list(r.id))
         elif entry.ligand is not None:
             lg = entry.ligand
             ccd = [lg.ccd] if lg.ccd else None

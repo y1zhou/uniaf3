@@ -163,7 +163,7 @@ def _ensure_valid_restraint(
     connection: ChaiRestraintType, entity_type: ChaiEntityType, res_idx: str, seq: str
 ):
     """Validate that covalent bonds refer to valid entities and atoms."""
-    polymer_type = ChaiEntityType.Protein | ChaiEntityType.DNA | ChaiEntityType.RNA
+    polymer_type = {ChaiEntityType.Protein, ChaiEntityType.DNA, ChaiEntityType.RNA}
     if connection == ChaiRestraintType.Covalent:
         # N436@N for residues, @C1 for ligands and glycans
         try:
@@ -172,7 +172,7 @@ def _ensure_valid_restraint(
             raise ValueError(
                 f"Invalid residue index format for covalent restraint: {res_idx}"
             ) from e
-        if entity_type is polymer_type:
+        if entity_type in polymer_type:
             try:
                 res_name, res_pos = idx[0], int(idx[1:])
             except Exception as e:

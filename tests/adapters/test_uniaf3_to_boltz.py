@@ -1,9 +1,11 @@
 """Tests for UniAF3Config -> BoltzConfig adapter."""
 
+from pathlib import Path
+
 import pytest
 
 from uniaf3.schema import BoltzConfig, UniAF3Config
-from uniaf3.schema.base import Ligand, Polymer, ProteinSeq
+from uniaf3.schema.base import Glycan, Ligand, Polymer, ProteinSeq
 
 
 @pytest.fixture(scope="module")
@@ -18,8 +20,13 @@ def boltz(uniaf3_conf: UniAF3Config, tmp_path_factory: pytest.TempPathFactory):
 def test_unsupported_glycan_strict(uniaf3_conf: UniAF3Config, tmp_path):
     from uniaf3.adapters import to_boltz
 
-    with pytest.raises(ValueError, match="Glycans are not directly supported in Boltz"):
-        to_boltz(uniaf3_conf, msa_dir=tmp_path, strict=True)
+    uniaf3_conf_cp = uniaf3_conf.model_copy()
+    uniaf3_conf_cp.sequences.append(Glycan(id="Z", chai_str="NAG(1-4 NAG)"))
+
+    with pytest.raises(
+        ValueError, match="Bonded glycans are not directly supported in Boltz"
+    ):
+        to_boltz(uniaf3_conf_cp, msa_dir=tmp_path, strict=True)
 
 
 def test_version(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
@@ -27,8 +34,8 @@ def test_version(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
 
 
 def test_sequence_count_drops_glycan(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
-    # protein + dna + 2 ligands = 4; 1 glycan dropped
-    assert len(boltz.sequences) == len(uniaf3_conf.sequences) - 1 == 4
+    # protein + dna + 2 ligands = 4; 1 single CCD glycan kept
+    assert len(boltz.sequences) == len(uniaf3_conf.sequences) == 5
 
 
 def test_protein_fields(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
@@ -40,7 +47,7 @@ def test_protein_fields(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert prot.sequence == src.sequence
     assert prot.cyclic == src.boltz_cyclic
     # MSA: "empty" because src.msa_dir is None
-    assert prot.msa == "empty"
+    assert Path(prot.msa).stem == src.seq_hash
 
 
 def test_protein_modifications(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):

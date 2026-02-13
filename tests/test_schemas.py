@@ -33,7 +33,7 @@ class TestAF3Schema:
         prot = af3_conf.sequences[0].protein
         assert prot is not None
         assert prot.id == "A"
-        assert prot.sequence == "PVLSCGEWQL"
+        assert prot.sequence == "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS"
         assert prot.modifications is not None
         assert len(prot.modifications) == 2
         assert prot.modifications[0].ptmType == "HY3"

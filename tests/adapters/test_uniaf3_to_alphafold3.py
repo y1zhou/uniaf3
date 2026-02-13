@@ -11,19 +11,31 @@ from uniaf3.schema.base import (
 
 
 @pytest.fixture(scope="module")
-def af3(uniaf3_conf: UniAF3Config):
+def af3(uniaf3_conf: UniAF3Config, tmp_path_factory: pytest.TempPathFactory):
     """Convert UniAF3 to AlphaFold3 config."""
     from uniaf3.adapters import to_alphafold3
 
-    return to_alphafold3(uniaf3_conf, name="test-af3-adapter", strict=False)
+    return to_alphafold3(
+        uniaf3_conf,
+        msa_dir=tmp_path_factory.mktemp("msa"),
+        name="test-af3-adapter",
+        strict=False,
+    )
 
 
 # ruff: noqa: S101
-def test_unsupported_glycan_strict(uniaf3_conf: UniAF3Config):
+def test_unsupported_glycan_strict(
+    uniaf3_conf: UniAF3Config, tmp_path_factory: pytest.TempPathFactory
+):
     from uniaf3.adapters import to_alphafold3
 
     with pytest.raises(ValueError, match="Glycans are not directly supported in AF3"):
-        to_alphafold3(uniaf3_conf, name="test-af3-adapter", strict=True)
+        to_alphafold3(
+            uniaf3_conf,
+            msa_dir=tmp_path_factory.mktemp("msa"),
+            name="test-af3-adapter",
+            strict=True,
+        )
 
 
 def test_name_and_seeds(uniaf3_conf: UniAF3Config, af3: AF3Config):
