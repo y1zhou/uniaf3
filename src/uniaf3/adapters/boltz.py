@@ -265,11 +265,19 @@ def to_boltz(
             if seq_types[c.token1.chain_id] == "ligand"
             else c.token1.residue_idx
         )
+        if token1_idx is None:
+            raise ValueError(
+                f"Atom name must be specified for contact restraints on ligands: {c.token1}"
+            )
         token2_idx = (
             c.token2.atom_name
             if seq_types[c.token2.chain_id] == "ligand"
             else c.token2.residue_idx
         )
+        if token2_idx is None:
+            raise ValueError(
+                f"Atom name must be specified for contact restraints on ligands: {c.token2}"
+            )
         contact = BoltzContactConstraint(
             token1=(c.token1.chain_id, token1_idx),
             token2=(c.token2.chain_id, token2_idx),
@@ -314,6 +322,7 @@ def to_boltz(
 def from_boltz(config: BoltzConfig) -> UniAF3Config:
     """Convert a Boltz config to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
+    polymer_chains: set[str] = set()
     for entry in config.sequences:
         if entry.protein is not None:
             p = entry.protein
@@ -335,6 +344,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 boltz_cyclic=p.cyclic,
             )
             sequences.append(seq)
+            polymer_chains.update(p.id if isinstance(p.id, list) else [p.id])
         elif entry.dna is not None:
             d = entry.dna
             mods = (
@@ -353,6 +363,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 boltz_cyclic=d.cyclic,
             )
             sequences.append(seq)
+            polymer_chains.update(d.id if isinstance(d.id, list) else [d.id])
         elif entry.rna is not None:
             r = entry.rna
             mods = (
@@ -371,6 +382,7 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 boltz_cyclic=r.cyclic,
             )
             sequences.append(seq)
+            polymer_chains.update(r.id if isinstance(r.id, list) else [r.id])
         elif entry.ligand is not None:
             lg = entry.ligand
             ccd = [lg.ccd] if lg.ccd else None
@@ -381,7 +393,6 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
     covalent_bonds: list[CovalentBond] = []
     pocket_rsts: list[PocketRestraint] = []
     contact_rsts: list[ContactRestraint] = []
-    # TODO: helper function to determine if atom is in polymer or ligand
     if config.constraints:
         for c in config.constraints:
             if c.bond is not None:
@@ -404,18 +415,30 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 )
             elif c.contact is not None:
                 ct = c.contact
+                chain1, resi_or_atomn1 = ct.token1
+                chain2, resi_or_atomn2 = ct.token2
+                resi1, atomn1 = (
+                    (int(resi_or_atomn1), None)
+                    if chain1 in polymer_chains
+                    else (0, resi_or_atomn1)
+                )
+                resi2, atomn2 = (
+                    (int(resi_or_atomn2), None)
+                    if chain2 in polymer_chains
+                    else (0, resi_or_atomn2)
+                )
                 contact_rsts.append(
                     ContactRestraint(
                         token1=Atom(
-                            chain_id=ct.token1[0],
-                            residue_idx=int(ct.token1[1]),
-                            atom_name="",
+                            chain_id=chain1,
+                            residue_idx=resi1,
+                            atom_name=atomn1,
                             residue_name=None,
                         ),
                         token2=Atom(
-                            chain_id=ct.token2[0],
-                            residue_idx=int(ct.token2[1]),
-                            atom_name="",
+                            chain_id=chain2,
+                            residue_idx=resi2,
+                            atom_name=atomn2,
                             residue_name=None,
                         ),
                         max_distance=ct.max_distance,
@@ -424,18 +447,26 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 )
             elif c.pocket is not None:
                 pk = c.pocket
+                contact_atoms: list[Atom] = []
+                for t in pk.contacts:
+                    chain_id, resi_or_atomn = t
+                    resi, atomn = (
+                        (int(resi_or_atomn), None)
+                        if chain_id in polymer_chains
+                        else (0, resi_or_atomn)
+                    )
+                    contact_atoms.append(
+                        Atom(
+                            chain_id=chain_id,
+                            residue_idx=resi,
+                            atom_name=atomn,
+                            residue_name=None,
+                        )
+                    )
                 pocket_rsts.append(
                     PocketRestraint(
                         binder_chain=pk.binder,
-                        contact_tokens=[
-                            Atom(
-                                chain_id=t[0],
-                                residue_idx=int(t[1]),
-                                atom_name=str(t[1]),
-                                residue_name=None,
-                            )
-                            for t in pk.contacts
-                        ],
+                        contact_tokens=contact_atoms,
                         max_distance=pk.max_distance,
                         boltz_enable_force=pk.force,
                     )
