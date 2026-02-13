@@ -120,9 +120,6 @@ def validate_config(
         raise typer.Exit(code=1) from exc
 
     if format.value == "uniaf3":
-        from uniaf3.schema import UniAF3Config
-
-        assert isinstance(conf, UniAF3Config)
         console.print(f"Config hash: [bold]{conf.hash}[/bold]")
 
     console.print(
@@ -142,9 +139,13 @@ def convert_config(
             help="Path to the input config file.", exists=True, resolve_path=True
         ),
     ],
-    output_config_file: Annotated[
-        Path, typer.Argument(help="Path to the output config file.")
-    ],
+    output_dir: Annotated[Path, typer.Argument(help="Path to the output directory.")],
+    prefix: Annotated[
+        str | None,
+        typer.Argument(
+            help="Prefix for the output config file name(s). Defaults to the input file name without extension."
+        ),
+    ] = None,
     from_format: Annotated[
         ConfigFormat,
         typer.Option(
@@ -166,7 +167,6 @@ def convert_config(
 ):
     """Convert an input config file from one format to another."""
     from uniaf3.adapters import from_uniaf3, to_uniaf3
-    from uniaf3.schema import write_config
 
     try:
         src_conf = _load_config(input_config_file, from_format.value)
@@ -177,11 +177,11 @@ def convert_config(
             raise ValueError(f"Unknown output format: {to_format.value}")
 
         dst_conf = from_uniaf3(uni_conf, parser, name=input_config_file.stem)
-        write_config(dst_conf, output_config_file)
+        dst_conf.to_files(output_dir, prefix)
         console.print(
             f"[bold green]Converted {from_format.value} → {to_format.value}[/bold green]"
         )
-        console.print(f"Output: {output_config_file}")
+        console.print(f"Outputs generated under directory: {output_dir}")
     except Exception as exc:
         console.print(f"[bold red]Conversion error:[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
