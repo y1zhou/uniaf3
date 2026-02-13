@@ -17,7 +17,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, model_validator
+import polars as pl
+from pydantic import BaseModel, NonNegativeFloat, model_validator
 
 from uniaf3.schema.base import UniAF3BaseConfig
 
@@ -36,7 +37,7 @@ class ChaiEntity(BaseModel):
     """A single entity in the Chai-1 input FASTA.
 
     Chai-1 expects a multi-entity FASTA with structured headers:
-      ``>entity_type|name=entity_name``
+      ``>entity_type|entity_name``
 
     The sequence field holds the amino acid / nucleotide sequence or a SMILES
     string (for ligands) / Chai glycan notation (for glycans).
@@ -78,8 +79,8 @@ class ChaiRestraint(BaseModel):
     res_idxB: str
     connection_type: ChaiRestraintType
     confidence: float = 1.0
-    max_distance_angstrom: float
-    min_distance_angstrom: float = 0.0
+    max_distance_angstrom: NonNegativeFloat
+    min_distance_angstrom: NonNegativeFloat = 0.0
     comment: str | None = None
 
 
@@ -119,6 +120,28 @@ class ChaiConfig(UniAF3BaseConfig):
             raise ValueError("All entity names must be unique.")
         return self
 
+    @model_validator(mode="after")
+    def check_restraints(self):
+        """Ensure restraints refer to valid entities."""
+        if self.restraints is None:
+            return self
+
+        entity_map: dict[str, ChaiEntity] = {e.entity_name: e for e in self.entities}
+        for r in self.restraints:
+            _ensure_valid_restraint(
+                r.connection_type,
+                entity_map[r.chainA].entity_type,
+                r.res_idxA,
+                entity_map[r.chainA].sequence,
+            )
+            _ensure_valid_restraint(
+                r.connection_type,
+                entity_map[r.chainB].entity_type,
+                r.res_idxB,
+                entity_map[r.chainB].sequence,
+            )
+        return self
+
     def entities_to_fasta(self) -> str:
         """Convert the entities list to a multi-FASTA string."""
         lines = []
@@ -128,20 +151,74 @@ class ChaiConfig(UniAF3BaseConfig):
             lines.append(e.sequence)
         return "\n".join(lines)
 
-    def restraints_to_csv(self) -> str | None:
+    def restraints_to_df(self) -> pl.DataFrame | None:
         """Convert the restraints list to a CSV string."""
         if self.restraints is None:
             return None
-        lines = [
-            "restraint_id,chainA,res_idxA,chainB,res_idxB,connection_type,"
-            "confidence,max_distance_angstrom,min_distance_angstrom,comment"
-        ]
-        for r in self.restraints:
-            line = (
-                f"{r.restraint_id},{r.chainA},{r.res_idxA},{r.chainB},"
-                f"{r.res_idxB},{r.connection_type.value},{r.confidence},"
-                f"{r.max_distance_angstrom},{r.min_distance_angstrom},"
-                f"'{r.comment or ''}'"
+
+        return pl.DataFrame(self.restraints)
+
+
+def _ensure_valid_restraint(
+    connection: ChaiRestraintType, entity_type: ChaiEntityType, res_idx: str, seq: str
+):
+    """Validate that covalent bonds refer to valid entities and atoms."""
+    polymer_type = ChaiEntityType.Protein | ChaiEntityType.DNA | ChaiEntityType.RNA
+    if connection == ChaiRestraintType.Covalent:
+        # N436@N for residues, @C1 for ligands and glycans
+        try:
+            idx, atom = res_idx.split("@")
+        except ValueError as e:
+            raise ValueError(
+                f"Invalid residue index format for covalent restraint: {res_idx}"
+            ) from e
+        if entity_type is polymer_type:
+            try:
+                res_name, res_pos = idx[0], int(idx[1:])
+            except Exception as e:
+                raise ValueError(f"Failed to parse residue index: {res_idx}") from e
+
+            if res_name != seq[res_pos - 1]:
+                raise ValueError(
+                    f"Residue name in index does not match sequence: {res_idx} vs {seq}"
+                )
+
+        # TODO: check atom names follow rdkit
+        if not atom:
+            raise ValueError(
+                f"Atom name must be specified for covalent restraints: {res_idx}"
             )
-            lines.append(line)
-        return "\n".join(lines)
+    elif connection == ChaiRestraintType.Contact:
+        # R84 for residues; ligands and glycans not supported
+        if entity_type not in polymer_type:
+            raise ValueError(
+                f"Contact restraints currently only supported for protein/DNA/RNA entities, got {entity_type}"
+            )
+        try:
+            res_name, res_pos = res_idx[0], int(res_idx[1:])
+        except Exception as e:
+            raise ValueError(f"Failed to parse residue index: {res_idx}") from e
+
+        if res_name != seq[res_pos - 1]:
+            raise ValueError(
+                f"Residue name in index does not match sequence: {res_idx} vs {seq}"
+            )
+    elif connection == ChaiRestraintType.Pocket:
+        # R84 for residues; empty for non-binder chain.
+        # ligands and glycans not supported
+        if entity_type not in polymer_type:
+            raise ValueError(
+                f"Contact restraints currently only supported for protein/DNA/RNA entities, got {entity_type}"
+            )
+        if res_idx:
+            try:
+                res_name, res_pos = res_idx[0], int(res_idx[1:])
+            except Exception as e:
+                raise ValueError(f"Failed to parse residue index: {res_idx}") from e
+
+            if res_name != seq[res_pos - 1]:
+                raise ValueError(
+                    f"Residue name in index does not match sequence: {res_idx} vs {seq}"
+                )
+    else:
+        raise ValueError(f"Unsupported restraint connection type: {connection}")
