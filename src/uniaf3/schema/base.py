@@ -126,11 +126,16 @@ class UniAF3BaseConfig(BaseModel):
 
 
 class Atom(BaseModel):
-    """Schema for an atom for specifying bonds."""
+    """Schema for an atom for specifying bonds.
+
+    A `residue_idx` of 0 is reserved for cases where the atom is part of a
+    ligand, in which case the `atom_name` and `residue_name` fields are used
+    to specify the atom within the ligand.
+    """
 
     chain_id: str  # corresponding to the `id` field for the entity
-    residue_idx: PositiveInt  # 1-based residue index within the chain
-    atom_name: str  # e.g., "CA", "N", "C", etc. Follow rdkit for ligands
+    residue_idx: NonNegativeInt  # 1-based residue index within the chain
+    atom_name: str | None  # e.g., "CA", "N", "C", etc. Follow rdkit for ligands
     residue_name: str | None  # Required by Chai when specifying restraints
 
 
@@ -289,6 +294,16 @@ class CovalentBond(BaseModel):
     atom2: Atom
     description: str | None = None  # comment describing the restraint
 
+    @model_validator(mode="after")
+    def check_atom_names(self):
+        """Ensure that atom names are provided."""
+        for atom in (self.atom1, self.atom2):
+            if atom.atom_name is None:
+                raise ValueError("Atom name must be provided for atom1.")
+            if atom.residue_idx == 0:
+                raise ValueError("Residue index must be >0 for covalent bonds.")
+        return self
+
 
 class ContactRestraint(BaseModel):
     """Schema for distance restraints between two atoms from different entities.
@@ -309,6 +324,16 @@ class ContactRestraint(BaseModel):
     description: str | None = None  # comment describing the restraint
 
     boltz_enable_force: bool = False  # use a potential to enforce the restraint
+
+    @model_validator(mode="after")
+    def check_token_atoms(self):
+        """Ensure that token atoms have valid atom names and residue indices."""
+        for token in (self.token1, self.token2):
+            if token.atom_name is None and token.residue_idx == 0:
+                raise ValueError(
+                    f"atom_name/residue_idx must be provided for contact restraint tokens: {token}."
+                )
+        return self
 
     @model_validator(mode="after")
     def check_distance_range(self):
@@ -342,6 +367,16 @@ class PocketRestraint(BaseModel):
 
     # Boltz specific fields
     boltz_enable_force: bool = False  # use a potential to enforce the restraint
+
+    @model_validator(mode="after")
+    def check_token_atoms(self):
+        """Ensure that token atoms have valid atom names and residue indices."""
+        for token in self.contact_tokens:
+            if token.atom_name is None and token.residue_idx == 0:
+                raise ValueError(
+                    f"atom_name/residue_idx must be provided for contact restraint tokens: {token}."
+                )
+        return self
 
     @model_validator(mode="after")
     def check_distance_range(self):

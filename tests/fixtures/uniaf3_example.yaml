@@ -36,12 +36,12 @@ contact_restraints:
   - token1:
       chain_id: A
       residue_idx: 5
-      atom_name: ""
+      atom_name: CG
       residue_name: null
     token2:
       chain_id: B
       residue_idx: 5
-      atom_name: ""
+      atom_name: null
       residue_name: null
     max_distance: 8.0
     boltz_enable_force: true
@@ -51,11 +51,11 @@ pocket_restraints:
     contact_tokens:
       - chain_id: A
         residue_idx: 10
-        atom_name: ""
+        atom_name: null
         residue_name: null
       - chain_id: B
         residue_idx: 1
-        atom_name: ""
+        atom_name: null
         residue_name: null
 
 seeds:
