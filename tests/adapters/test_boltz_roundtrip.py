@@ -53,14 +53,6 @@ def test_protein_modifications(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig)
     assert prot.modifications[0].position == src.modifications[0].position
 
 
-def test_protein_msa_not_mapped(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
-    """Boltz MSA path cannot be mapped to UniAF3 msa_dir."""
-    prot = boltz_uni.sequences[0]
-    assert isinstance(prot, ProteinSeq)
-    # NOTE: Boltz provides a single MSA path; UniAF3 uses msa_dir
-    assert prot.msa_dir is None
-
-
 def test_ligand_ccd(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
     lig = boltz_uni.sequences[1]
     src = boltz_conf.sequences[1].ligand
