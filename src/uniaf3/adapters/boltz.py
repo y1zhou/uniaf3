@@ -20,6 +20,7 @@ from uniaf3.schema.base import (
     ProteinSeq,
     SequenceModification,
     UniAF3Config,
+    hash_sequence,
 )
 from uniaf3.schema.boltz import (
     BoltzAffinityProperty,
@@ -55,7 +56,11 @@ def merge_chai_msa_to_csv(
         unpaired_msa_file: Path to unpaired MSA file in A3M format.
         paired_msa_file: Path to paired MSA file in A3M format.
         msa_id: Output file name. Boltz uses `{target_id}_{entity_id}.csv`.
-        out_dir: Directory to save the output CSV file.
+        out_dir: Directory to save the output CSV file, and a parquet file mapping the
+            original headers to the sequences.
+
+    Returns:
+        Path to the output CSV file containing the merged MSA.
 
     """
     out_dir_path = Path(out_dir).expanduser().resolve()
@@ -80,7 +85,6 @@ def merge_chai_msa_to_csv(
         # Boltz also does subsampling here but we skip that for now
         paired_df = (
             pl.DataFrame(paired_fasta)
-            .drop("header")
             .with_row_index(name="key")
             # filter out padding rows (rows that are all gaps)
             .filter(
@@ -89,7 +93,7 @@ def merge_chai_msa_to_csv(
             )
         )
     else:
-        paired_df = pl.DataFrame([], schema=["key", "sequence"])
+        paired_df = pl.DataFrame([], schema=["key", "header", "sequence"])
 
     # combine paired-unpaired sequences
     unpaired_fasta = read_fasta(unpaired_path)
@@ -101,13 +105,87 @@ def merge_chai_msa_to_csv(
         [
             paired_df,
             pl.DataFrame(unpaired_fasta)
-            .drop("header")
-            .with_columns(pl.lit(-1).alias("key")),
+            .with_columns(pl.lit(-1).alias("key"))
+            .select("key", "header", "sequence"),
         ],
         how="vertical_relaxed",
     )
-    combined_df.write_csv(out_file)
+    combined_df.select("key", "sequence").write_csv(out_file)
+    combined_df.select("header", "sequence").write_parquet(
+        out_file.with_suffix(".parquet")
+    )
     return out_file
+
+
+def split_boltz_csv_to_a3m(
+    csv_file: str | Path, out_dir: str | Path
+) -> tuple[Path, Path] | tuple[Path, None]:
+    """Split a Boltz MSA CSV file into unpaired and paired A3M files for Chai.
+
+    Args:
+        csv_file: Path to Boltz MSA CSV file.
+        msa_id: Output file name.
+        out_dir: Directory to save the output MSA files. Files `{hash}.single.a3m` and
+        `{hash}.pair.a3m` should be created, where `hash` is the SHA256 hash of the
+        query sequence.
+
+    Returns:
+        Paths to the unpaired and paired MSA A3M files.
+
+    """
+    out_dir_path = Path(out_dir).expanduser().resolve()
+    out_dir_path.mkdir(parents=True, exist_ok=True)
+
+    headers_df = pl.read_parquet(Path(csv_file).with_suffix(".parquet"))
+    msa_df = (
+        pl.read_csv(csv_file)
+        .join(headers_df, on="sequence", maintain_order="left")
+        .select(
+            pl.when(pl.col("key") == pl.lit(-1))
+            .then(pl.lit("unpaired"))
+            .otherwise(pl.lit("paired"))
+            .alias("msa_type"),
+            "header",
+            "sequence",
+            "key",
+        )
+    )
+
+    # Dump .single.a3m MSA
+    unpaired_df = msa_df.filter(pl.col("msa_type") == pl.lit("unpaired"))
+    if unpaired_df.height == 0:
+        raise ValueError(f"No unpaired sequences found in MSA CSV: {csv_file}")
+
+    try:
+        # Get the query sequence, calculate its hash, and add it to the unpaired MSA
+        query_seq_entry = msa_df.filter(pl.col("key") == pl.lit(0))
+        prefix = hash_sequence(query_seq_entry.item(0, "sequence"))
+    except Exception as e:
+        raise ValueError(
+            f"Failed to extract query sequence from MSA CSV: {csv_file}"
+        ) from e
+
+    unpaired_df = pl.concat([query_seq_entry, unpaired_df], how="vertical")
+    unpaired_a3m_path = out_dir_path / f"{prefix}.single.a3m"
+    with unpaired_a3m_path.open("w") as f:
+        for r in unpaired_df.select("header", "sequence").iter_rows(named=True):
+            f.write(f">{r['header']}\n{r['sequence']}\n")
+
+    # Dump .pair.a3m MSA
+    paired_df = (
+        msa_df.filter(pl.col("key") != pl.lit(-1))
+        .join(headers_df, on="sequence", maintain_order="left")
+        .select("header", "sequence")
+    )
+    if paired_df.height != 0:
+        paired_a3m_path = out_dir_path / f"{prefix}.pair.a3m"
+        with paired_a3m_path.open("w") as f:
+            for r in paired_df.iter_rows(named=True):
+                f.write(f">{r['header']}\n{r['sequence']}\n")
+    else:
+        paired_a3m_path = None
+
+    return unpaired_a3m_path, paired_a3m_path
 
 
 def to_boltz(
@@ -157,8 +235,14 @@ def to_boltz(
                 err_unsupported_feature(
                     strict, f"Bonded glycans are not directly supported in Boltz: {seq}"
                 )
-            glycan = BoltzLigand(id=seq.id, ccd=sugars)
-            sequences.append(BoltzSequenceEntry(ligand=glycan))
+            if len(sugars) > 1:
+                err_unsupported_feature(
+                    strict,
+                    f"Multi-CCD ligands are not supported in Boltz, maybe use SMILES instead: {seq}",
+                )
+            else:
+                glycan = BoltzLigand(id=seq.id, ccd=sugars[0])
+                sequences.append(BoltzSequenceEntry(ligand=glycan))
 
         elif isinstance(seq, ProteinSeq):
             mods = (
@@ -324,10 +408,11 @@ def to_boltz(
     )
 
 
-def from_boltz(config: BoltzConfig) -> UniAF3Config:
+def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
     """Convert a Boltz config to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
     polymer_chains: set[str] = set()
+    msa_dir_path = Path(msa_dir).expanduser().resolve()
     for entry in config.sequences:
         if entry.protein is not None:
             p = entry.protein
@@ -339,14 +424,30 @@ def from_boltz(config: BoltzConfig) -> UniAF3Config:
                 if p.modifications
                 else None
             )
-            # NOTE: Boltz provides a single MSA path; UniAF3 uses msa_dir for
-            # directory-based lookup. The direct path is not stored in msa_dir.
+            if p.msa and p.msa != "empty":
+                msa_dir_path.mkdir(parents=True, exist_ok=True)
+                input_msa_filetype = Path(p.msa).suffix
+                if input_msa_filetype == ".csv":
+                    _ = split_boltz_csv_to_a3m(p.msa, msa_dir)
+                elif input_msa_filetype == ".a3m":
+                    import shutil
+
+                    (msa_dir_path / "a3ms").mkdir(parents=True, exist_ok=True)
+                    prefix = hash_sequence(p.sequence)
+                    shutil.copyfile(
+                        p.msa, msa_dir_path / "a3ms" / f"{prefix}.single.a3m"
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported MSA file type in Boltz config: {p.msa}"
+                    )
             seq = ProteinSeq(
                 seq_type=PolymerType.Protein,
                 id=p.id,
                 sequence=p.sequence,
                 modifications=mods,
                 boltz_cyclic=p.cyclic,
+                msa_dir=str(msa_dir),
             )
             sequences.append(seq)
             polymer_chains.update(p.id if isinstance(p.id, list) else [p.id])

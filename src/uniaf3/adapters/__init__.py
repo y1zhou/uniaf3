@@ -43,11 +43,14 @@ __all__ = [
 ]
 
 
-def to_uniaf3(conf: AnyConfig) -> UniAF3Config | list[UniAF3Config]:
+def to_uniaf3(
+    conf: AnyConfig, *, msa_dir: str | Path = "."
+) -> UniAF3Config | list[UniAF3Config]:
     """Convert any supported model config to UniAF3Config.
 
     Args:
         conf: A config object from any supported model format.
+        msa_dir: Directory to save MSA files (used by Boltz).
 
     Returns:
         The equivalent UniAF3Config.
@@ -63,7 +66,7 @@ def to_uniaf3(conf: AnyConfig) -> UniAF3Config | list[UniAF3Config]:
     if isinstance(conf, AF3Config):
         return from_alphafold3(conf)
     if isinstance(conf, BoltzConfig):
-        return from_boltz(conf)
+        return from_boltz(conf, msa_dir=msa_dir)
     if isinstance(conf, ChaiConfig):
         return from_chai(conf)
     if isinstance(conf, ProtenixConfig):

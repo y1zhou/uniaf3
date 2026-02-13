@@ -170,13 +170,17 @@ def convert_config(
 
     try:
         src_conf = _load_config(input_config_file, from_format.value)
-        uni_conf = to_uniaf3(src_conf)
+        uni_conf = to_uniaf3(src_conf, msa_dir=output_dir / "msa")
         parser_map = _get_format_to_config()
         parser = parser_map.get(to_format.value)
         if parser is None:
             raise ValueError(f"Unknown output format: {to_format.value}")
 
-        dst_conf = from_uniaf3(uni_conf, parser, name=input_config_file.stem)
+        dst_conf = from_uniaf3(
+            uni_conf, parser, name=input_config_file.stem, msa_dir=output_dir / "msa"
+        )
+        if prefix is None:
+            prefix = input_config_file.stem
         dst_conf.to_files(output_dir, prefix)
         console.print(
             f"[bold green]Converted {from_format.value} → {to_format.value}[/bold green]"

@@ -18,6 +18,28 @@ from pydantic import (
 
 from uniaf3.constant import RESIDUE_ATOMS
 from uniaf3.schema.base import UniAF3BaseConfig
+from uniaf3.vendor.chai1_fasta import read_fasta
+
+
+def _load_msa_seqs(msa_file: str | Path | None) -> set[str]:
+    """Load sequences from an MSA file (FASTA or A3M) into a set of sequences."""
+    if msa_file is None or str(msa_file) == "empty":
+        return set()
+
+    msa_path = Path(msa_file).expanduser().resolve()
+    if not msa_path.exists():
+        raise FileNotFoundError(f"MSA file not found: {msa_path}")
+
+    if msa_path.suffix == ".a3m":
+        entries = read_fasta(msa_path)
+        return {entry.sequence for entry in entries}
+
+    if msa_path.suffix == ".csv":
+        import polars as pl
+
+        return set(pl.read_csv(msa_path).get_column("sequence").to_list())
+
+    raise ValueError(f"Unsupported MSA file type: {msa_path.suffix}")
 
 
 class BoltzModification(BaseModel):
@@ -35,6 +57,22 @@ class BoltzProtein(BaseModel):
     msa: str | None = None  # path to .csv file, or "empty" for single-sequence
     modifications: list[BoltzModification] | None = None
     cyclic: bool = False
+
+    def __eq__(self, other):
+        """Compare BoltzProtein instances."""
+        if not isinstance(other, BoltzProtein):
+            return NotImplemented
+
+        self_msa_content = _load_msa_seqs(self.msa)
+        other_msa_content = _load_msa_seqs(other.msa)
+
+        return (
+            self.id == other.id
+            and self.sequence == other.sequence
+            and self_msa_content == other_msa_content
+            and self.modifications == other.modifications
+            and self.cyclic == other.cyclic
+        )
 
     @model_validator(mode="after")
     def check_modifications_in_range(self):
@@ -343,3 +381,20 @@ class BoltzConfig(UniAF3BaseConfig):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w") as f:
             f.write(self.to_yaml(**kwargs))
+
+    @classmethod
+    def from_file(cls, conf_file: str | Path) -> BoltzConfig:
+        """Load Boltz config from a file."""
+        conf = super().from_file(conf_file)
+
+        for seq in conf.sequences:
+            if (
+                seq.protein is not None
+                and seq.protein.msa is not None
+                and seq.protein.msa != "empty"
+            ):
+                seq.protein.msa = str(
+                    (Path(conf_file).parent / seq.protein.msa).resolve()
+                )
+
+        return conf

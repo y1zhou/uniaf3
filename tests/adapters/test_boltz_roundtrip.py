@@ -11,7 +11,7 @@ def boltz_uni(boltz_conf: BoltzConfig, tmp_path_factory: pytest.TempPathFactory)
     """Convert BoltzConfig to UniAF3Config."""
     from uniaf3.adapters import from_boltz
 
-    return from_boltz(boltz_conf)
+    return from_boltz(boltz_conf, tmp_path_factory.mktemp("msa"))
 
 
 @pytest.fixture(scope="module")

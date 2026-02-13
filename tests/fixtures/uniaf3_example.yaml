@@ -3,7 +3,8 @@ sequences:
     id:
       - A
       - B
-    sequence: MVLSPADKTNVKAAW
+    sequence: MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS
+    msa_dir: dummy_msa/
     modifications:
       - ccd: HY3
         position: 1
@@ -17,7 +18,7 @@ sequences:
   - id: E
     smiles: "CC(=O)OC1C[NH+]2CCC1CC2"
   - id: F
-    chai_str: "NAG(NAG)(BMA)"
+    chai_str: NAG # TODO: "NAG(NAG)(BMA)" test multi-CCD parsing in the future
     description: Example glycan
 
 covalent_bonds:
@@ -25,7 +26,7 @@ covalent_bonds:
       chain_id: B
       residue_idx: 1
       atom_name: CA
-      residue_name: ALA
+      residue_name: M
     atom2:
       chain_id: D
       residue_idx: 1

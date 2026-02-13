@@ -1,5 +1,7 @@
 """Tests for model-specific schema validation."""
 
+from pathlib import Path
+
 import orjson
 import pytest
 import yaml
@@ -149,7 +151,9 @@ class TestBoltzSchema:
         prot = boltz_conf.sequences[0].protein
         assert prot is not None
         assert prot.id == ["A", "B"]
-        assert prot.msa == "./examples/msa/seq1.a3m"
+        assert prot.msa == str(
+            Path(__file__).parent / "fixtures" / "dummy_msa" / "a3ms" / "boltz_A.a3m"
+        )
 
     def test_ligand_ccd(self, boltz_conf: BoltzConfig):
         lig = boltz_conf.sequences[1].ligand

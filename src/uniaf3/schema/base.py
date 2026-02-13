@@ -220,11 +220,15 @@ class ProteinSeq(Polymer):
         if self.msa_dir is None:
             return None
 
-        return str(
+        a3m_path = (
             Path(self.msa_dir).expanduser().resolve()
             / "a3ms"
             / f"{self.seq_hash}.single.a3m"
         )
+        if a3m_path.exists():
+            return str(a3m_path)
+
+        return None
 
     @computed_field
     @property
@@ -236,11 +240,15 @@ class ProteinSeq(Polymer):
         if self.msa_dir is None:
             return None
 
-        return str(
+        a3m_path = (
             Path(self.msa_dir).expanduser().resolve()
             / "a3ms"
             / f"{self.seq_hash}.pair.a3m"
         )
+        if a3m_path.exists():
+            return str(a3m_path)
+
+        return None
 
 
 class Ligand(BaseModel):
@@ -450,6 +458,10 @@ class UniAF3Config(UniAF3BaseConfig):
         for i, seq in enumerate(conf.sequences):
             if isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein:
                 conf.sequences[i] = ProteinSeq(**seq.model_dump())
+                if (msa_dir := conf.sequences[i].msa_dir) is not None:
+                    conf.sequences[i].msa_dir = (
+                        Path(conf_file).parent / msa_dir
+                    ).resolve()
 
         return conf
 
