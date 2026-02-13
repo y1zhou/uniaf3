@@ -38,7 +38,7 @@ class AF3ServerProteinModification(BaseModel):
     @model_validator(mode="after")
     def check_ptm_type(self):
         """Ensure ptmType is a supported CCD code."""
-        from uniaf3.adapters._helpers import KNOWN_PTM_CCD_CODES
+        from uniaf3.constant import KNOWN_PTM_CCD_CODES
 
         if self.ptmType not in KNOWN_PTM_CCD_CODES:
             raise ValueError(f"Unsupported ptmType: {self.ptmType}")
@@ -90,7 +90,7 @@ class AF3ServerRNAModification(BaseModel):
     @model_validator(mode="after")
     def check_modification_type(self):
         """Ensure modificationType is a supported CCD code."""
-        from uniaf3.adapters._helpers import KNOWN_RNA_MODIFICATION_CCD_CODES
+        from uniaf3.constant import KNOWN_RNA_MODIFICATION_CCD_CODES
 
         if self.modificationType not in KNOWN_RNA_MODIFICATION_CCD_CODES:
             raise ValueError(
@@ -128,7 +128,7 @@ class AF3ServerDNAModification(BaseModel):
     @model_validator(mode="after")
     def check_modification_type(self):
         """Ensure modificationType is a supported CCD code."""
-        from uniaf3.adapters._helpers import KNOWN_DNA_MODIFICATION_CCD_CODES
+        from uniaf3.constant import KNOWN_DNA_MODIFICATION_CCD_CODES
 
         if self.modificationType not in KNOWN_DNA_MODIFICATION_CCD_CODES:
             raise ValueError(
@@ -166,7 +166,7 @@ class AF3ServerLigand(BaseModel):
     @model_validator(mode="after")
     def check_ccd_code(self):
         """Ensure the ligand is supported by the server."""
-        from uniaf3.adapters._helpers import KNOWN_LIGAND_CCD_CODES
+        from uniaf3.constant import KNOWN_LIGAND_CCD_CODES
 
         if self.ligand not in KNOWN_LIGAND_CCD_CODES:
             raise ValueError(f"Unsupported ligand CCD code: {self.ligand}")
@@ -185,7 +185,7 @@ class AF3ServerIon(BaseModel):
     @model_validator(mode="after")
     def check_ccd_code(self):
         """Ensure the ion is supported by the server."""
-        from uniaf3.adapters._helpers import KNOWN_ION_CCD_CODES
+        from uniaf3.constant import KNOWN_ION_CCD_CODES
 
         if self.ion not in KNOWN_ION_CCD_CODES:
             raise ValueError(f"Unsupported ion CCD code: {self.ion}")

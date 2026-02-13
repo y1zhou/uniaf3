@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from uniaf3.adapters._helpers import (
-    KNOWN_ION_CCD_CODES,
-    KNOWN_LIGAND_CCD_CODES,
-    ensure_list,
-    err_unsupported_feature,
-)
+from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
+from uniaf3.constant import KNOWN_ION_CCD_CODES, KNOWN_LIGAND_CCD_CODES
 from uniaf3.schema.alphafold3_server import (
     AF3ServerConfig,
     AF3ServerDNA,
