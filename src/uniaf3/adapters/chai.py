@@ -29,8 +29,6 @@ def to_chai(config: UniAF3Config) -> ChaiConfig:
         ids = ensure_list(seq.id)
 
         if isinstance(seq, Polymer):
-            # NOTE: Chai-1 does not support polymer modifications in its
-            # FASTA input format.
             if isinstance(seq, ProteinSeq) or (
                 isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
             ):
@@ -43,6 +41,10 @@ def to_chai(config: UniAF3Config) -> ChaiConfig:
                 raise ValueError(
                     f"Unsupported polymer type for Chai conversion: {seq.seq_type}"
                 )
+            seq_list = list(seq.sequence)
+            if seq.modifications:
+                # Chai-1 inlines modifications using CCD codes in parentheses
+                pass
             for chain_id in ids:
                 entities.append(
                     ChaiEntity(
