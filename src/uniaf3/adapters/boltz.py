@@ -38,6 +38,7 @@ from uniaf3.schema.boltz import (
     BoltzTemplate,
 )
 from uniaf3.vendor.chai1_fasta import read_fasta
+from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
 
 
 def merge_chai_msa_to_csv(
@@ -146,16 +147,20 @@ def to_boltz(
             )
 
         if isinstance(seq, Glycan):
-            # TODO: use SMILES as a fallback representation.
-            # need atom_idx for glycan and add constraint to keep glycan as PTM
-            # lig = BoltzLigand(id=seq.id, smiles=seq.chai_str)
-            # sequences.append(BoltzSequenceEntry(ligand=lig))
-            err_unsupported_feature(
-                strict, f"Glycans are not directly supported in Boltz: {seq}"
-            )
-            continue
+            sugars, bonds = _glycan_string_to_sugars_and_bonds(seq.chai_str)
+            if not sugars:
+                raise ValueError(
+                    f"Failed to parse any sugars from glycan: {seq.chai_str}"
+                )
+            if bonds:
+                # TODO: add constraint to keep glycan as PTM
+                err_unsupported_feature(
+                    strict, f"Bonded glycans are not directly supported in Boltz: {seq}"
+                )
+            glycan = BoltzLigand(id=seq.id, ccd=sugars)
+            sequences.append(BoltzSequenceEntry(ligand=glycan))
 
-        if isinstance(seq, ProteinSeq):
+        elif isinstance(seq, ProteinSeq):
             mods = (
                 [
                     BoltzModification(position=m.position, ccd=m.ccd)
