@@ -16,6 +16,7 @@ from pydantic import (
     model_validator,
 )
 
+from uniaf3.constant import RESIDUE_ATOMS
 from uniaf3.schema.base import UniAF3BaseConfig
 
 
@@ -35,6 +36,18 @@ class BoltzProtein(BaseModel):
     modifications: list[BoltzModification] | None = None
     cyclic: bool = False
 
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure modification positions are within the sequence length."""
+        if self.modifications is not None:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if mod.position < 1 or mod.position > seq_length:
+                    raise ValueError(
+                        f"Modification position {mod.position} out of range for sequence length {seq_length}"
+                    )
+        return self
+
 
 class BoltzDNA(BaseModel):
     """Boltz DNA chain specification."""
@@ -44,6 +57,18 @@ class BoltzDNA(BaseModel):
     modifications: list[BoltzModification] | None = None
     cyclic: bool = False
 
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure modification positions are within the sequence length."""
+        if self.modifications is not None:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if mod.position < 1 or mod.position > seq_length:
+                    raise ValueError(
+                        f"Modification position {mod.position} out of range for sequence length {seq_length}"
+                    )
+        return self
+
 
 class BoltzRNA(BaseModel):
     """Boltz RNA chain specification."""
@@ -52,6 +77,18 @@ class BoltzRNA(BaseModel):
     sequence: str
     modifications: list[BoltzModification] | None = None
     cyclic: bool = False
+
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure modification positions are within the sequence length."""
+        if self.modifications is not None:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if mod.position < 1 or mod.position > seq_length:
+                    raise ValueError(
+                        f"Modification position {mod.position} out of range for sequence length {seq_length}"
+                    )
+        return self
 
 
 class BoltzLigand(BaseModel):
@@ -190,6 +227,111 @@ class BoltzConfig(UniAF3BaseConfig):
     constraints: list[BoltzConstraintEntry] | None = None
     templates: list[BoltzTemplate] | None = None
     properties: list[BoltzPropertyEntry] | None = None
+
+    @model_validator(mode="after")
+    def check_constraints_in_range(self):
+        """Ensure constraint residue indices are within sequence lengths."""
+        if self.constraints is None:
+            return self
+
+        # Build chain_id → sequence mapping, handling list[str] ids
+        seq_dict: dict[str, str] = {}
+        polymer_chains: set[str] = set()
+        protein_chains: set[str] = set()
+        for seq in self.sequences:
+            if seq.protein is not None:
+                entity = seq.protein
+                seq = entity.sequence
+            elif seq.dna is not None:
+                entity = seq.dna
+                seq = entity.sequence
+            elif seq.rna is not None:
+                entity = seq.rna
+                seq = entity.sequence
+            elif seq.ligand is not None:
+                entity = seq.ligand
+                seq = ""  # placeholder since we don't validate ligand residue indices
+            else:
+                raise ValueError("Invalid sequence entry with no entity.")
+            ids = entity.id if isinstance(entity.id, list) else [entity.id]
+            for cid in ids:
+                seq_dict[cid] = seq
+
+            if isinstance(entity, (BoltzProtein, BoltzDNA, BoltzRNA)):
+                polymer_chains.update(ids)
+                if isinstance(entity, BoltzProtein):
+                    protein_chains.update(ids)
+
+        for cst in self.constraints:
+            if cst.bond is not None:
+                for atom in (cst.bond.atom1, cst.bond.atom2):
+                    chain_id, res_idx, atom_name = atom
+                    if chain_id not in seq_dict:
+                        raise ValueError(
+                            f"Chain ID {chain_id} in bond constraint not found in sequences."
+                        )
+                    if chain_id in polymer_chains:
+                        seq = seq_dict[chain_id]
+                        seq_len = len(seq)
+                        if res_idx > seq_len:
+                            raise ValueError(
+                                f"Residue index {res_idx} out of range for chain {chain_id} with length {seq_len}."
+                            )
+                        if chain_id in protein_chains:
+                            valid_atoms = RESIDUE_ATOMS[seq[res_idx - 1]]
+                            if atom_name not in valid_atoms:
+                                raise ValueError(
+                                    f"Invalid atom name {atom_name} for residue {seq[res_idx - 1]} at position {res_idx} in chain {chain_id}."
+                                )
+                    elif res_idx != 1:
+                        raise ValueError(
+                            f"Residue index for ligand bond constraint must be 1, got {res_idx} for chain {chain_id}."
+                        )
+            elif cst.pocket is not None:
+                binder_id = cst.pocket.binder
+                if binder_id not in seq_dict:
+                    raise ValueError(
+                        f"Binder chain ID {binder_id} in pocket constraint not found in sequences."
+                    )
+                for chain_id, res_idx_or_atom in cst.pocket.contacts:
+                    if chain_id in polymer_chains:
+                        if not isinstance(res_idx_or_atom, int):
+                            raise ValueError(
+                                f"Contact for polymer chains should be specified with residue index, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+                        seq_len = len(seq_dict[chain_id])
+                        if res_idx_or_atom > seq_len:
+                            raise ValueError(
+                                f"Residue index {res_idx_or_atom} out of range for chain {chain_id} with length {seq_len}."
+                            )
+                    else:
+                        # TODO: validate rdkit atom names for non-polymer chains
+                        if not isinstance(res_idx_or_atom, str):
+                            raise ValueError(
+                                f"Contact for non-polymer chains should be specified with atom name, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+
+                # Note: we don't validate contact residue indices here since they can be specified by atom name
+            elif cst.contact is not None:
+                for token in (cst.contact.token1, cst.contact.token2):
+                    chain_id, res_idx_or_atom = token
+                    if chain_id in polymer_chains:
+                        if not isinstance(res_idx_or_atom, int):
+                            raise ValueError(
+                                f"Contact for polymer chains should be specified with residue index, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+                        seq_len = len(seq_dict[chain_id])
+                        if res_idx_or_atom > seq_len:
+                            raise ValueError(
+                                f"Residue index {res_idx_or_atom} out of range for chain {chain_id} with length {seq_len}."
+                            )
+                    else:
+                        # TODO: validate rdkit atom names for non-polymer chains
+                        if not isinstance(res_idx_or_atom, str):
+                            raise ValueError(
+                                f"Contact for non-polymer chains should be specified with atom name, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+        return self
 
     def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""

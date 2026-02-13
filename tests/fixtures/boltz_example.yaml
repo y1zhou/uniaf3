@@ -13,14 +13,14 @@ sequences:
       ccd: SAH
   - ligand:
       id: [E, F]
-      smiles: 'N[C@@H](Cc1ccc(O)cc1)C(=O)O'
+      smiles: "N[C@@H](Cc1ccc(O)cc1)C(=O)O"
 constraints:
   - bond:
-      atom1: [A, 145, SG]
-      atom2: [C, 1, C04]
+      atom1: [A, 111, SG]
+      atom2: [C, 1, SD]
   - contact:
       token1: [A, 10]
-      token2: [C, 1]
+      token2: [C, C4]
       max_distance: 8.0
       force: true
   - pocket:

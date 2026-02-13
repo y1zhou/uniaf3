@@ -499,4 +499,10 @@ class UniAF3Config(UniAF3BaseConfig):
                     raise ValueError(
                         f"Atom index out of range for sequence of length {seq_len}: {atom}."
                     )
+                if atom.residue_name is not None:
+                    res_name = seq.sequence[atom.residue_idx - 1]
+                    if atom.residue_name != res_name:
+                        raise ValueError(
+                            f"Atom residue name {atom.residue_name} does not match sequence residue name {res_name} at index {atom.residue_idx} for chain {atom.chain_id}."
+                        )
         return self

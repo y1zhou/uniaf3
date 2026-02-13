@@ -85,3 +85,42 @@ KNOWN_DNA_MODIFICATION_CCD_CODES = frozenset(
         "CCD_3DR",
     }
 )
+BACKBONE_ATOMS: frozenset[str] = frozenset({"N", "CA", "C", "O", "OXT"})
+RESIDUE_ATOMS: dict[str, frozenset[str]] = {
+    "A": frozenset({*BACKBONE_ATOMS, "CB"}),
+    "R": frozenset({*BACKBONE_ATOMS, "CB", "CG", "CD", "NE", "CZ", "NH1", "NH2"}),
+    "N": frozenset({*BACKBONE_ATOMS, "CB", "CG", "OD1", "ND2"}),
+    "D": frozenset({*BACKBONE_ATOMS, "CB", "CG", "OD1", "OD2"}),
+    "C": frozenset({*BACKBONE_ATOMS, "CB", "SG"}),
+    "E": frozenset({*BACKBONE_ATOMS, "CB", "CG", "CD", "OE1", "OE2"}),
+    "Q": frozenset({*BACKBONE_ATOMS, "CB", "CG", "CD", "OE1", "NE2"}),
+    "G": BACKBONE_ATOMS,
+    "H": frozenset({*BACKBONE_ATOMS, "CB", "CG", "ND1", "CD2", "CE1", "NE2"}),
+    "I": frozenset({*BACKBONE_ATOMS, "CB", "CG1", "CG2", "CD1"}),
+    "L": frozenset({*BACKBONE_ATOMS, "CB", "CG", "CD1", "CD2"}),
+    "K": frozenset({*BACKBONE_ATOMS, "CB", "CG", "CD", "CE", "NZ"}),
+    "M": frozenset({*BACKBONE_ATOMS, "CB", "CG", "SD", "CE"}),
+    "F": frozenset({*BACKBONE_ATOMS, "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ"}),
+    "P": frozenset({*BACKBONE_ATOMS, "CB", "CG", "CD"}),
+    "S": frozenset({*BACKBONE_ATOMS, "CB", "OG"}),
+    "T": frozenset({*BACKBONE_ATOMS, "CB", "OG1", "CG2"}),
+    "W": frozenset(
+        {
+            *BACKBONE_ATOMS,
+            "CB",
+            "CG",
+            "CD1",
+            "CD2",
+            "NE1",
+            "CE2",
+            "CE3",
+            "CZ2",
+            "CZ3",
+            "CH2",
+        }
+    ),
+    "Y": frozenset(
+        {*BACKBONE_ATOMS, "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH"}
+    ),
+    "V": frozenset({*BACKBONE_ATOMS, "CB", "CG1", "CG2"}),
+}

@@ -166,7 +166,7 @@ class TestBoltzSchema:
         assert len(boltz_conf.constraints) == 3
         b = boltz_conf.constraints[0].bond
         assert b is not None
-        assert b.atom1 == ("A", 145, "SG")
+        assert b.atom1 == ("A", 111, "SG")
 
     def test_yaml_str_property(self, boltz_conf: BoltzConfig):
         y = boltz_conf.to_str()
