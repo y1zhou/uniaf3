@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from uniaf3.adapters._helpers import _ensure_list
+from uniaf3.adapters._helpers import ensure_list
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -11,8 +11,6 @@ from uniaf3.schema.base import (
     Polymer,
     PolymerType,
     ProteinSeq,
-    Restraint,
-    RestraintType,
     UniAF3Config,
 )
 from uniaf3.schema.chai import (
@@ -28,40 +26,33 @@ def to_chai(config: UniAF3Config) -> ChaiConfig:
     """Convert a UniAF3Config to a Chai-1 config."""
     entities: list[ChaiEntity] = []
     for seq in config.sequences:
-        if isinstance(seq, ProteinSeq):
-            ids = _ensure_list(seq.id)
-            for chain_id in ids:
-                entities.append(
-                    ChaiEntity(
-                        entity_type=ChaiEntityType.Protein,
-                        entity_name=chain_id,
-                        sequence=seq.sequence,
-                    )
-                )
-                # NOTE: Chai-1 does not support polymer modifications in its
-                # FASTA input format.
-        elif isinstance(seq, Polymer):
-            ids = _ensure_list(seq.id)
-            if seq.seq_type == PolymerType.Protein:
+        ids = ensure_list(seq.id)
+
+        if isinstance(seq, Polymer):
+            # NOTE: Chai-1 does not support polymer modifications in its
+            # FASTA input format.
+            if isinstance(seq, ProteinSeq) or (
+                isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
+            ):
                 etype = ChaiEntityType.Protein
             elif seq.seq_type == PolymerType.DNA:
                 etype = ChaiEntityType.DNA
             elif seq.seq_type == PolymerType.RNA:
                 etype = ChaiEntityType.RNA
             else:
-                continue
+                raise ValueError(
+                    f"Unsupported polymer type for Chai conversion: {seq.seq_type}"
+                )
             for chain_id in ids:
                 entities.append(
                     ChaiEntity(
-                        entity_type=etype,
-                        entity_name=chain_id,
-                        sequence=seq.sequence,
+                        entity_type=etype, entity_name=chain_id, sequence=seq.sequence
                     )
                 )
                 # NOTE: Chai-1 does not support polymer modifications in its
                 # FASTA input format.
         elif isinstance(seq, Ligand):
-            ids = _ensure_list(seq.id)
+            ids = ensure_list(seq.id)
             smiles_or_ccd = seq.smiles or (seq.ccd[0] if seq.ccd else "")
             for chain_id in ids:
                 entities.append(
@@ -72,7 +63,7 @@ def to_chai(config: UniAF3Config) -> ChaiConfig:
                     )
                 )
         elif isinstance(seq, Glycan):
-            ids = _ensure_list(seq.id)
+            ids = ensure_list(seq.id)
             for chain_id in ids:
                 entities.append(
                     ChaiEntity(
