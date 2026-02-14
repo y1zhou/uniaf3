@@ -1,0 +1,4 @@
+restraint_id,chainA,res_idxA,chainB,res_idxB,connection_type,confidence,min_distance_angstrom,max_distance_angstrom,comment
+restraint0,A,P5@CG,F,@C1,covalent,1.0,0.0,6.0,
+restraint1,A,V11,B,L35,contact,1.0,0.0,6.0,
+restraint2,B,,A,A14,pocket,1.0,0.0,8.0,

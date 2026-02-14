@@ -34,18 +34,18 @@ def read_fasta(file_path: str | Path) -> list[Fasta]:
     return sequences
 
 
-def constituents_of_modified_fasta(x: str) -> list[str] | None:
+def constituents_of_modified_fasta(x: str) -> list[str]:
     """Parse a FASTA sequence into a list of its constituents.
 
     Accepts RNA/DNA inputs: 'agtc', 'AGT(ASP)TG', etc. Does not accept SMILES strings.
-    Returns constituents, e.g, [A, G, T, ASP, T, G] or None if string is incorrect.
+    Returns constituents, e.g, [A, G, T, ASP, T, G].
     Everything in returned list is single character, except for blocks specified in brackets.
     """
     x = x.strip().upper()
     # it is a bit strange that digits are here, but [NH2] was in one protein
     allowed_chars = ascii_letters + "()" + digits
     if not all(letter in allowed_chars for letter in x):
-        return None
+        raise ValueError(f"FASTA sequence contains invalid characters: {x}")
 
     current_modified: str | None = None
 
@@ -53,13 +53,13 @@ def constituents_of_modified_fasta(x: str) -> list[str] | None:
     for letter in x:
         if letter == "(":
             if current_modified is not None:
-                return None  # double open bracket
+                raise ValueError(f"Double open brackets: {x}")
             current_modified = ""
         elif letter == ")":
             if current_modified is None:
-                return None  # closed without opening
+                raise ValueError(f"Closed without opening: {x}")
             if len(current_modified) <= 1:
-                return None  # empty modification: () or single (K)
+                raise ValueError(f"Empty modification or single (x): {x}")
             constituents.append(current_modified)
             current_modified = None
         else:
@@ -67,8 +67,8 @@ def constituents_of_modified_fasta(x: str) -> list[str] | None:
                 current_modified += letter
             else:
                 if letter not in ascii_letters:
-                    return None  # strange single-letter residue
+                    raise ValueError(f"Strange single-letter residue: {x}")
                 constituents.append(letter)
     if current_modified is not None:
-        return None  # did not close bracket
+        raise ValueError(f"Unclosed bracket in sequence: {x}")
     return constituents

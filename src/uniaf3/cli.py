@@ -9,7 +9,7 @@ from rich.console import Console
 
 from uniaf3.adapters import AnyConfig
 
-app = typer.Typer()
+app = typer.Typer(pretty_exceptions_short=False)
 console = Console(tab_size=2)
 
 
@@ -76,10 +76,23 @@ def _load_config(path: Path, fmt: str) -> AnyConfig:
         ValueError: If the format is unknown.
 
     """
+    from uniaf3.schema import ChaiConfig
+
     parser_map = _get_format_to_config()
     parser = parser_map.get(fmt)
     if parser is None:
         raise ValueError(f"Unknown format: {fmt}")
+
+    # Special treatment for Chai since it uses FASTA and optional restraints CSV
+    if parser is ChaiConfig:
+        if path.suffix in {".yaml", ".yml"}:
+            return parser.from_yaml(path)
+
+        for suffix in (".restraints", ".csv"):
+            restraints_path = path.with_suffix(suffix)
+            if restraints_path.exists():
+                return parser.from_file(path, restraints_path)
+
     return parser.from_file(path)
 
 
@@ -113,10 +126,14 @@ def validate_config(
         conf = _load_config(input_config_file, format.value)
 
     except ValidationError as exc:
-        console.print(f"[bold yellow]Validation error:[/bold yellow] {exc}")
+        console.print_exception(show_locals=True, width=console.width)
+        console.print(
+            f"[bold yellow]Validation error:[/bold yellow] {input_config_file}"
+        )
         raise typer.Exit(code=1) from exc
     except Exception as exc:
-        console.print(f"[bold red]Error loading config:[/bold red] {exc}")
+        console.print_exception(show_locals=True, width=console.width)
+        console.print(f"[bold red]Error loading config:[/bold red] {input_config_file}")
         raise typer.Exit(code=1) from exc
 
     if format.value == "uniaf3":
@@ -187,6 +204,7 @@ def convert_config(
         )
         console.print(f"Outputs generated under directory: {output_dir}")
     except Exception as exc:
+        console.print_exception(show_locals=True, width=console.width)
         console.print(f"[bold red]Conversion error:[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
 

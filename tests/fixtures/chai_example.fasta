@@ -1,0 +1,12 @@
+>protein|Hemoglobin subunit
+MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS
+>protein|Hemoglobin with modification
+(HY3)VLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS
+>dna|example DNA
+GATTACA
+>ligand|CCD example
+ATP
+>ligand|SMILES example
+CC(=O)OC1C[NH+]2CCC1CC2
+>glycan|multi-ring glycan
+NAG(NAG)(BMA)
