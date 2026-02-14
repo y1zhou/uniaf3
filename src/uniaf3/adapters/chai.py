@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from uniaf3.adapters._helpers import ensure_list
+from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
+from uniaf3.constant import int_to_letters
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -22,9 +23,16 @@ from uniaf3.schema.chai import (
 )
 
 
-def to_chai(config: UniAF3Config) -> ChaiConfig:
-    """Convert a UniAF3Config to a Chai-1 config."""
+def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
+    """Convert a UniAF3Config to a Chai-1 config.
+
+    Lossy terms:
+
+    - CCD ligand IDs are not supported in Chai FASTA format.
+    - Chain IDs are not preserved. Chai uses A, B, ..., Z, AA, AB, ... outputs.
+    """
     entities: list[ChaiEntity] = []
+    entity_types: dict[str, ChaiEntityType] = {}
     for seq in config.sequences:
         ids = ensure_list(seq.id)
 
@@ -41,32 +49,44 @@ def to_chai(config: UniAF3Config) -> ChaiConfig:
                 raise ValueError(
                     f"Unsupported polymer type for Chai conversion: {seq.seq_type}"
                 )
+
+            # Chai-1 inlines modifications using CCD codes in parentheses
             seq_list = list(seq.sequence)
             if seq.modifications:
-                # Chai-1 inlines modifications using CCD codes in parentheses
-                pass
+                for mod in seq.modifications:
+                    seq_list[mod.position - 1] = f"({mod.ccd})"
+            seq_str = "".join(seq_list)
+
             for chain_id in ids:
+                entity_types[chain_id] = etype
                 entities.append(
                     ChaiEntity(
-                        entity_type=etype, entity_name=chain_id, sequence=seq.sequence
+                        entity_type=etype, entity_name=chain_id, sequence=seq_str
                     )
                 )
-                # NOTE: Chai-1 does not support polymer modifications in its
-                # FASTA input format.
         elif isinstance(seq, Ligand):
             ids = ensure_list(seq.id)
-            smiles_or_ccd = seq.smiles or (seq.ccd[0] if seq.ccd else "")
+            if seq.smiles is not None:
+                lig_seq = seq.smiles
+            else:
+                err_unsupported_feature(
+                    strict,
+                    "CCD ligands are not supported in Chai conversion.",
+                )
+                continue
             for chain_id in ids:
+                entity_types[chain_id] = ChaiEntityType.Ligand
                 entities.append(
                     ChaiEntity(
                         entity_type=ChaiEntityType.Ligand,
                         entity_name=chain_id,
-                        sequence=smiles_or_ccd,
+                        sequence=lig_seq,
                     )
                 )
         elif isinstance(seq, Glycan):
             ids = ensure_list(seq.id)
             for chain_id in ids:
+                entity_types[chain_id] = ChaiEntityType.Glycan
                 entities.append(
                     ChaiEntity(
                         entity_type=ChaiEntityType.Glycan,
@@ -75,67 +95,88 @@ def to_chai(config: UniAF3Config) -> ChaiConfig:
                     )
                 )
 
+    # Map original chain IDs to Chai-ordered chain IDs
+    entity_id_map = {
+        entity.entity_name: int_to_letters(idx)
+        for idx, entity in enumerate(entities, start=1)
+    }
+
     # Restraints → Chai CSV restraints
     restraints: list[ChaiRestraint] | None = None
-    if config.restraints:
-        restraint_list: list[ChaiRestraint] = []
-        for i, r in enumerate(config.restraints):
-            if r.restraint_type == RestraintType.Covalent:
-                # Format: residueName+position@atomName
-                res_a = (
-                    f"{r.atom1.residue_name or ''}{r.atom1.residue_idx}"
-                    f"@{r.atom1.atom_name}"
-                )
-                res_b = (
-                    f"{r.atom2.residue_name or ''}{r.atom2.residue_idx}"
-                    f"@{r.atom2.atom_name}"
-                )
-                restraint_list.append(
-                    ChaiRestraint(
-                        restraint_id=f"restraint_{i}",
-                        chainA=r.atom1.chain_id,
-                        res_idxA=res_a,
-                        chainB=r.atom2.chain_id,
-                        res_idxB=res_b,
-                        max_distance_angstrom=r.max_distance,
-                        connection_type=ChaiRestraintType.Covalent,
+    restraint_idx: int = 0
+    for r in config.covalent_bonds or []:
+        res_idx: list[str] = []
+        for atom in [r.atom1, r.atom2]:
+            if entity_types[atom.chain_id] in {
+                ChaiEntityType.Ligand,
+                ChaiEntityType.Glycan,
+            }:
+                res_idx.append(f"@{atom.atom_name}")
+            else:
+                if atom.residue_name is None:
+                    raise ValueError(
+                        f"Missing residue name for covalent bond atom: {r.atom1}"
                     )
+                res_idx.append(
+                    f"{r.atom1.residue_name}{r.atom1.residue_idx}@{r.atom1.atom_name}"
                 )
-            elif r.restraint_type == RestraintType.Contact:
-                res_a = f"{r.atom1.residue_name or ''}{r.atom1.residue_idx}"
-                res_b = f"{r.atom2.residue_name or ''}{r.atom2.residue_idx}"
-                restraint_list.append(
-                    ChaiRestraint(
-                        restraint_id=f"restraint_{i}",
-                        chainA=r.atom1.chain_id,
-                        res_idxA=res_a,
-                        chainB=r.atom2.chain_id,
-                        res_idxB=res_b,
-                        max_distance_angstrom=r.max_distance,
-                        connection_type=ChaiRestraintType.Contact,
-                    )
+
+        restraints.append(
+            ChaiRestraint(
+                restraint_id=f"restraint{restraint_idx}",
+                connection_type=ChaiRestraintType.Covalent,
+                chainA=entity_id_map[r.atom1.chain_id],
+                res_idxA=res_idx[0],
+                chainB=entity_id_map[r.atom2.chain_id],
+                res_idxB=res_idx[1],
+                max_distance_angstrom=r.max_distance,
+                comment=r.description,
+            )
+        )
+        restraint_idx += 1
+    for r in config.contact_restraints or []:
+        if not all(
+            entity_types[atom.chain_id]
+            in {ChaiEntityType.Protein, ChaiEntityType.DNA, ChaiEntityType.RNA}
+            for atom in [r.atom1, r.atom2]
+        ):
+            raise ValueError(
+                f"Contact restraints are only supported between protein/DNA/RNA entities in Chai conversion: {r.atom1}, {r.atom2}"
+            )
+        restraints.append(
+            ChaiRestraint(
+                restraint_id=f"restraint{restraint_idx}",
+                connection_type=ChaiRestraintType.Contact,
+                chainA=entity_id_map[r.atom1.chain_id],
+                res_idxA=f"{r.atom1.residue_name}{r.atom1.residue_idx}",
+                chainB=entity_id_map[r.atom2.chain_id],
+                res_idxB=f"{r.atom2.residue_name}{r.atom2.residue_idx}",
+                max_distance_angstrom=r.max_distance,
+                min_distance_angstrom=r.min_distance,
+                comment=r.description,
+            )
+        )
+        restraint_idx += 1
+    for r in config.pocket_restraints or []:
+        for t in r.contact_tokens:
+            restraints.append(
+                ChaiRestraint(
+                    restraint_id=f"restraint{restraint_idx}",
+                    connection_type=ChaiRestraintType.Pocket,
+                    chainA=entity_id_map[r.binder_chain],
+                    res_idxA=None,
+                    chainB=entity_id_map[t.chain_id],
+                    res_idxB=f"{t.residue_name}{t.residue_idx}",
+                    max_distance_angstrom=r.max_distance,
+                    min_distance_angstrom=r.min_distance,
+                    comment=r.description,
                 )
-            elif r.restraint_type == RestraintType.Pocket:
-                # NOTE: Chai pocket restraints leave the binder residue index
-                # empty. We use atom1 for the pocket residue and atom2's chain
-                # for the binder.
-                res_a = f"{r.atom1.residue_name or ''}{r.atom1.residue_idx}"
-                restraint_list.append(
-                    ChaiRestraint(
-                        restraint_id=f"restraint_{i}",
-                        chainA=r.atom2.chain_id,
-                        res_idxA="",
-                        chainB=r.atom1.chain_id,
-                        res_idxB=res_a,
-                        max_distance_angstrom=r.max_distance,
-                        connection_type=ChaiRestraintType.Pocket,
-                    )
-                )
-        restraints = restraint_list if restraint_list else None
+            )
+            restraint_idx += 1
 
     return ChaiConfig(
         entities=entities,
-        restraints=restraints,
+        restraints=restraints or None,
         num_trunk_recycles=config.aux.num_trunk_recycles,
         num_diffn_timesteps=config.aux.num_diffn_timesteps,
         num_diffn_samples=config.aux.num_diffn_samples,
