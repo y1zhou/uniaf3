@@ -24,9 +24,9 @@ sequences:
 covalent_bonds:
   - atom1:
       chain_id: B
-      residue_idx: 1
+      residue_idx: 2
       atom_name: CA
-      residue_name: M
+      residue_name: V
     atom2:
       chain_id: D
       residue_idx: 1
@@ -38,12 +38,12 @@ contact_restraints:
       chain_id: A
       residue_idx: 5
       atom_name: CG
-      residue_name: null
+      residue_name: P
     token2:
       chain_id: B
       residue_idx: 5
       atom_name: null
-      residue_name: null
+      residue_name: P
     max_distance: 8.0
     boltz_enable_force: true
 pocket_restraints:
@@ -53,11 +53,11 @@ pocket_restraints:
       - chain_id: A
         residue_idx: 10
         atom_name: null
-        residue_name: null
+        residue_name: N
       - chain_id: B
-        residue_idx: 1
+        residue_idx: 3
         atom_name: null
-        residue_name: null
+        residue_name: L
 
 seeds:
   - 42

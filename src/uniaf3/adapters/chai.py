@@ -68,10 +68,32 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
             ids = ensure_list(seq.id)
             if seq.smiles is not None:
                 lig_seq = seq.smiles
+
+            # Chai does not support CCD ligands, but we can attempt to look up the
+            # corresponding SMILES if a single CCD code is provided. If multiple CCD codes are provided, issue warning
+            elif seq.ccd is not None and len(seq.ccd) == 1:
+                import polars as pl
+
+                from uniaf3.vendor.ccd import CCD_LIB
+
+                lig_ccd = seq.ccd[0]
+                lig_smiles = CCD_LIB.filter(
+                    pl.col("CCD") == pl.lit(lig_ccd)
+                ).get_column("SMILES")
+                if lig_smiles.len() == 0:
+                    err_unsupported_feature(
+                        strict,
+                        f"CCD ligand {lig_ccd} not found in CCD library.",
+                    )
+                else:
+                    lig_seq = lig_smiles.item()
+                    print(
+                        f"Converting CCD ligand {lig_ccd} to SMILES for Chai: {lig_seq}"
+                    )
+
             else:
                 err_unsupported_feature(
-                    strict,
-                    "CCD ligands are not supported in Chai conversion.",
+                    strict, "Multi-CCD ligands are not supported in Chai."
                 )
                 continue
             for chain_id in ids:
@@ -102,7 +124,7 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
     }
 
     # Restraints → Chai CSV restraints
-    restraints: list[ChaiRestraint] | None = None
+    restraints: list[ChaiRestraint] = []
     restraint_idx: int = 0
     for r in config.covalent_bonds or []:
         res_idx: list[str] = []
@@ -129,28 +151,33 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
                 res_idxA=res_idx[0],
                 chainB=entity_id_map[r.atom2.chain_id],
                 res_idxB=res_idx[1],
-                max_distance_angstrom=r.max_distance,
+                max_distance_angstrom=0.0,
                 comment=r.description,
             )
         )
         restraint_idx += 1
     for r in config.contact_restraints or []:
-        if not all(
-            entity_types[atom.chain_id]
-            in {ChaiEntityType.Protein, ChaiEntityType.DNA, ChaiEntityType.RNA}
-            for atom in [r.atom1, r.atom2]
-        ):
-            raise ValueError(
-                f"Contact restraints are only supported between protein/DNA/RNA entities in Chai conversion: {r.atom1}, {r.atom2}"
-            )
+        for atom in [r.token1, r.token2]:
+            if entity_types[atom.chain_id] not in {
+                ChaiEntityType.Protein,
+                ChaiEntityType.DNA,
+                ChaiEntityType.RNA,
+            }:
+                raise ValueError(
+                    f"Contact restraints are only supported between protein/DNA/RNA entities in Chai conversion: {atom}"
+                )
+            if atom.residue_name is None:
+                raise ValueError(
+                    f"Missing residue name for contact restraint token: {atom}"
+                )
         restraints.append(
             ChaiRestraint(
                 restraint_id=f"restraint{restraint_idx}",
                 connection_type=ChaiRestraintType.Contact,
-                chainA=entity_id_map[r.atom1.chain_id],
-                res_idxA=f"{r.atom1.residue_name}{r.atom1.residue_idx}",
-                chainB=entity_id_map[r.atom2.chain_id],
-                res_idxB=f"{r.atom2.residue_name}{r.atom2.residue_idx}",
+                chainA=entity_id_map[r.token1.chain_id],
+                res_idxA=f"{r.token1.residue_name}{r.token1.residue_idx}",
+                chainB=entity_id_map[r.token2.chain_id],
+                res_idxB=f"{r.token2.residue_name}{r.token2.residue_idx}",
                 max_distance_angstrom=r.max_distance,
                 min_distance_angstrom=r.min_distance,
                 comment=r.description,
@@ -159,6 +186,10 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
         restraint_idx += 1
     for r in config.pocket_restraints or []:
         for t in r.contact_tokens:
+            if t.residue_name is None:
+                raise ValueError(
+                    f"Missing residue name for pocket restraint token: {t}"
+                )
             restraints.append(
                 ChaiRestraint(
                     restraint_id=f"restraint{restraint_idx}",

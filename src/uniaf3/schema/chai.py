@@ -134,17 +134,25 @@ class ChaiConfig(UniAF3BaseConfig):
             int_to_letters(i): e for i, e in enumerate(self.entities, start=1)
         }
         for r in self.restraints:
+            seq_a = entity_map[r.chainA].sequence
+            if entity_map[r.chainA].entity_type in {
+                ChaiEntityType.Protein,
+                ChaiEntityType.DNA,
+                ChaiEntityType.RNA,
+            }:
+                seq_a = constituents_of_modified_fasta(seq_a)
             _ensure_valid_restraint(
-                r.connection_type,
-                entity_map[r.chainA].entity_type,
-                r.res_idxA,
-                constituents_of_modified_fasta(entity_map[r.chainA].sequence),
+                r.connection_type, entity_map[r.chainA].entity_type, r.res_idxA, seq_a
             )
+            seq_b = entity_map[r.chainB].sequence
+            if entity_map[r.chainB].entity_type in {
+                ChaiEntityType.Protein,
+                ChaiEntityType.DNA,
+                ChaiEntityType.RNA,
+            }:
+                seq_b = constituents_of_modified_fasta(seq_b)
             _ensure_valid_restraint(
-                r.connection_type,
-                entity_map[r.chainB].entity_type,
-                r.res_idxB,
-                constituents_of_modified_fasta(entity_map[r.chainB].sequence),
+                r.connection_type, entity_map[r.chainB].entity_type, r.res_idxB, seq_b
             )
         return self
 
@@ -262,11 +270,6 @@ def _ensure_valid_restraint(
             )
     elif connection == ChaiRestraintType.Pocket:
         # R84 for residues; empty for non-binder chain.
-        # ligands and glycans not supported
-        if entity_type not in polymer_type:
-            raise ValueError(
-                f"Contact restraints currently only supported for protein/DNA/RNA entities, got {entity_type}"
-            )
         if res_idx:
             try:
                 res_name, res_pos = res_idx[0], int(res_idx[1:])
