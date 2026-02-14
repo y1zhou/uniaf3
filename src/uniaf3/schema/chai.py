@@ -49,6 +49,8 @@ class ChaiEntity(BaseModel):
     entity_name: str  # unique name used as chain description
     sequence: str  # AA/nucleotide sequence, SMILES, or glycan notation
 
+    # TODO: UniAF3 MSAs are not compatible with the FASTA format
+
 
 class ChaiRestraintType(StrEnum):
     """Connection types supported in the Chai-1 restraints CSV."""

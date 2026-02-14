@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
 from uniaf3.constant import int_to_letters
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
+    ContactRestraint,
+    CovalentBond,
     Glycan,
     Ligand,
+    PocketRestraint,
     Polymer,
     PolymerType,
     ProteinSeq,
@@ -257,76 +262,84 @@ def _parse_chai_res_idx(chain: str, res_idx: str) -> Atom:
 def from_chai(config: ChaiConfig) -> UniAF3Config:
     """Convert a Chai-1 config to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
-    for entity in config.entities:
+    msa_dir = config.msa_directory
+    if msa_dir is not None:
+        msa_dir_path = Path(msa_dir)
+        # Use subdirectory following MMSeqs2 output file structure
+        if (msa_dir_path / "a3ms").exists():
+            msa_dir_path = msa_dir_path / "a3ms"
+    else:
+        msa_dir_path = None
+    for i, entity in enumerate(config.entities, start=1):
         if entity.entity_type == ChaiEntityType.Protein:
+            # TODO: extract inline modifications from polymer sequences
             seq = ProteinSeq(
                 seq_type=PolymerType.Protein,
-                id=entity.entity_name,
+                id=int_to_letters(i),
+                description=entity.entity_name,
                 sequence=entity.sequence,
+                modifications=None,
+                msa_dir=str(msa_dir_path) if msa_dir_path else None,
+                templates=None,
             )
             sequences.append(seq)
         elif entity.entity_type == ChaiEntityType.DNA:
             seq = Polymer(
                 seq_type=PolymerType.DNA,
-                id=entity.entity_name,
+                id=int_to_letters(i),
+                description=entity.entity_name,
                 sequence=entity.sequence,
+                modifications=None,
             )
             sequences.append(seq)
         elif entity.entity_type == ChaiEntityType.RNA:
             seq = Polymer(
                 seq_type=PolymerType.RNA,
-                id=entity.entity_name,
+                id=int_to_letters(i),
+                description=entity.entity_name,
                 sequence=entity.sequence,
+                modifications=None,
             )
             sequences.append(seq)
         elif entity.entity_type == ChaiEntityType.Ligand:
-            # NOTE: Cannot distinguish CCD vs SMILES from Chai entity alone.
-            # Assume SMILES if not a simple CCD code pattern.
             lig = Ligand(
-                id=entity.entity_name,
+                id=int_to_letters(i),
+                description=entity.entity_name,
                 smiles=entity.sequence,
             )
             sequences.append(lig)
         elif entity.entity_type == ChaiEntityType.Glycan:
             glycan = Glycan(
-                id=entity.entity_name,
+                id=int_to_letters(i),
+                description=entity.entity_name,
                 chai_str=entity.sequence,
             )
             sequences.append(glycan)
 
     # NOTE: Converting Chai restraints back to UniAF3 restraints requires
     # parsing the residue index format (e.g. "D45@CB") which is complex.
-    restraints: list[Restraint] | None = None
+    covalent_bonds: list[CovalentBond] = []
+    contact_restraints: list[ContactRestraint] = []
+    pocket_restraints: list[PocketRestraint] = []
     if config.restraints:
-        restraint_list: list[Restraint] = []
         for cr in config.restraints:
+            atom1 = _parse_chai_res_idx(cr.chainA, cr.res_idxA)
+            atom2 = _parse_chai_res_idx(cr.chainB, cr.res_idxB)
             if cr.connection_type == ChaiRestraintType.Covalent:
-                rtype = RestraintType.Covalent
+                pass
             elif cr.connection_type == ChaiRestraintType.Contact:
-                rtype = RestraintType.Contact
+                pass
             elif cr.connection_type == ChaiRestraintType.Pocket:
-                rtype = RestraintType.Pocket
+                pass
             else:
                 continue
 
-            atom1 = _parse_chai_res_idx(cr.chainA, cr.res_idxA)
-            atom2 = _parse_chai_res_idx(cr.chainB, cr.res_idxB)
-            restraint_list.append(
-                Restraint(
-                    restraint_type=rtype,
-                    atom1=atom1,
-                    atom2=atom2,
-                    max_distance=cr.max_distance_angstrom,
-                )
-            )
-        restraints = restraint_list if restraint_list else None
-
-    seeds = [config.seed] if config.seed is not None else [42]
-
     return UniAF3Config(
         sequences=sequences,
-        restraints=restraints,
-        seeds=seeds,
+        covalent_bonds=covalent_bonds or None,
+        contact_restraints=contact_restraints or None,
+        pocket_restraints=pocket_restraints or None,
+        seeds=[config.seed] if config.seed is not None else [42],
         aux=AuxiliaryParams(
             num_trunk_recycles=config.num_trunk_recycles,
             num_diffn_timesteps=config.num_diffn_timesteps,
