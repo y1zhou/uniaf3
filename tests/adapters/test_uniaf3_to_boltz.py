@@ -20,7 +20,7 @@ def boltz(uniaf3_conf: UniAF3Config, tmp_path_factory: pytest.TempPathFactory):
 def test_unsupported_glycan_strict(uniaf3_conf: UniAF3Config, tmp_path):
     from uniaf3.adapters import to_boltz
 
-    uniaf3_conf_cp = uniaf3_conf.model_copy()
+    uniaf3_conf_cp = uniaf3_conf.model_copy(deep=True)
     uniaf3_conf_cp.sequences.append(Glycan(id="Z", chai_str="NAG(1-4 NAG)"))
 
     with pytest.raises(
@@ -33,7 +33,7 @@ def test_version(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert boltz.version == 1
 
 
-def test_sequence_count_drops_glycan(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
+def test_sequence_count(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     # protein + dna + 2 ligands = 4; 1 single CCD glycan kept
     assert len(boltz.sequences) == len(uniaf3_conf.sequences) == 5
 
