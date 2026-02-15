@@ -1,0 +1,70 @@
+sequences:
+  - seq_type: protein
+    id:
+      - A
+      - B
+    sequence: MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS
+    msa_dir: dummy_msa/
+    modifications:
+      - ccd: HY3
+        position: 1
+    description: Hemoglobin subunit
+  - seq_type: dna
+    id: C
+    sequence: GATTACA
+  - id: D
+    ccd:
+      - ATP
+  - id: E
+    smiles: "CC(=O)OC1C[NH+]2CCC1CC2"
+  - id: F
+    chai_str: NAG # NOTE: multi-CCD glycans like "NAG(NAG)(BMA)" are model-specific
+    description: Example glycan
+
+covalent_bonds:
+  - atom1:
+      chain_id: B
+      residue_idx: 2
+      atom_name: CA
+      residue_name: V
+    atom2:
+      chain_id: D
+      residue_idx: 1
+      atom_name: C04
+      residue_name: null
+
+contact_restraints:
+  - token1:
+      chain_id: A
+      residue_idx: 5
+      atom_name: CG
+      residue_name: P
+    token2:
+      chain_id: B
+      residue_idx: 5
+      atom_name: null
+      residue_name: P
+    max_distance: 8.0
+    boltz_enable_force: true
+pocket_restraints:
+  - binder_chain: D
+    max_distance: 6.0
+    contact_tokens:
+      - chain_id: A
+        residue_idx: 10
+        atom_name: null
+        residue_name: N
+      - chain_id: B
+        residue_idx: 3
+        atom_name: null
+        residue_name: L
+
+seeds:
+  - 42
+  - 123
+aux:
+  num_trunk_recycles: 3
+  num_diffn_timesteps: 200
+  num_diffn_samples: 5
+  num_trunk_samples: 1
+  boltz_affinity_binder_chain: D

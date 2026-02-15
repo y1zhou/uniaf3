@@ -8,11 +8,32 @@ authors = [{ name = "Yi Zhou", email = "me@y1zhou.com" }]
 dependencies = [
     "gemmi>=0.7.4",
     "orjson>=3.11.7",
+    "platformdirs>=4.5.1",
+    "polars[calamine,numpy,pandas,pydantic]>=1.38.1",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "rich>=14.3.2",
+    "tqdm>=4.67.3",
     "typer>=0.21.1",
 ]
 
 [project.urls]
 homepage = "https://github.com/y1zhou/uniaf3"
 issues = "https://github.com/y1zhou/uniaf3/issues"
+
+[project.scripts]
+uniaf3 = "uniaf3.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipython>=9.10.0",
+    "pytest>=9.0.2",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]

@@ -1,0 +1,400 @@
+"""Pydantic schemas for Boltz input YAML config.
+
+Reference:
+    https://github.com/jwohlwend/boltz/blob/main/docs/prediction.md
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Literal
+
+from pydantic import (
+    BaseModel,
+    NonNegativeFloat,
+    PositiveInt,
+    model_validator,
+)
+
+from uniaf3.constant import RESIDUE_ATOMS
+from uniaf3.schema.base import UniAF3BaseConfig
+from uniaf3.vendor.chai1_fasta import read_fasta
+
+
+def _load_msa_seqs(msa_file: str | Path | None) -> set[str]:
+    """Load sequences from an MSA file (FASTA or A3M) into a set of sequences."""
+    if msa_file is None or str(msa_file) == "empty":
+        return set()
+
+    msa_path = Path(msa_file).expanduser().resolve()
+    if not msa_path.exists():
+        raise FileNotFoundError(f"MSA file not found: {msa_path}")
+
+    if msa_path.suffix == ".a3m":
+        entries = read_fasta(msa_path)
+        return {entry.sequence for entry in entries}
+
+    if msa_path.suffix == ".csv":
+        import polars as pl
+
+        return set(pl.read_csv(msa_path).get_column("sequence").to_list())
+
+    raise ValueError(f"Unsupported MSA file type: {msa_path.suffix}")
+
+
+class BoltzModification(BaseModel):
+    """Modification for a polymer residue (protein, DNA, or RNA)."""
+
+    position: PositiveInt  # 1-based index
+    ccd: str  # CCD code of the modified residue
+
+
+class BoltzProtein(BaseModel):
+    """Boltz protein chain specification."""
+
+    id: str | list[str]
+    sequence: str
+    msa: str | None = None  # path to .csv file, or "empty" for single-sequence
+    modifications: list[BoltzModification] | None = None
+    cyclic: bool = False
+
+    def __eq__(self, other):
+        """Compare BoltzProtein instances."""
+        if not isinstance(other, BoltzProtein):
+            return NotImplemented
+
+        self_msa_content = _load_msa_seqs(self.msa)
+        other_msa_content = _load_msa_seqs(other.msa)
+
+        return (
+            self.id == other.id
+            and self.sequence == other.sequence
+            and self_msa_content == other_msa_content
+            and self.modifications == other.modifications
+            and self.cyclic == other.cyclic
+        )
+
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure modification positions are within the sequence length."""
+        if self.modifications is not None:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if mod.position < 1 or mod.position > seq_length:
+                    raise ValueError(
+                        f"Modification position {mod.position} out of range for sequence length {seq_length}"
+                    )
+        return self
+
+
+class BoltzDNA(BaseModel):
+    """Boltz DNA chain specification."""
+
+    id: str | list[str]
+    sequence: str
+    modifications: list[BoltzModification] | None = None
+    cyclic: bool = False
+
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure modification positions are within the sequence length."""
+        if self.modifications is not None:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if mod.position < 1 or mod.position > seq_length:
+                    raise ValueError(
+                        f"Modification position {mod.position} out of range for sequence length {seq_length}"
+                    )
+        return self
+
+
+class BoltzRNA(BaseModel):
+    """Boltz RNA chain specification."""
+
+    id: str | list[str]
+    sequence: str
+    modifications: list[BoltzModification] | None = None
+    cyclic: bool = False
+
+    @model_validator(mode="after")
+    def check_modifications_in_range(self):
+        """Ensure modification positions are within the sequence length."""
+        if self.modifications is not None:
+            seq_length = len(self.sequence)
+            for mod in self.modifications:
+                if mod.position < 1 or mod.position > seq_length:
+                    raise ValueError(
+                        f"Modification position {mod.position} out of range for sequence length {seq_length}"
+                    )
+        return self
+
+
+class BoltzLigand(BaseModel):
+    """Boltz ligand specification.
+
+    Each ligand uses either a CCD code or a SMILES string, not both.
+    """
+
+    id: str | list[str]
+    smiles: str | None = None
+    ccd: str | None = None
+
+    @model_validator(mode="after")
+    def check_ccd_smiles_fields(self):
+        """Ensure exactly one of ccd or smiles is provided."""
+        if (self.ccd is None) == (self.smiles is None):
+            raise ValueError("Exactly one of ccd or smiles must be provided.")
+        return self
+
+
+class BoltzSequenceEntry(BaseModel):
+    """A single entry in the sequences list.
+
+    Exactly one of protein, dna, rna, or ligand must be set.
+    """
+
+    protein: BoltzProtein | None = None
+    dna: BoltzDNA | None = None
+    rna: BoltzRNA | None = None
+    ligand: BoltzLigand | None = None
+
+    @model_validator(mode="after")
+    def check_exactly_one(self):
+        """Ensure exactly one entity type is set."""
+        fields = [self.protein, self.dna, self.rna, self.ligand]
+        if sum(f is not None for f in fields) != 1:
+            raise ValueError(
+                "Exactly one of protein, dna, rna, or ligand must be provided."
+            )
+        return self
+
+
+##########################################
+# Constraints
+##########################################
+class BoltzBondConstraint(BaseModel):
+    """Covalent bond constraint between two atoms."""
+
+    # (chain_id, 1-based residue index, atom name)
+    atom1: tuple[str, PositiveInt, str]
+    atom2: tuple[str, PositiveInt, str]
+
+
+class BoltzPocketConstraint(BaseModel):
+    """Pocket constraint specifying binding residues."""
+
+    binder: str  # chain ID of the binder
+    contacts: list[tuple[str, int | str]]  # (chain_id, residue index or atom name)
+    max_distance: NonNegativeFloat = 6.0
+    force: bool = False
+
+
+class BoltzContactConstraint(BaseModel):
+    """Contact constraint between two residues/atoms."""
+
+    token1: tuple[str, int | str]  # (chain_id, residue index or atom name)
+    token2: tuple[str, int | str]
+    max_distance: NonNegativeFloat = 6.0
+    force: bool = False
+
+
+class BoltzConstraintEntry(BaseModel):
+    """A single constraint entry.
+
+    Exactly one of bond, pocket, or contact must be set.
+    """
+
+    bond: BoltzBondConstraint | None = None
+    pocket: BoltzPocketConstraint | None = None
+    contact: BoltzContactConstraint | None = None
+
+    @model_validator(mode="after")
+    def check_exactly_one(self):
+        """Ensure exactly one constraint type is set."""
+        fields = [self.bond, self.pocket, self.contact]
+        if sum(f is not None for f in fields) != 1:
+            raise ValueError(
+                "Exactly one of bond, pocket, or contact must be provided."
+            )
+        return self
+
+
+##########################################
+# Templates
+##########################################
+class BoltzTemplate(BaseModel):
+    """Structural template specification."""
+
+    cif: str | None = None  # path to CIF file (mutually exclusive with pdb)
+    pdb: str | None = None  # path to PDB file
+    chain_id: str | list[str] | None = None  # which chains to template
+    template_id: str | list[str] | None = None  # explicit template chain mapping
+    force: bool = False  # use potential to enforce template
+    threshold: NonNegativeFloat | None = (
+        None  # distance threshold for force (Angstroms)
+    )
+
+    @model_validator(mode="after")
+    def check_cif_pdb_fields(self):
+        """Ensure exactly one of cif or pdb is provided."""
+        if (self.cif is None) == (self.pdb is None):
+            raise ValueError("Exactly one of cif or pdb must be provided.")
+        return self
+
+
+##########################################
+# Properties
+##########################################
+class BoltzAffinityProperty(BaseModel):
+    """Affinity prediction property."""
+
+    binder: str  # chain ID of the ligand
+
+
+class BoltzPropertyEntry(BaseModel):
+    """A single property entry."""
+
+    affinity: BoltzAffinityProperty | None = None
+
+
+class BoltzConfig(UniAF3BaseConfig):
+    """Top-level Boltz input YAML config."""
+
+    version: Literal[1] = 1
+    sequences: list[BoltzSequenceEntry]
+    constraints: list[BoltzConstraintEntry] | None = None
+    templates: list[BoltzTemplate] | None = None
+    properties: list[BoltzPropertyEntry] | None = None
+
+    @model_validator(mode="after")
+    def check_constraints_in_range(self):
+        """Ensure constraint residue indices are within sequence lengths."""
+        if self.constraints is None:
+            return self
+
+        # Build chain_id → sequence mapping, handling list[str] ids
+        seq_dict: dict[str, str] = {}
+        polymer_chains: set[str] = set()
+        protein_chains: set[str] = set()
+        for seq in self.sequences:
+            if seq.protein is not None:
+                entity = seq.protein
+                seq = entity.sequence
+            elif seq.dna is not None:
+                entity = seq.dna
+                seq = entity.sequence
+            elif seq.rna is not None:
+                entity = seq.rna
+                seq = entity.sequence
+            elif seq.ligand is not None:
+                entity = seq.ligand
+                seq = ""  # placeholder since we don't validate ligand residue indices
+            else:
+                raise ValueError("Invalid sequence entry with no entity.")
+            ids = entity.id if isinstance(entity.id, list) else [entity.id]
+            for cid in ids:
+                seq_dict[cid] = seq
+
+            if isinstance(entity, (BoltzProtein, BoltzDNA, BoltzRNA)):
+                polymer_chains.update(ids)
+                if isinstance(entity, BoltzProtein):
+                    protein_chains.update(ids)
+
+        for cst in self.constraints:
+            if cst.bond is not None:
+                for atom in (cst.bond.atom1, cst.bond.atom2):
+                    chain_id, res_idx, atom_name = atom
+                    if chain_id not in seq_dict:
+                        raise ValueError(
+                            f"Chain ID {chain_id} in bond constraint not found in sequences."
+                        )
+                    if chain_id in polymer_chains:
+                        seq = seq_dict[chain_id]
+                        seq_len = len(seq)
+                        if res_idx > seq_len:
+                            raise ValueError(
+                                f"Residue index {res_idx} out of range for chain {chain_id} with length {seq_len}."
+                            )
+                        if chain_id in protein_chains:
+                            valid_atoms = RESIDUE_ATOMS[seq[res_idx - 1]]
+                            if atom_name not in valid_atoms:
+                                raise ValueError(
+                                    f"Invalid atom name {atom_name} for residue {seq[res_idx - 1]} at position {res_idx} in chain {chain_id}."
+                                )
+                    elif res_idx != 1:
+                        raise ValueError(
+                            f"Residue index for ligand bond constraint must be 1, got {res_idx} for chain {chain_id}."
+                        )
+            elif cst.pocket is not None:
+                binder_id = cst.pocket.binder
+                if binder_id not in seq_dict:
+                    raise ValueError(
+                        f"Binder chain ID {binder_id} in pocket constraint not found in sequences."
+                    )
+                for chain_id, res_idx_or_atom in cst.pocket.contacts:
+                    if chain_id in polymer_chains:
+                        if not isinstance(res_idx_or_atom, int):
+                            raise ValueError(
+                                f"Contact for polymer chains should be specified with residue index, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+                        seq_len = len(seq_dict[chain_id])
+                        if res_idx_or_atom > seq_len:
+                            raise ValueError(
+                                f"Residue index {res_idx_or_atom} out of range for chain {chain_id} with length {seq_len}."
+                            )
+                    else:
+                        # TODO: validate rdkit atom names for non-polymer chains
+                        if not isinstance(res_idx_or_atom, str):
+                            raise ValueError(
+                                f"Contact for non-polymer chains should be specified with atom name, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+
+                # Note: we don't validate contact residue indices here since they can be specified by atom name
+            elif cst.contact is not None:
+                for token in (cst.contact.token1, cst.contact.token2):
+                    chain_id, res_idx_or_atom = token
+                    if chain_id in polymer_chains:
+                        if not isinstance(res_idx_or_atom, int):
+                            raise ValueError(
+                                f"Contact for polymer chains should be specified with residue index, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+                        seq_len = len(seq_dict[chain_id])
+                        if res_idx_or_atom > seq_len:
+                            raise ValueError(
+                                f"Residue index {res_idx_or_atom} out of range for chain {chain_id} with length {seq_len}."
+                            )
+                    else:
+                        # TODO: validate rdkit atom names for non-polymer chains
+                        if not isinstance(res_idx_or_atom, str):
+                            raise ValueError(
+                                f"Contact for non-polymer chains should be specified with atom name, got {res_idx_or_atom} for chain {chain_id}."
+                            )
+        return self
+
+    def to_str(self, **kwargs) -> str:
+        """Get YAML string representation of the config."""
+        return self.to_yaml(**kwargs)
+
+    def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
+        """Dump the config to a YAML file in the specified output directory."""
+        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.yaml"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            f.write(self.to_yaml(**kwargs))
+
+    @classmethod
+    def from_file(cls, conf_file: str | Path) -> BoltzConfig:
+        """Load Boltz config from a file."""
+        conf = super().from_file(conf_file)
+
+        for seq in conf.sequences:
+            if (
+                seq.protein is not None
+                and seq.protein.msa is not None
+                and seq.protein.msa != "empty"
+            ):
+                seq.protein.msa = str(
+                    (Path(conf_file).parent / seq.protein.msa).resolve()
+                )
+
+        return conf

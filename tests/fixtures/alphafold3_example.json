@@ -1,0 +1,78 @@
+{
+  "name": "Hello fold",
+  "modelSeeds": [10, 42],
+  "sequences": [
+    {
+      "protein": {
+        "id": "A",
+        "sequence": "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS",
+        "modifications": [
+          {"ptmType": "HY3", "ptmPosition": 1},
+          {"ptmType": "P1L", "ptmPosition": 5}
+        ],
+        "description": "Hemoglobin subunit with 2 modifications",
+        "unpairedMsaPath": "./dummy_msa/a3ms/f3513e4c19996aaa8fb4372b70d87dd2c3d285ba8245bf89cff77f63928dfd1f.single.a3m",
+        "pairedMsaPath": "./dummy_msa/a3ms/f3513e4c19996aaa8fb4372b70d87dd2c3d285ba8245bf89cff77f63928dfd1f.pair.a3m"
+      }
+    },
+    {
+      "protein": {
+        "id": "B",
+        "sequence": "RPACQLW",
+        "templates": [
+          {
+            "mmcifPath": "./templates/B_template.cif",
+            "queryIndices": [0, 1, 2],
+            "templateIndices": [0, 1, 2]
+          }
+        ]
+      }
+    },
+    {
+      "dna": {
+        "id": "C",
+        "sequence": "GACCTCT",
+        "modifications": [
+          {"modificationType": "6OG", "basePosition": 1},
+          {"modificationType": "6MA", "basePosition": 2}
+        ]
+      }
+    },
+    {
+      "rna": {
+        "id": "E",
+        "sequence": "AGCU",
+        "modifications": [
+          {"modificationType": "2MG", "basePosition": 1},
+          {"modificationType": "5MC", "basePosition": 4}
+        ],
+        "description": "Short RNA with modifications"
+      }
+    },
+    {
+      "ligand": {
+        "id": ["F", "G", "H"],
+        "ccdCodes": ["ATP"]
+      }
+    },
+    {
+      "ligand": {
+        "id": "I",
+        "ccdCodes": ["NAG", "FUC"]
+      }
+    },
+    {
+      "ligand": {
+        "id": "Z",
+        "smiles": "CC(=O)OC1C[NH+]2CCC1CC2"
+      }
+    }
+  ],
+  "bondedAtomPairs": [
+    [["A", 1, "CA"], ["F", 1, "CHA"]],
+    [["I", 1, "O6"], ["I", 2, "C1"]]
+  ],
+  "userCCD": "data_MY_LIGAND\n_chem_comp.id MY_LIGAND\n",
+  "dialect": "alphafold3",
+  "version": 4
+}
