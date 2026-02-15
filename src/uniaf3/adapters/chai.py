@@ -17,6 +17,7 @@ from uniaf3.schema.base import (
     Polymer,
     PolymerType,
     ProteinSeq,
+    SequenceModification,
     UniAF3Config,
 )
 from uniaf3.schema.chai import (
@@ -26,6 +27,7 @@ from uniaf3.schema.chai import (
     ChaiRestraint,
     ChaiRestraintType,
 )
+from uniaf3.vendor.chai1_fasta import constituents_of_modified_fasta
 
 
 def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
@@ -254,6 +256,36 @@ def _parse_chai_res_idx(chain: str, res_idx: str | None) -> Atom:
     )
 
 
+def _parse_chai_polymer_modifications(
+    seq: str,
+) -> tuple[str, list[SequenceModification] | None]:
+    """Parse inline modifications from a Chai-style polymer sequence."""
+    if "(" not in seq:
+        return seq, None
+
+    import gemmi
+
+    tokens = constituents_of_modified_fasta(seq)
+    modifications: list[SequenceModification] = []
+    canonical_seq: list[str] = []
+    for i, token in enumerate(tokens, start=1):
+        if len(token) == 1:
+            canonical_seq.append(token)
+            continue
+
+        modifications.append(SequenceModification(position=i, ccd=token))
+
+        # Try to map the modified residue to a canonical one-letter code using the CCD.
+        # If no mapping is found, put down "X"
+        ccd_related_token = gemmi.find_tabulated_residue(token)
+        if canonical_token := ccd_related_token.one_letter_code.strip():
+            canonical_seq.append(canonical_token)
+        else:
+            canonical_seq.append("X")
+
+    return "".join(canonical_seq), modifications or None
+
+
 def from_chai(config: ChaiConfig) -> UniAF3Config:
     """Convert a Chai-1 config to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
@@ -267,35 +299,40 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
         msa_dir_path = None
     for i, entity in enumerate(config.entities, start=1):
         if entity.entity_type == ChaiEntityType.Protein:
-            # TODO: extract inline modifications from polymer sequences
-            seq = ProteinSeq(
-                seq_type=PolymerType.Protein,
-                id=int_to_letters(i),
-                description=entity.entity_name,
-                sequence=entity.sequence,
-                modifications=None,
-                msa_dir=str(msa_dir_path) if msa_dir_path else None,
-                templates=None,
+            seq, mods = _parse_chai_polymer_modifications(entity.sequence)
+            sequences.append(
+                ProteinSeq(
+                    seq_type=PolymerType.Protein,
+                    id=int_to_letters(i),
+                    description=entity.entity_name,
+                    sequence=seq,
+                    modifications=mods,
+                    msa_dir=str(msa_dir_path) if msa_dir_path else None,
+                    templates=None,
+                )
             )
-            sequences.append(seq)
         elif entity.entity_type == ChaiEntityType.DNA:
-            seq = Polymer(
-                seq_type=PolymerType.DNA,
-                id=int_to_letters(i),
-                description=entity.entity_name,
-                sequence=entity.sequence,
-                modifications=None,
+            seq, mods = _parse_chai_polymer_modifications(entity.sequence)
+            sequences.append(
+                Polymer(
+                    seq_type=PolymerType.DNA,
+                    id=int_to_letters(i),
+                    description=entity.entity_name,
+                    sequence=seq,
+                    modifications=mods,
+                )
             )
-            sequences.append(seq)
         elif entity.entity_type == ChaiEntityType.RNA:
-            seq = Polymer(
-                seq_type=PolymerType.RNA,
-                id=int_to_letters(i),
-                description=entity.entity_name,
-                sequence=entity.sequence,
-                modifications=None,
+            seq, mods = _parse_chai_polymer_modifications(entity.sequence)
+            sequences.append(
+                Polymer(
+                    seq_type=PolymerType.RNA,
+                    id=int_to_letters(i),
+                    description=entity.entity_name,
+                    sequence=seq,
+                    modifications=mods,
+                )
             )
-            sequences.append(seq)
         elif entity.entity_type == ChaiEntityType.Ligand:
             lig = Ligand(
                 id=int_to_letters(i),
