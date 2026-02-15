@@ -10,6 +10,7 @@ from uniaf3.schema import (
     AF3Config,
     AF3ServerConfig,
     BoltzConfig,
+    ChaiConfig,
     ProtenixConfig,
     UniAF3Config,
 )
@@ -185,8 +186,103 @@ class TestBoltzSchema:
 class TestChaiSchema:
     """Validate ChaiConfig against example input."""
 
-    # TODO: Chai should output two files (FASTA and restraints CSV)
-    ...
+    def test_load_data(self, chai_conf: ChaiConfig):
+        assert len(chai_conf.entities) == 6
+        assert chai_conf.restraints is not None
+        assert len(chai_conf.restraints) == 3
+
+    def test_protein_entry(self, chai_conf: ChaiConfig):
+        prot = chai_conf.entities[0]
+        assert prot.entity_type == "protein"
+        assert prot.entity_name == "Hemoglobin subunit"
+        assert prot.sequence == "MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS"
+
+    def test_protein_with_modification(self, chai_conf: ChaiConfig):
+        prot = chai_conf.entities[1]
+        assert prot.entity_type == "protein"
+        assert prot.sequence.startswith("(HY3)")
+
+    def test_dna_entry(self, chai_conf: ChaiConfig):
+        dna = chai_conf.entities[2]
+        assert dna.entity_type == "dna"
+        assert dna.sequence == "GATTACA"
+
+    def test_ligand_ccd(self, chai_conf: ChaiConfig):
+        lig = chai_conf.entities[3]
+        assert lig.entity_type == "ligand"
+        assert lig.entity_name == "CCD example"
+        assert lig.sequence == "ATP"
+
+    def test_ligand_smiles(self, chai_conf: ChaiConfig):
+        lig = chai_conf.entities[4]
+        assert lig.entity_type == "ligand"
+        assert lig.sequence == "CC(=O)OC1C[NH+]2CCC1CC2"
+
+    def test_glycan_entry(self, chai_conf: ChaiConfig):
+        glycan = chai_conf.entities[5]
+        assert glycan.entity_type == "glycan"
+        assert glycan.sequence == "NAG(NAG)(BMA)"
+
+    def test_covalent_restraint(self, chai_conf: ChaiConfig):
+        assert chai_conf.restraints is not None
+        cov = [r for r in chai_conf.restraints if r.connection_type == "covalent"]
+        assert len(cov) == 1
+        r = cov[0]
+        assert r.chainA == "A"
+        assert r.res_idxA == "P5@CG"
+        assert r.chainB == "F"
+        assert r.res_idxB == "@C1"
+
+    def test_contact_restraint(self, chai_conf: ChaiConfig):
+        assert chai_conf.restraints is not None
+        ct = [r for r in chai_conf.restraints if r.connection_type == "contact"]
+        assert len(ct) == 1
+        r = ct[0]
+        assert r.chainA == "A"
+        assert r.res_idxA == "V11"
+        assert r.chainB == "B"
+        assert r.res_idxB == "L35"
+        assert r.max_distance_angstrom == 6.0
+
+    def test_pocket_restraint(self, chai_conf: ChaiConfig):
+        assert chai_conf.restraints is not None
+        pk = [r for r in chai_conf.restraints if r.connection_type == "pocket"]
+        assert len(pk) == 1
+        r = pk[0]
+        assert r.chainA == "B"
+        assert r.res_idxA is None  # binder side has no residue
+        assert r.chainB == "A"
+        assert r.res_idxB == "A14"
+        assert r.max_distance_angstrom == 8.0
+
+    def test_fasta_output(self, chai_conf: ChaiConfig):
+        fasta = chai_conf.entities_to_fasta()
+        assert isinstance(fasta, str)
+        lines = fasta.strip().split("\n")
+        # 6 entities → 12 lines (header + sequence each)
+        assert len(lines) == 12
+        assert lines[0] == ">protein|Hemoglobin subunit"
+
+    def test_restraints_to_df(self, chai_conf: ChaiConfig):
+        df = chai_conf.restraints_to_df()
+        assert df is not None
+        assert len(df) == 3
+        assert "connection_type" in df.columns
+
+    def test_entity_names_must_be_unique(self):
+        from uniaf3.schema.chai import ChaiEntity
+
+        with pytest.raises(ValueError, match="unique"):
+            ChaiConfig(
+                entities=[
+                    ChaiEntity(
+                        entity_type="protein", entity_name="dup", sequence="MVLS"
+                    ),
+                    ChaiEntity(
+                        entity_type="protein", entity_name="dup", sequence="MVLS"
+                    ),
+                ]
+            )
 
 
 # ============================================================
