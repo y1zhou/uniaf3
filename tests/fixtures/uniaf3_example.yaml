@@ -18,7 +18,7 @@ sequences:
   - id: E
     smiles: "CC(=O)OC1C[NH+]2CCC1CC2"
   - id: F
-    chai_str: NAG # TODO: "NAG(NAG)(BMA)" test multi-CCD parsing in the future
+    chai_str: NAG # NOTE: multi-CCD glycans like "NAG(NAG)(BMA)" are model-specific
     description: Example glycan
 
 covalent_bonds:

@@ -80,7 +80,7 @@ def test_ligand_ccd(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig)
     assert src is not None
     assert lig.ccd == [src.ligand.removeprefix("CCD_")]
 
-    # TODO: multiple CCD codes per ligand
+    # NOTE: Protenix does not support multiple CCD codes per ligand entity.
 
 
 def test_ion_as_ligand(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig):
@@ -98,8 +98,8 @@ def test_smiles_ligand(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConf
     src = protenix_confs[0].sequences[5].ligand
     assert isinstance(lig, Ligand)
     assert src is not None
-    # SMILES string not prefixed with CCD_
-    assert lig.smiles == src.ligand  # TODO: convert SMILES to CCD code if possible
+    # NOTE: SMILES ligands cannot be reliably converted back to CCD codes.
+    assert lig.smiles == src.ligand
 
 
 def test_covalent_bond_restraint(
@@ -114,7 +114,8 @@ def test_covalent_bond_restraint(
     assert bond.atom1.atom_name == src.atom1
     assert bond.atom2.atom_name == src.atom2
 
-    # TODO: fix entity and copy mapping
+    # Entity/copy mapping: Protenix entity 1 → chains A,B; copy 1 → chain A
+    assert bond.atom1.chain_id == "A"
 
 
 def test_contact_restraint(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig):

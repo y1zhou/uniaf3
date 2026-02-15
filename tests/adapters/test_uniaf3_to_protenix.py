@@ -33,7 +33,8 @@ def test_protein_fields(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     assert prot.unpairedMsaPath == src.unpaired_msa
     assert prot.pairedMsaPath == src.paired_msa
 
-    # TODO: mapping of templates
+    # NOTE: UniAF3 example has no templates; template mapping tested via
+    # Protenix roundtrip where the fixture includes templatesPath.
 
     assert prot.modifications is not None
     assert src.modifications is not None
@@ -56,10 +57,16 @@ def test_ccd_ligand_fields(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     src = uniaf3_conf.sequences[2]
     assert isinstance(src, Ligand)
     assert lig is not None
-    assert lig.ligand == f"CCD_{src.ccd[0]}"  # TODO: support multiple CCD codes
+    # NOTE: Protenix does not support multiple CCD codes per ligand
+    assert lig.ligand == f"CCD_{src.ccd[0]}"
 
 
-# TODO: test SMILES ligands
+def test_smiles_ligand_fields(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
+    lig = ptx[0].sequences[3].ligand
+    src = uniaf3_conf.sequences[3]
+    assert isinstance(src, Ligand)
+    assert lig is not None
+    assert lig.ligand == src.smiles
 
 
 def test_covalent_bond(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):

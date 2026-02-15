@@ -63,8 +63,10 @@ def test_transferred_glycans(
 
     uni_glycans = [x for x in af3s_uni[0].sequences if isinstance(x, Glycan)]
 
-    # TODO: in AF3 the glycan is associated with the protein chain, but
-    # in UniAF3 it's a separate sequence with corresponding constraints.
+    # NOTE: In AF3 Server, glycans are modifications attached to protein
+    # chains. In UniAF3, they would be standalone sequences with covalent
+    # bond constraints. This conversion is not yet implemented, so glycans
+    # are dropped during the roundtrip.
 
 
 def test_protein_chain_id_generated(af3s_uni: list[UniAF3Config]):
