@@ -10,10 +10,6 @@ from pathlib import Path
 
 import polars as pl
 
-CCD_LIB = pl.read_csv(
-    Path(__file__).parent / "Components-smiles-stereo-oe.smi",
-    separator="\t",
-    has_header=False,
-    new_columns=["SMILES", "CCD", "name"],
-    quote_char=None,
+CCD_LIB = pl.read_parquet(
+    Path(__file__).parent / "Components-smiles-stereo-oe.smi.parquet"
 )
