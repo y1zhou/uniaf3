@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from uniaf3.adapters._helpers import (
     ensure_list,
     err_unsupported_feature,
@@ -290,9 +288,8 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                 id=chain_ids,
                 sequence=pc.sequence,
                 modifications=mods,
-                msa_dir=str(Path(pc.unpairedMsaPath).parent.parent)
-                if pc.unpairedMsaPath
-                else None,
+                # NOTE: Protenix uses direct MSA file paths, but UniAF3 uses
+                # hash-based directory lookup. MSA paths are not preserved.
             )
             if pc.templatesPath:
                 seq.templates = [StructuralTemplate(path=pc.templatesPath)]

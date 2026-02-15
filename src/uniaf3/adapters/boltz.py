@@ -501,7 +501,8 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                     chain_to_seq_idx[cid] = idx
 
         for tmpl in config.templates:
-            tmpl_path = tmpl.cif or tmpl.pdb or ""
+            # BoltzTemplate validator ensures exactly one of cif/pdb is set
+            tmpl_path = tmpl.cif if tmpl.cif is not None else tmpl.pdb
             tmpl_chain_ids = ensure_list(tmpl.chain_id) if tmpl.chain_id else []
             tmpl_template_ids = (
                 ensure_list(tmpl.template_id) if tmpl.template_id else None
@@ -527,8 +528,10 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                         prot.templates.append(structural_tmpl)
                         matched = True
             if not matched and tmpl_chain_ids:
-                # Template references unknown chains; skip silently
-                pass
+                print(
+                    f"[Warning] Template references unknown chain(s) "
+                    f"{tmpl_chain_ids}: {tmpl_path}"
+                )
 
     # Restraints
     covalent_bonds: list[CovalentBond] = []
