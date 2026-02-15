@@ -221,35 +221,30 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
     )
 
 
-def _parse_chai_res_idx(chain: str, res_idx: str) -> Atom:
+def _parse_chai_res_idx(chain: str, res_idx: str | None) -> Atom:
     """Parse a Chai-style residue index string into an Atom object.
 
     The format is ``<residue_name><position>[@atom_name]``
     (e.g. ``A219``, ``D45@CB``).
     """
-    atom_name = ""
-    residue_name = None
-    residue_idx = 1
+    atom_name: str | None = None
+    residue_name: str | None = None
+    residue_idx: int = 0
+    if res_idx is None:
+        return Atom(
+            chain_id=chain,
+            residue_idx=residue_idx,
+            atom_name=atom_name,
+            residue_name=residue_name,
+        )
     if "@" in res_idx:
-        parts = res_idx.split("@")
-        res_part = parts[0]
-        atom_name = parts[1]
+        res_part, atom_name = res_idx.split("@")
     else:
         res_part = res_idx
 
     if res_part:
         # Extract numeric suffix as residue index
-        num_str = ""
-        name_str = ""
-        for ch in res_part:
-            if ch.isdigit():
-                num_str += ch
-            else:
-                name_str += ch
-        if num_str:
-            residue_idx = int(num_str)
-        if name_str:
-            residue_name = name_str
+        residue_name, residue_idx = res_part[0], int(res_part[1:])
 
     return Atom(
         chain_id=chain,
@@ -316,21 +311,46 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
             )
             sequences.append(glycan)
 
-    # NOTE: Converting Chai restraints back to UniAF3 restraints requires
-    # parsing the residue index format (e.g. "D45@CB") which is complex.
     covalent_bonds: list[CovalentBond] = []
     contact_restraints: list[ContactRestraint] = []
-    pocket_restraints: list[PocketRestraint] = []
+    pocket_restraints: dict[str, PocketRestraint] = {}
     if config.restraints:
         for cr in config.restraints:
             atom1 = _parse_chai_res_idx(cr.chainA, cr.res_idxA)
             atom2 = _parse_chai_res_idx(cr.chainB, cr.res_idxB)
             if cr.connection_type == ChaiRestraintType.Covalent:
-                pass
+                covalent_bonds.append(
+                    CovalentBond(
+                        atom1=atom1,
+                        atom2=atom2,
+                        description=cr.comment,
+                    )
+                )
             elif cr.connection_type == ChaiRestraintType.Contact:
-                pass
+                contact_restraints.append(
+                    ContactRestraint(
+                        token1=atom1,
+                        token2=atom2,
+                        max_distance=cr.max_distance_angstrom,
+                        min_distance=cr.min_distance_angstrom,
+                        description=cr.comment,
+                    )
+                )
             elif cr.connection_type == ChaiRestraintType.Pocket:
-                pass
+                binder_chain = cr.chainA if cr.res_idxA is None else cr.chainB
+                contact_token = atom2 if cr.res_idxA is None else atom1
+                if binder_chain in pocket_restraints:
+                    # If multiple contact tokens map to the same binder chain, combine them into a single restraint
+                    pocket_restraints[binder_chain].contact_tokens.append(contact_token)
+                else:
+                    pocket_restraints[binder_chain] = PocketRestraint(
+                        binder_chain=binder_chain,
+                        contact_tokens=[contact_token],
+                        max_distance=cr.max_distance_angstrom,
+                        min_distance=cr.min_distance_angstrom,
+                        description=cr.comment,
+                    )
+
             else:
                 continue
 
@@ -338,7 +358,9 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,
         contact_restraints=contact_restraints or None,
-        pocket_restraints=pocket_restraints or None,
+        pocket_restraints=list(pocket_restraints.values())
+        if pocket_restraints is not None
+        else None,
         seeds=[config.seed] if config.seed is not None else [42],
         aux=AuxiliaryParams(
             num_trunk_recycles=config.num_trunk_recycles,

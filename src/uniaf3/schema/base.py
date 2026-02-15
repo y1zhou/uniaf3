@@ -308,8 +308,10 @@ class CovalentBond(BaseModel):
         for atom in (self.atom1, self.atom2):
             if atom.atom_name is None:
                 raise ValueError("Atom name must be provided for atom1.")
-            if atom.residue_idx == 0:
-                raise ValueError("Residue index must be >0 for covalent bonds.")
+            # TODO: only Chai does not need residue information
+            # when the atom is part of a ligand
+            # if atom.residue_idx == 0:
+            #     raise ValueError("Residue index must be >0 for covalent bonds.")
         return self
 
 
