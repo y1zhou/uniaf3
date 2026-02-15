@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from uniaf3.adapters._helpers import (
     ensure_list,
     err_unsupported_feature,
@@ -17,6 +19,7 @@ from uniaf3.schema.base import (
     PolymerType,
     ProteinSeq,
     SequenceModification,
+    StructuralTemplate,
     UniAF3Config,
 )
 from uniaf3.schema.protenix import (
@@ -287,7 +290,12 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                 id=chain_ids,
                 sequence=pc.sequence,
                 modifications=mods,
+                msa_dir=str(Path(pc.unpairedMsaPath).parent.parent)
+                if pc.unpairedMsaPath
+                else None,
             )
+            if pc.templatesPath:
+                seq.templates = [StructuralTemplate(path=pc.templatesPath)]
             sequences.append(seq)
         elif entry.dnaSequence is not None:
             ds = entry.dnaSequence

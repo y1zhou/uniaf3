@@ -19,6 +19,7 @@ from uniaf3.schema.base import (
     PolymerType,
     ProteinSeq,
     SequenceModification,
+    StructuralTemplate,
     UniAF3Config,
     hash_sequence,
 )
@@ -489,6 +490,45 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
             ccd = [lg.ccd] if lg.ccd else None
             lig = Ligand(id=lg.id, ccd=ccd, smiles=lg.smiles)
             sequences.append(lig)
+
+    # Map Boltz templates to ProteinSeq instances
+    if config.templates:
+        # Build a mapping from chain_id → ProteinSeq index
+        chain_to_seq_idx: dict[str, int] = {}
+        for idx, seq in enumerate(sequences):
+            if isinstance(seq, ProteinSeq):
+                for cid in ensure_list(seq.id):
+                    chain_to_seq_idx[cid] = idx
+
+        for tmpl in config.templates:
+            tmpl_path = tmpl.cif or tmpl.pdb or ""
+            tmpl_chain_ids = ensure_list(tmpl.chain_id) if tmpl.chain_id else []
+            tmpl_template_ids = (
+                ensure_list(tmpl.template_id) if tmpl.template_id else None
+            )
+
+            structural_tmpl = StructuralTemplate(
+                path=tmpl_path,
+                query_chains=tmpl_chain_ids or None,
+                template_chains=tmpl_template_ids,
+                boltz_enable_force=tmpl.force,
+                boltz_template_threshold=tmpl.threshold,
+            )
+
+            # Attach template to matching protein(s)
+            matched = False
+            for cid in tmpl_chain_ids:
+                if cid in chain_to_seq_idx:
+                    seq_idx = chain_to_seq_idx[cid]
+                    prot = sequences[seq_idx]
+                    if isinstance(prot, ProteinSeq):
+                        if prot.templates is None:
+                            prot.templates = []
+                        prot.templates.append(structural_tmpl)
+                        matched = True
+            if not matched and tmpl_chain_ids:
+                # Template references unknown chains; skip silently
+                pass
 
     # Restraints
     covalent_bonds: list[CovalentBond] = []

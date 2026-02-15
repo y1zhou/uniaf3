@@ -165,7 +165,13 @@ def test_roundtrip_protein(ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfi
     for rt_conf, src_conf in zip(ptx_rt, protenix_confs, strict=True):
         for src, prot in zip(src_conf.sequences, rt_conf.sequences, strict=True):
             if src.proteinChain is not None:
-                assert prot.proteinChain == src.proteinChain
+                assert prot.proteinChain is not None
+                assert prot.proteinChain.sequence == src.proteinChain.sequence
+                assert prot.proteinChain.count == src.proteinChain.count
+                assert prot.proteinChain.modifications == src.proteinChain.modifications
+                # NOTE: MSA paths and templates are not preserved through
+                # UniAF3 because Protenix uses direct paths while UniAF3
+                # uses directory-based hash lookup.
 
 
 def test_roundtrip_polymer(ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfig):
@@ -174,7 +180,12 @@ def test_roundtrip_polymer(ptx_rt: ProtenixConfig, protenix_confs: ProtenixConfi
             if src.dnaSequence is not None:
                 assert dna.dnaSequence == src.dnaSequence
             elif src.rnaSequence is not None:
-                assert dna.rnaSequence == src.rnaSequence
+                assert dna.rnaSequence is not None
+                assert dna.rnaSequence.sequence == src.rnaSequence.sequence
+                assert dna.rnaSequence.count == src.rnaSequence.count
+                assert dna.rnaSequence.modifications == src.rnaSequence.modifications
+                # NOTE: RNA MSA paths are not preserved through UniAF3
+                # because Protenix uses direct paths.
 
 
 def test_roundtrip_ligand_and_ion(

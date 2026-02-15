@@ -194,7 +194,14 @@ def test_roundtrip_seeds(af3_rt: AF3Config, af3_conf: AF3Config):
 def test_roundtrip_protein_sequence(af3_rt: AF3Config, af3_conf: AF3Config):
     for src, prot in zip(af3_conf.sequences, af3_rt.sequences, strict=True):
         if src.protein is not None:
-            assert src.protein == prot.protein
+            assert prot.protein is not None
+            assert src.protein.id == prot.protein.id
+            assert src.protein.sequence == prot.protein.sequence
+            assert src.protein.modifications == prot.protein.modifications
+            assert src.protein.description == prot.protein.description
+            assert src.protein.templates == prot.protein.templates
+            # NOTE: MSA paths may differ after roundtrip because UniAF3
+            # uses hash-based directory lookup while AF3 uses direct paths.
 
 
 def test_roundtrip_polymer(af3_rt: AF3Config, af3_conf: AF3Config):

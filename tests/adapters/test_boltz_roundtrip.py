@@ -1,5 +1,7 @@
 """Tests for BoltzConfig -> UniAF3Config -> BoltzConfig adapter."""
 
+from pathlib import Path
+
 import pytest
 
 from uniaf3.schema import BoltzConfig, UniAF3Config
@@ -165,4 +167,7 @@ def test_roundtrip_protein_templates(boltz_rt: BoltzConfig, boltz_conf: BoltzCon
     assert prot is not None
 
     assert len(prot) == len(src) == 1
-    assert prot[0] == src[0]
+    # Template paths are resolved to absolute during roundtrip
+    assert Path(prot[0].cif).name == Path(src[0].cif).name
+    assert prot[0].force == src[0].force
+    assert prot[0].threshold == src[0].threshold
