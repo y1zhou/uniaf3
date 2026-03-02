@@ -424,7 +424,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 msa_dir_path.mkdir(parents=True, exist_ok=True)
                 input_msa_filetype = Path(p.msa).suffix
                 if input_msa_filetype == ".csv":
-                    _ = split_boltz_csv_to_a3m(p.msa, msa_dir)
+                    _ = split_boltz_csv_to_a3m(p.msa, msa_dir_path / "a3ms")
                 elif input_msa_filetype == ".a3m":
                     import shutil
 

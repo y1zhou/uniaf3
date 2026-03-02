@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
-from uniaf3.constant import KNOWN_ION_CCD_CODES, KNOWN_LIGAND_CCD_CODES
+from uniaf3.constant import (
+    KNOWN_ION_CCD_CODES,
+    KNOWN_LIGAND_CCD_CODES,
+    int_to_letters,
+)
 from uniaf3.schema.alphafold3_server import (
     AF3ServerConfig,
     AF3ServerDNA,
@@ -197,13 +201,7 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
         nonlocal chain_counter
         ids = []
         for _ in range(count):
-            n = chain_counter
-            if n < 26:
-                ids.append(chr(65 + n))
-            else:
-                left_char = chr(65 + (n - 26) % 26)
-                right_char = chr(65 + (n - 26) // 26)
-                ids.append(f"{left_char}{right_char}")
+            ids.append(int_to_letters(chain_counter + 1))
             chain_counter += 1
         return ids[0] if len(ids) == 1 else ids
 

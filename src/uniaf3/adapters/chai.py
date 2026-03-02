@@ -144,10 +144,10 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
             else:
                 if atom.residue_name is None:
                     raise ValueError(
-                        f"Missing residue name for covalent bond atom: {r.atom1}"
+                        f"Missing residue name for covalent bond atom: {atom}"
                     )
                 res_idx.append(
-                    f"{r.atom1.residue_name}{r.atom1.residue_idx}@{r.atom1.atom_name}"
+                    f"{atom.residue_name}{atom.residue_idx}@{atom.atom_name}"
                 )
 
         restraints.append(
@@ -395,9 +395,7 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,
         contact_restraints=contact_restraints or None,
-        pocket_restraints=list(pocket_restraints.values())
-        if pocket_restraints is not None
-        else None,
+        pocket_restraints=list(pocket_restraints.values()) or None,
         seeds=[config.seed] if config.seed is not None else [42],
         aux=AuxiliaryParams(
             num_trunk_recycles=config.num_trunk_recycles,

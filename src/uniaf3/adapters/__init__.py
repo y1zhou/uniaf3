@@ -64,7 +64,7 @@ def to_uniaf3(
     if isinstance(conf, AF3ServerConfig):
         return from_alphafold3_server(conf)
     if isinstance(conf, AF3Config):
-        return from_alphafold3(conf)
+        return from_alphafold3(conf, msa_dir=msa_dir)
     if isinstance(conf, BoltzConfig):
         return from_boltz(conf, msa_dir=msa_dir)
     if isinstance(conf, ChaiConfig):

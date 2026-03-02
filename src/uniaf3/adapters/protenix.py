@@ -447,7 +447,7 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                     pct.binder_chain.copy_idx - 1
                 ]
                 contact_residues = [
-                    (entity_to_chains[cr.entity][cr.copy_idx], cr.position)
+                    (entity_to_chains[cr.entity][cr.copy_idx - 1], cr.position)
                     for cr in pct.contact_residues
                 ]
             except KeyError as e:
