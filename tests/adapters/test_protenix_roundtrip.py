@@ -141,8 +141,11 @@ def test_pocket_restraint(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixC
     pockets = ptx_uni[0].pocket_restraints
     assert pockets is not None
     assert len(pockets) == 1
+    assert protenix_confs[0].constraint is not None
     src = protenix_confs[0].constraint.pocket
+    assert src is not None
     pk = pockets[0]
+    assert pk.contact_tokens[0].chain_id == "A"
     assert pk.max_distance == src.max_distance
     assert pk.binder_chain is not None
 

@@ -117,6 +117,22 @@ def test_seeds_default(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
     assert boltz_uni.seeds == [42]
 
 
+def test_a3m_msa_writes_to_a3ms_subdir(
+    boltz_conf: BoltzConfig, tmp_path_factory: pytest.TempPathFactory
+):
+    """A3M MSA files should be written to msa_dir/a3ms/ subdirectory."""
+    from uniaf3.adapters import from_boltz
+
+    msa_dir = tmp_path_factory.mktemp("msa_bug5")
+    result = from_boltz(boltz_conf, msa_dir=msa_dir)
+
+    prot = result.sequences[0]
+    if isinstance(prot, ProteinSeq) and prot.msa_dir is not None:
+        msa_path = prot.unpaired_msa
+        if msa_path is not None:
+            assert "/a3ms/" in str(msa_path)
+
+
 ##########################################
 # BoltzConfig -> UniAF3Config -> BoltzConfig
 ##########################################

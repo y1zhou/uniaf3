@@ -77,14 +77,18 @@ def test_covalent_restraint(uniaf3_conf: UniAF3Config, chai: ChaiConfig):
     assert chai.restraints is not None
     assert uniaf3_conf.covalent_bonds is not None
     cov = [r for r in chai.restraints if r.connection_type == "covalent"]
-    assert len(cov) == len(uniaf3_conf.covalent_bonds)
+    assert len(cov) == len(uniaf3_conf.covalent_bonds) == 1
     r = cov[0]
-    src = uniaf3_conf.covalent_bonds[0]
     # Chain IDs are remapped to Chai A-Z ordering
     assert r.chainA == "B"  # B is 2nd entity
     assert r.chainB == "D"  # D is 4th entity (CCD ligand)
+    assert r.res_idxA is not None and r.res_idxB is not None
     assert "@" in r.res_idxA  # atom name for polymer
     assert "@" in r.res_idxB  # atom name for ligand
+
+    src = uniaf3_conf.covalent_bonds[0]
+    assert src.atom2.atom_name is not None
+    assert src.atom2.atom_name in r.res_idxB
 
 
 def test_contact_restraint(uniaf3_conf: UniAF3Config, chai: ChaiConfig):

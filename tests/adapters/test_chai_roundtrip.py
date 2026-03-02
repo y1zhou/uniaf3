@@ -116,6 +116,46 @@ def test_seeds_default(chai_uni: UniAF3Config):
     assert chai_uni.seeds == [42]
 
 
+def test_no_pocket_restraints_returns_none():
+    """from_chai should return None for pocket_restraints when no pockets exist."""
+    from uniaf3.adapters import from_chai
+    from uniaf3.schema.chai import (
+        ChaiEntity,
+        ChaiEntityType,
+        ChaiRestraint,
+        ChaiRestraintType,
+    )
+
+    conf = ChaiConfig(
+        entities=[
+            ChaiEntity(
+                entity_type=ChaiEntityType.Protein,
+                entity_name="A",
+                sequence="MVLSPADKTNVK",
+            ),
+            ChaiEntity(
+                entity_type=ChaiEntityType.Protein,
+                entity_name="B",
+                sequence="GKVGAHAG",
+            ),
+        ],
+        restraints=[
+            ChaiRestraint(
+                restraint_id="r0",
+                chainA="A",
+                res_idxA="V2",
+                chainB="B",
+                res_idxB="K2",
+                connection_type=ChaiRestraintType.Contact,
+                max_distance_angstrom=8.0,
+            ),
+        ],
+    )
+
+    result = from_chai(conf)
+    assert result.pocket_restraints is None
+
+
 ##########################################
 # ChaiConfig -> UniAF3Config -> ChaiConfig
 ##########################################

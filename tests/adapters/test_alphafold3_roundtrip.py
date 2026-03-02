@@ -36,6 +36,18 @@ def test_sequence_count(af3_uni: UniAF3Config, af3_conf: AF3Config):
     assert len(af3_uni.sequences) == len(af3_conf.sequences)
 
 
+def test_to_uniaf3_af3_preserves_sequences(
+    af3_conf: AF3Config, tmp_path_factory: pytest.TempPathFactory
+):
+    """to_uniaf3() for AF3 should produce the same number of sequences."""
+    from uniaf3.adapters import to_uniaf3
+
+    msa_dir = tmp_path_factory.mktemp("msa_bug1b")
+    result = to_uniaf3(af3_conf, msa_dir=msa_dir)
+    assert isinstance(result, UniAF3Config)
+    assert len(result.sequences) == len(af3_conf.sequences)
+
+
 def test_seeds(af3_uni: UniAF3Config, af3_conf: AF3Config):
     assert af3_uni.seeds == af3_conf.modelSeeds == [10, 42]
 
