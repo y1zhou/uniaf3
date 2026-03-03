@@ -107,7 +107,7 @@ def to_alphafold3(
             sequences.append(AF3SequenceEntry(protein=protein))
 
         elif isinstance(seq, Polymer):
-            if seq.seq_type == PolymerType.Protein:
+            if seq.polymer_type == PolymerType.Protein:
                 mods = (
                     [
                         AF3ProteinModification(ptmType=m.ccd, ptmPosition=m.position)
@@ -123,7 +123,7 @@ def to_alphafold3(
                     description=seq.description,
                 )
                 sequences.append(AF3SequenceEntry(protein=protein))
-            elif seq.seq_type == PolymerType.DNA:
+            elif seq.polymer_type == PolymerType.DNA:
                 mods = (
                     [
                         AF3NucleotideModification(
@@ -141,7 +141,7 @@ def to_alphafold3(
                     description=seq.description,
                 )
                 sequences.append(AF3SequenceEntry(dna=dna))
-            elif seq.seq_type == PolymerType.RNA:
+            elif seq.polymer_type == PolymerType.RNA:
                 mods = (
                     [
                         AF3NucleotideModification(
@@ -275,7 +275,7 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
                 ]
 
             seq = ProteinSeq(
-                seq_type=PolymerType.Protein,
+                polymer_type=PolymerType.Protein,
                 id=p.id,
                 sequence=p.sequence,
                 modifications=mods,
@@ -298,7 +298,7 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
                 else None
             )
             seq = Polymer(
-                seq_type=PolymerType.DNA,
+                polymer_type=PolymerType.DNA,
                 id=d.id,
                 sequence=d.sequence,
                 modifications=mods,
@@ -319,7 +319,7 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
                 else None
             )
             seq = Polymer(
-                seq_type=PolymerType.RNA,
+                polymer_type=PolymerType.RNA,
                 id=r.id,
                 sequence=r.sequence,
                 modifications=mods,

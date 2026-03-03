@@ -63,7 +63,7 @@ def _to_protenix(
 
         if isinstance(seq, (Polymer, ProteinSeq)):
             if isinstance(seq, ProteinSeq) or (
-                isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
+                isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein
             ):
                 mods = None
                 if seq.modifications:
@@ -90,7 +90,7 @@ def _to_protenix(
                         # template .a3m/.hhr files; we use the first template.
                         pc.templatesPath = seq.templates[0].path
                 sequences.append(ProtenixSequenceEntry(proteinChain=pc))
-            elif seq.seq_type == PolymerType.DNA:
+            elif seq.polymer_type == PolymerType.DNA:
                 mods = None
                 if seq.modifications:
                     mods = [
@@ -106,7 +106,7 @@ def _to_protenix(
                         )
                     )
                 )
-            elif seq.seq_type == PolymerType.RNA:
+            elif seq.polymer_type == PolymerType.RNA:
                 mods = None
                 if seq.modifications:
                     mods = [
@@ -292,7 +292,7 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                     for m in pc.modifications
                 ]
             seq = ProteinSeq(
-                seq_type=PolymerType.Protein,
+                polymer_type=PolymerType.Protein,
                 id=chain_ids,
                 sequence=pc.sequence,
                 modifications=mods,
@@ -321,7 +321,7 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                     for m in ds.modifications
                 ]
             seq = Polymer(
-                seq_type=PolymerType.DNA,
+                polymer_type=PolymerType.DNA,
                 id=chain_ids,
                 sequence=ds.sequence,
                 modifications=mods,
@@ -342,7 +342,7 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                     for m in rs.modifications
                 ]
             seq = Polymer(
-                seq_type=PolymerType.RNA,
+                polymer_type=PolymerType.RNA,
                 id=chain_ids,
                 sequence=rs.sequence,
                 modifications=mods,

@@ -67,7 +67,7 @@ def _to_alphafold3_server(
             continue
 
         if isinstance(seq, ProteinSeq) or (
-            isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
+            isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein
         ):
             ids = ensure_list(seq.id)
             if seq.description is not None:
@@ -99,7 +99,7 @@ def _to_alphafold3_server(
             )
             sequences.append(AF3ServerSequenceEntry(proteinChain=protein))
 
-        elif isinstance(seq, Polymer) and seq.seq_type == PolymerType.DNA:
+        elif isinstance(seq, Polymer) and seq.polymer_type == PolymerType.DNA:
             ids = ensure_list(seq.id)
             if seq.description is not None:
                 warn_lossy_conversion(
@@ -118,7 +118,7 @@ def _to_alphafold3_server(
             )
             sequences.append(AF3ServerSequenceEntry(dnaSequence=dna))
 
-        elif isinstance(seq, Polymer) and seq.seq_type == PolymerType.RNA:
+        elif isinstance(seq, Polymer) and seq.polymer_type == PolymerType.RNA:
             ids = ensure_list(seq.id)
             if seq.description is not None:
                 warn_lossy_conversion(
@@ -256,7 +256,7 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
                     for m in pc.modifications
                 ]
             seq = ProteinSeq(
-                seq_type=PolymerType.Protein,
+                polymer_type=PolymerType.Protein,
                 id=chain_ids,
                 sequence=pc.sequence,
                 modifications=mods,
@@ -276,7 +276,7 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
                     for m in ds.modifications
                 ]
             seq = Polymer(
-                seq_type=PolymerType.DNA,
+                polymer_type=PolymerType.DNA,
                 id=chain_ids,
                 sequence=ds.sequence,
                 modifications=mods,
@@ -296,7 +296,7 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
                     for m in rs.modifications
                 ]
             seq = Polymer(
-                seq_type=PolymerType.RNA,
+                polymer_type=PolymerType.RNA,
                 id=chain_ids,
                 sequence=rs.sequence,
                 modifications=mods,

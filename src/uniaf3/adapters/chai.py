@@ -53,16 +53,16 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
 
         if isinstance(seq, Polymer):
             if isinstance(seq, ProteinSeq) or (
-                isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
+                isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein
             ):
                 etype = ChaiEntityType.Protein
-            elif seq.seq_type == PolymerType.DNA:
+            elif seq.polymer_type == PolymerType.DNA:
                 etype = ChaiEntityType.DNA
-            elif seq.seq_type == PolymerType.RNA:
+            elif seq.polymer_type == PolymerType.RNA:
                 etype = ChaiEntityType.RNA
             else:
                 raise ValueError(
-                    f"Unsupported polymer type for Chai conversion: {seq.seq_type}"
+                    f"Unsupported polymer type for Chai conversion: {seq.polymer_type}"
                 )
 
             # Chai-1 inlines modifications using CCD codes in parentheses
@@ -313,7 +313,7 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
             seq, mods = _parse_chai_polymer_modifications(entity.sequence)
             sequences.append(
                 ProteinSeq(
-                    seq_type=PolymerType.Protein,
+                    polymer_type=PolymerType.Protein,
                     id=int_to_letters(i),
                     description=entity.entity_name,
                     sequence=seq,
@@ -326,7 +326,7 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
             seq, mods = _parse_chai_polymer_modifications(entity.sequence)
             sequences.append(
                 Polymer(
-                    seq_type=PolymerType.DNA,
+                    polymer_type=PolymerType.DNA,
                     id=int_to_letters(i),
                     description=entity.entity_name,
                     sequence=seq,
@@ -337,7 +337,7 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
             seq, mods = _parse_chai_polymer_modifications(entity.sequence)
             sequences.append(
                 Polymer(
-                    seq_type=PolymerType.RNA,
+                    polymer_type=PolymerType.RNA,
                     id=int_to_letters(i),
                     description=entity.entity_name,
                     sequence=seq,

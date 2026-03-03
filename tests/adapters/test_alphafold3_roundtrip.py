@@ -75,7 +75,7 @@ def test_protein_fields(af3_uni: UniAF3Config, af3_conf: AF3Config):
     assert prot.id == src.id
     assert prot.sequence == src.sequence
     assert prot.description == src.description
-    assert prot.seq_type == PolymerType.Protein
+    assert prot.polymer_type == PolymerType.Protein
 
 
 def test_protein_modifications(af3_uni: UniAF3Config, af3_conf: AF3Config):
@@ -131,7 +131,7 @@ def test_dna_fields(af3_uni: UniAF3Config, af3_conf: AF3Config):
     src = af3_conf.sequences[2].dna
     assert isinstance(dna, Polymer)
     assert src is not None
-    assert dna.seq_type == PolymerType.DNA
+    assert dna.polymer_type == PolymerType.DNA
     assert dna.sequence == src.sequence
 
 
@@ -151,7 +151,7 @@ def test_rna_fields(af3_uni: UniAF3Config, af3_conf: AF3Config):
     src = af3_conf.sequences[3].rna
     assert isinstance(rna, Polymer)
     assert src is not None
-    assert rna.seq_type == PolymerType.RNA
+    assert rna.polymer_type == PolymerType.RNA
     assert rna.sequence == src.sequence
     assert rna.description == src.description
 

@@ -222,7 +222,7 @@ def to_boltz(
         # Note the chain types for later pocket constraint processing
         for chain_id in ensure_list(seq.id):
             seq_types[chain_id] = (
-                seq.seq_type.value if isinstance(seq, Polymer) else "ligand"
+                seq.polymer_type.value if isinstance(seq, Polymer) else "ligand"
             )
 
         if isinstance(seq, Glycan):
@@ -313,7 +313,7 @@ def to_boltz(
                 if seq.modifications
                 else None
             )
-            if seq.seq_type == PolymerType.DNA:
+            if seq.polymer_type == PolymerType.DNA:
                 dna = BoltzDNA(
                     id=seq.id,
                     sequence=seq.sequence,
@@ -321,7 +321,7 @@ def to_boltz(
                     cyclic=seq.boltz_cyclic,
                 )
                 sequences.append(BoltzSequenceEntry(dna=dna))
-            elif seq.seq_type == PolymerType.RNA:
+            elif seq.polymer_type == PolymerType.RNA:
                 rna = BoltzRNA(
                     id=seq.id,
                     sequence=seq.sequence,
@@ -447,7 +447,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                         f"Unsupported MSA file type in Boltz config: {p.msa}"
                     )
             seq = ProteinSeq(
-                seq_type=PolymerType.Protein,
+                polymer_type=PolymerType.Protein,
                 id=p.id,
                 sequence=p.sequence,
                 modifications=mods,
@@ -467,7 +467,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 else None
             )
             seq = Polymer(
-                seq_type=PolymerType.DNA,
+                polymer_type=PolymerType.DNA,
                 id=d.id,
                 sequence=d.sequence,
                 modifications=mods,
@@ -486,7 +486,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 else None
             )
             seq = Polymer(
-                seq_type=PolymerType.RNA,
+                polymer_type=PolymerType.RNA,
                 id=r.id,
                 sequence=r.sequence,
                 modifications=mods,

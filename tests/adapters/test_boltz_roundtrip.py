@@ -40,7 +40,7 @@ def test_protein_fields(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
     assert src is not None
     assert prot.id == src.id
     assert prot.sequence == src.sequence
-    assert prot.seq_type == PolymerType.Protein
+    assert prot.polymer_type == PolymerType.Protein
     assert prot.boltz_cyclic == src.cyclic
 
 

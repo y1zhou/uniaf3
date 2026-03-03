@@ -178,7 +178,7 @@ class PolymerType(StrEnum):
 class Polymer(BaseModel):
     """Base schema for polymers (protein, DNA, and RNA)."""
 
-    seq_type: PolymerType
+    polymer_type: PolymerType
     id: str | list[str]  # A, B, ..., Z, AA, BA, CA, ..., ZA, AB, BB, CB, ..., ZB, ...
     sequence: str
     modifications: list[SequenceModification] | None = None
@@ -458,7 +458,7 @@ class UniAF3Config(UniAF3BaseConfig):
         conf = super().from_file(conf_file)
 
         for i, seq in enumerate(conf.sequences):
-            if isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein:
+            if isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein:
                 conf.sequences[i] = ProteinSeq(**seq.model_dump())
                 if (msa_dir := conf.sequences[i].msa_dir) is not None:
                     conf.sequences[i].msa_dir = (

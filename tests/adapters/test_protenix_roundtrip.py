@@ -56,7 +56,7 @@ def test_dna_fields(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig)
     src = protenix_confs[0].sequences[1].dnaSequence
     assert isinstance(dna, Polymer)
     assert src is not None
-    assert dna.seq_type == PolymerType.DNA
+    assert dna.polymer_type == PolymerType.DNA
     assert dna.sequence == src.sequence
 
     assert dna.modifications is not None
@@ -71,7 +71,7 @@ def test_rna_fields(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixConfig)
     src = protenix_confs[0].sequences[2].rnaSequence
     assert isinstance(rna, Polymer)
     assert src is not None
-    assert rna.seq_type == PolymerType.RNA
+    assert rna.polymer_type == PolymerType.RNA
     assert rna.sequence == src.sequence
 
 

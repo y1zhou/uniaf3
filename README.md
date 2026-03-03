@@ -140,7 +140,7 @@ Each entry in the `sequences` list must be one of four types:
 Proteins use the `ProteinSeq` schema (which extends `Polymer`) and support MSA directories and structural templates.
 
 ```yaml
-- seq_type: protein
+- polymer_type: protein
   id: A                         # or [A, B] for homomeric copies
   sequence: MVLSPADKTNVK       # Standard 1-letter amino acid codes
   description: "My protein"     # Optional description
@@ -175,7 +175,7 @@ Where `{seq_hash}` is the SHA-256 hex digest of the protein sequence. This follo
 #### DNA
 
 ```yaml
-- seq_type: dna
+- polymer_type: dna
   id: C
   sequence: GATTACA        # Only A, T, G, C allowed
   modifications:           # Optional
@@ -186,7 +186,7 @@ Where `{seq_hash}` is the SHA-256 hex digest of the protein sequence. This follo
 #### RNA
 
 ```yaml
-- seq_type: rna
+- polymer_type: rna
   id: D
   sequence: AGCU           # Only A, U, G, C allowed
   modifications:           # Optional
@@ -366,7 +366,7 @@ The UniAF3 schema enforces these validation rules:
 
 ```yaml
 sequences:
-  - seq_type: protein
+  - polymer_type: protein
     id: [A, B]
     sequence: MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS
     msa_dir: dummy_msa/
@@ -374,7 +374,7 @@ sequences:
       - ccd: HY3
         position: 1
     description: Hemoglobin subunit
-  - seq_type: dna
+  - polymer_type: dna
     id: C
     sequence: GATTACA
   - id: D

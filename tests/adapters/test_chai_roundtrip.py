@@ -37,7 +37,7 @@ def test_protein_fields(chai_uni: UniAF3Config, chai_conf: ChaiConfig):
     src = chai_conf.entities[0]
     assert isinstance(prot, ProteinSeq)
     assert src.entity_type == ChaiEntityType.Protein
-    assert prot.seq_type == PolymerType.Protein
+    assert prot.polymer_type == PolymerType.Protein
     assert prot.description == src.entity_name
 
 
@@ -57,7 +57,7 @@ def test_dna_fields(chai_uni: UniAF3Config, chai_conf: ChaiConfig):
     dna = chai_uni.sequences[2]
     src = chai_conf.entities[2]
     assert isinstance(dna, Polymer)
-    assert dna.seq_type == PolymerType.DNA
+    assert dna.polymer_type == PolymerType.DNA
     assert dna.sequence == src.sequence
     assert dna.description == src.entity_name
 

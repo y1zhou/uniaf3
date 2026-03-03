@@ -1,5 +1,5 @@
 sequences:
-  - seq_type: protein
+  - polymer_type: protein
     id:
       - A
       - B
@@ -9,7 +9,7 @@ sequences:
       - ccd: HY3
         position: 1
     description: Hemoglobin subunit
-  - seq_type: dna
+  - polymer_type: dna
     id: C
     sequence: GATTACA
   - id: D
