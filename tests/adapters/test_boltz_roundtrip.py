@@ -13,7 +13,8 @@ def boltz_uni(boltz_conf: BoltzConfig, tmp_path_factory: pytest.TempPathFactory)
     """Convert BoltzConfig to UniAF3Config."""
     from uniaf3.adapters import from_boltz
 
-    return from_boltz(boltz_conf, tmp_path_factory.mktemp("msa"))
+    with pytest.warns(UserWarning):
+        return from_boltz(boltz_conf, tmp_path_factory.mktemp("msa"))
 
 
 @pytest.fixture(scope="module")
@@ -124,13 +125,23 @@ def test_a3m_msa_writes_to_a3ms_subdir(
     from uniaf3.adapters import from_boltz
 
     msa_dir = tmp_path_factory.mktemp("msa_bug5")
-    result = from_boltz(boltz_conf, msa_dir=msa_dir)
+    with pytest.warns(UserWarning):
+        result = from_boltz(boltz_conf, msa_dir=msa_dir)
 
     prot = result.sequences[0]
     if isinstance(prot, ProteinSeq) and prot.msa_dir is not None:
         msa_path = prot.unpaired_msa
         if msa_path is not None:
             assert "/a3ms/" in str(msa_path)
+
+
+def test_warns_on_default_seed_from_boltz(
+    boltz_conf: BoltzConfig, tmp_path_factory: pytest.TempPathFactory
+):
+    from uniaf3.adapters import from_boltz
+
+    with pytest.warns(UserWarning, match="BoltzConfig has no seed field"):
+        _ = from_boltz(boltz_conf, msa_dir=tmp_path_factory.mktemp("msa_warn_boltz"))
 
 
 ##########################################

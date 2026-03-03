@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
+from uniaf3.adapters._helpers import (
+    ensure_list,
+    err_unsupported_feature,
+    warn_lossy_conversion,
+)
 from uniaf3.constant import int_to_letters
 from uniaf3.schema.base import (
     Atom,
@@ -39,6 +43,10 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
     - Chain IDs are not preserved. Chai uses A, B, ..., Z, AA, AB, ... outputs.
     """
     entities: list[ChaiEntity] = []
+    if any(len(ensure_list(seq.id)) > 1 for seq in config.sequences):
+        warn_lossy_conversion(
+            "UniAF3Config.sequences[*].id with multiple chain IDs is expanded to multiple ChaiEntity rows because Chai FASTA has no count field."
+        )
     entity_types: dict[str, ChaiEntityType] = {}
     for seq in config.sequences:
         ids = ensure_list(seq.id)
@@ -94,8 +102,8 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
                     )
                 else:
                     lig_seq = lig_smiles.item()
-                    print(
-                        f"Converting CCD ligand {lig_ccd} to SMILES for Chai: {lig_seq}"
+                    warn_lossy_conversion(
+                        f"UniAF3 Ligand.ccd '{lig_ccd}' is converted to ChaiEntity.sequence SMILES; original CCD identity is not preserved in FASTA."
                     )
 
             else:
@@ -281,6 +289,9 @@ def _parse_chai_polymer_modifications(
         if canonical_token := ccd_related_token.one_letter_code.strip():
             canonical_seq.append(canonical_token)
         else:
+            warn_lossy_conversion(
+                f"Chai inline modification token '{token}' has no canonical one-letter mapping; UniAF3 polymer sequence uses 'X'."
+            )
             canonical_seq.append("X")
 
     return "".join(canonical_seq), modifications or None
@@ -334,6 +345,9 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
                 )
             )
         elif entity.entity_type == ChaiEntityType.Ligand:
+            warn_lossy_conversion(
+                "ChaiEntityType.Ligand sequence is imported into UniAF3Config.sequences[*].Ligand.smiles; CCD identity cannot be recovered reliably."
+            )
             lig = Ligand(
                 id=int_to_letters(i),
                 description=entity.entity_name,

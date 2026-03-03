@@ -6,7 +6,12 @@ from pathlib import Path
 
 import polars as pl
 
-from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
+from uniaf3.adapters._helpers import (
+    ensure_list,
+    err_unsupported_feature,
+    warn_conversion,
+    warn_lossy_conversion,
+)
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -272,6 +277,9 @@ def to_boltz(
                 continue
             for i, tmpl in enumerate(seq.templates, start=1):
                 if i > max_num_templates_per_chain:
+                    warn_lossy_conversion(
+                        f"UniAF3Config.sequences[*].templates beyond index {max_num_templates_per_chain} are dropped when mapping to BoltzConfig.templates."
+                    )
                     break
                 tmpl_path = Path(tmpl.path).expanduser().resolve()
                 cif_path, pdb_path = None, None
@@ -331,6 +339,7 @@ def to_boltz(
                     strict,
                     f"Multi-CCD ligands are not supported in Boltz, maybe use SMILES instead: {seq}",
                 )
+                continue
             sequences.append(BoltzSequenceEntry(ligand=lig))
         else:
             err_unsupported_feature(strict, f"Unsupported sequence type {type(seq)}")
@@ -528,9 +537,12 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                         prot.templates.append(structural_tmpl)
                         matched = True
             if not matched and tmpl_chain_ids:
-                print(
-                    f"[Warning] Template references unknown chain(s) "
-                    f"{tmpl_chain_ids}: {tmpl_path}"
+                warn_conversion(
+                    f"BoltzConfig.templates[*].chain_id references unknown UniAF3 protein chain(s) {tmpl_chain_ids}: {tmpl_path}"
+                )
+            elif not tmpl_chain_ids:
+                warn_lossy_conversion(
+                    f"BoltzConfig.templates[*].chain_id is missing; template cannot be attached to UniAF3 ProteinSeq.templates and is dropped: {tmpl_path}"
                 )
 
     # Restraints
@@ -622,6 +634,9 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
             if prop.affinity is not None:
                 aux.boltz_affinity_binder_chain = prop.affinity.binder
 
+    warn_lossy_conversion(
+        "BoltzConfig has no seed field; UniAF3Config.seeds defaults to [42]."
+    )
     return UniAF3Config(
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,

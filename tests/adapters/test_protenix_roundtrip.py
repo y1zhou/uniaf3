@@ -11,7 +11,8 @@ def ptx_uni(protenix_confs):
     """Convert ProtenixConfig to UniAF3Config."""
     from uniaf3.adapters import from_protenix
 
-    return from_protenix(protenix_confs)
+    with pytest.warns(UserWarning):
+        return from_protenix(protenix_confs)
 
 
 @pytest.fixture(scope="module")
@@ -19,7 +20,8 @@ def ptx_rt(ptx_uni: list[UniAF3Config]):
     """Convert UniAF3Config → ProtenixConfig → UniAF3Config, i.e. roundtrip."""
     from uniaf3.adapters import to_protenix
 
-    return to_protenix(ptx_uni)
+    with pytest.warns(UserWarning):
+        return to_protenix(ptx_uni)
 
 
 # ruff: noqa: S101
@@ -153,6 +155,14 @@ def test_pocket_restraint(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixC
 def test_seeds_default(ptx_uni: list[UniAF3Config]):
     # NOTE: Protenix config does not include seeds
     assert ptx_uni[0].seeds == [42]
+
+
+def test_warns_on_default_seed_from_protenix(protenix_confs: ProtenixConfig):
+    from uniaf3.adapters import from_protenix
+
+    with pytest.warns(UserWarning) as records:
+        _ = from_protenix(protenix_confs)
+    assert any("ProtenixConfig has no seed field" in str(w.message) for w in records)
 
 
 ##########################################

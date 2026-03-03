@@ -5,6 +5,7 @@ from __future__ import annotations
 from uniaf3.adapters._helpers import (
     ensure_list,
     err_unsupported_feature,
+    warn_lossy_conversion,
 )
 from uniaf3.schema.base import (
     Atom,
@@ -44,6 +45,9 @@ def _to_protenix(
     config: UniAF3Config, name: str = "uniaf3_job", strict: bool = True
 ) -> ProtenixJob:
     """Convert a UniAF3Config to a Protenix job."""
+    warn_lossy_conversion(
+        "UniAF3Config.sequences[*].id are converted to Protenix entity/copy indices; explicit chain IDs are not preserved."
+    )
     sequences: list[ProtenixSequenceEntry] = []
 
     # Build a chain-id -> (entity, copy) mapping
@@ -78,6 +82,10 @@ def _to_protenix(
                     pc.unpairedMsaPath = seq.unpaired_msa
                     pc.pairedMsaPath = seq.paired_msa
                     if seq.templates:
+                        if len(seq.templates) > 1:
+                            warn_lossy_conversion(
+                                "ProtenixProteinChain.templatesPath accepts one path; only the first UniAF3 ProteinSeq.templates entry is kept."
+                            )
                         # NOTE: Protenix uses a single templatesPath for
                         # template .a3m/.hhr files; we use the first template.
                         pc.templatesPath = seq.templates[0].path
@@ -291,6 +299,10 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                 # NOTE: Protenix uses direct MSA file paths, but UniAF3 uses
                 # hash-based directory lookup. MSA paths are not preserved.
             )
+            if pc.unpairedMsaPath is not None or pc.pairedMsaPath is not None:
+                warn_lossy_conversion(
+                    "ProtenixProteinChain.{unpairedMsaPath,pairedMsaPath} are not preserved in UniAF3; UniAF3 expects hash-based files under msa_dir/a3ms."
+                )
             if pc.templatesPath:
                 seq.templates = [StructuralTemplate(path=pc.templatesPath)]
             sequences.append(seq)
@@ -470,6 +482,9 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                 )
             )
 
+    warn_lossy_conversion(
+        "ProtenixConfig has no seed field; UniAF3Config.seeds defaults to [42]."
+    )
     return UniAF3Config(
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from uniaf3.adapters._helpers import (
     err_unsupported_feature,
+    warn_lossy_conversion,
 )
 from uniaf3.schema.alphafold3 import (
     AF3DNA,
@@ -84,6 +85,17 @@ def to_alphafold3(
             if seq.templates:
                 af3_templates = []
                 for tmpl in seq.templates:
+                    if tmpl.query_chains or tmpl.template_chains:
+                        warn_lossy_conversion(
+                            "UniAF3Config.sequences[*].templates.{query_chains,template_chains} are not represented by AF3Config.sequences[*].protein.templates."
+                        )
+                    if (
+                        tmpl.boltz_enable_force
+                        or tmpl.boltz_template_threshold is not None
+                    ):
+                        warn_lossy_conversion(
+                            "UniAF3Config.sequences[*].templates.{boltz_enable_force,boltz_template_threshold} are not represented by AF3Config.sequences[*].protein.templates."
+                        )
                     af3_templates.append(
                         AF3Template(
                             mmcifPath=tmpl.path,
@@ -208,6 +220,15 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
     """
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
     msa_dir_path = Path(msa_dir) / "a3ms"
+    if config.name:
+        warn_lossy_conversion(
+            f"AF3Config.name ('{config.name}') is not represented in UniAF3Config."
+        )
+    if config.userCCD is not None or config.userCCDPath is not None:
+        warn_lossy_conversion(
+            "AF3Config.{userCCD,userCCDPath} are not represented in UniAF3Config."
+        )
+
     for entry in config.sequences:
         if entry.protein is not None:
             p = entry.protein
@@ -231,9 +252,19 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
                         import shutil
 
                         shutil.copyfile(f, msa_path)
+            if p.unpairedMsa is not None or p.pairedMsa is not None:
+                warn_lossy_conversion(
+                    "AF3Config.sequences[*].protein.{unpairedMsa,pairedMsa} are not imported; UniAF3 maps only file-based MSA paths."
+                )
 
             templates = None
             if p.templates:
+                if any(
+                    t.mmcif is not None and t.mmcifPath is None for t in p.templates
+                ):
+                    warn_lossy_conversion(
+                        "AF3Config.sequences[*].protein.templates[*].mmcif is not preserved; only mmcifPath maps to UniAF3 templates.path."
+                    )
                 templates = [
                     StructuralTemplate(
                         path=t.mmcifPath or "",

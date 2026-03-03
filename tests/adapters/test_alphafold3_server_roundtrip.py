@@ -11,7 +11,8 @@ def af3s_uni(af3_server_confs: AF3ServerConfig):
     """Convert AF3ServerConfig to UniAF3Config."""
     from uniaf3.adapters import from_alphafold3_server
 
-    return from_alphafold3_server(af3_server_confs)
+    with pytest.warns(UserWarning):
+        return from_alphafold3_server(af3_server_confs)
 
 
 @pytest.fixture(scope="module")
@@ -19,7 +20,8 @@ def af3s_rt(af3s_uni: list[UniAF3Config]):
     """Convert list[UniAF3Config] → AF3ServerConfig → list[UniAF3Config], i.e. roundtrip."""
     from uniaf3.adapters import to_alphafold3_server
 
-    return to_alphafold3_server(af3s_uni, name="test-roundtrip", strict=False)
+    with pytest.warns(UserWarning):
+        return to_alphafold3_server(af3s_uni, name="test-roundtrip", strict=False)
 
 
 # ruff: noqa: S101
@@ -81,7 +83,8 @@ def test_chain_ids_consistent_with_int_to_letters(af3_server_confs: AF3ServerCon
     from uniaf3.adapters import from_alphafold3_server
     from uniaf3.constant import int_to_letters
 
-    result = from_alphafold3_server(af3_server_confs)
+    with pytest.warns(UserWarning):
+        result = from_alphafold3_server(af3_server_confs)
     uni = result[0]
 
     expected_idx = 1
@@ -93,6 +96,14 @@ def test_chain_ids_consistent_with_int_to_letters(af3_server_confs: AF3ServerCon
         else:
             assert seq.id == int_to_letters(expected_idx)
             expected_idx += 1
+
+
+def test_warns_on_default_seed_from_af3_server(af3_server_confs: AF3ServerConfig):
+    from uniaf3.adapters import from_alphafold3_server
+
+    with pytest.warns(UserWarning) as records:
+        _ = from_alphafold3_server(af3_server_confs)
+    assert any("AF3ServerJob.modelSeeds is empty" in str(w.message) for w in records)
 
 
 def test_dna_modifications(

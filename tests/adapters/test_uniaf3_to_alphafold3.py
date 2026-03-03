@@ -15,12 +15,13 @@ def af3(uniaf3_conf: UniAF3Config, tmp_path_factory: pytest.TempPathFactory):
     """Convert UniAF3 to AlphaFold3 config."""
     from uniaf3.adapters import to_alphafold3
 
-    return to_alphafold3(
-        uniaf3_conf,
-        msa_dir=tmp_path_factory.mktemp("msa"),
-        name="test-af3-adapter",
-        strict=False,
-    )
+    with pytest.warns(UserWarning):
+        return to_alphafold3(
+            uniaf3_conf,
+            msa_dir=tmp_path_factory.mktemp("msa"),
+            name="test-af3-adapter",
+            strict=False,
+        )
 
 
 # ruff: noqa: S101
@@ -36,6 +37,17 @@ def test_unsupported_glycan_strict(
             name="test-af3-adapter",
             strict=True,
         )
+
+
+def test_warns_on_unsupported_restraints(uniaf3_conf: UniAF3Config, tmp_path):
+    from uniaf3.adapters import to_alphafold3
+
+    with pytest.warns(UserWarning) as records:
+        _ = to_alphafold3(uniaf3_conf, msa_dir=tmp_path / "msa", strict=False)
+    assert any(
+        "AF3 does not support contact or pocket restraints" in str(w.message)
+        for w in records
+    )
 
 
 def test_name_and_seeds(uniaf3_conf: UniAF3Config, af3: AF3Config):

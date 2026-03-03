@@ -11,7 +11,8 @@ def af3s(uniaf3_conf: UniAF3Config):
     """Convert UniAF3 to AF3 Server config."""
     from uniaf3.adapters import to_alphafold3_server
 
-    return to_alphafold3_server([uniaf3_conf], name="test", strict=False)
+    with pytest.warns(UserWarning):
+        return to_alphafold3_server([uniaf3_conf], name="test", strict=False)
 
 
 # ruff: noqa: S101
@@ -21,6 +22,14 @@ def test_job_metadata(uniaf3_conf: UniAF3Config, af3s: AF3ServerConfig):
     assert job.name == "test"
     assert job.dialect == "alphafoldserver"
     assert job.modelSeeds == uniaf3_conf.seeds
+
+
+def test_warns_on_chain_id_loss(uniaf3_conf: UniAF3Config):
+    from uniaf3.adapters import to_alphafold3_server
+
+    with pytest.warns(UserWarning) as records:
+        _ = to_alphafold3_server([uniaf3_conf], strict=False)
+    assert any("UniAF3Config.sequences[*].id" in str(w.message) for w in records)
 
 
 def test_protein_count(uniaf3_conf: UniAF3Config, af3s: AF3ServerConfig):

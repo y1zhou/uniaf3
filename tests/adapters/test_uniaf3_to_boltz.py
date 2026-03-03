@@ -29,6 +29,18 @@ def test_unsupported_glycan_strict(uniaf3_conf: UniAF3Config, tmp_path):
         to_boltz(uniaf3_conf_cp, msa_dir=tmp_path, strict=True)
 
 
+def test_warns_on_multi_ccd_ligand(uniaf3_conf: UniAF3Config, tmp_path):
+    from uniaf3.adapters import to_boltz
+
+    conf = uniaf3_conf.model_copy(deep=True)
+    conf.sequences.append(Ligand(id="Z", ccd=["ATP", "HEM"]))
+
+    with pytest.warns(
+        UserWarning, match="Multi-CCD ligands are not supported in Boltz"
+    ):
+        _ = to_boltz(conf, msa_dir=tmp_path / "msa", strict=False)
+
+
 def test_version(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert boltz.version == 1
 

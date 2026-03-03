@@ -12,7 +12,8 @@ def chai_uni(chai_conf: ChaiConfig):
     """Convert ChaiConfig to UniAF3Config."""
     from uniaf3.adapters import from_chai
 
-    return from_chai(chai_conf)
+    with pytest.warns(UserWarning):
+        return from_chai(chai_conf)
 
 
 @pytest.fixture(scope="module")
@@ -154,6 +155,16 @@ def test_no_pocket_restraints_returns_none():
 
     result = from_chai(conf)
     assert result.pocket_restraints is None
+
+
+def test_warns_on_ligand_identity_loss(chai_conf: ChaiConfig):
+    from uniaf3.adapters import from_chai
+
+    with pytest.warns(UserWarning) as records:
+        _ = from_chai(chai_conf)
+    assert any(
+        "ChaiEntityType.Ligand sequence is imported" in str(w.message) for w in records
+    )
 
 
 ##########################################

@@ -11,13 +11,21 @@ def ptx(uniaf3_conf: UniAF3Config):
     """Convert UniAF3 to Protenix config."""
     from uniaf3.adapters import to_protenix
 
-    return to_protenix([uniaf3_conf], name="test")
+    with pytest.warns(UserWarning):
+        return to_protenix([uniaf3_conf], name="test")
 
 
 # ruff: noqa: S101
 def test_job_count(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     assert len(ptx) == 1
     assert ptx[0].name == "test"
+
+
+def test_warns_on_chain_id_loss(uniaf3_conf: UniAF3Config):
+    from uniaf3.adapters import to_protenix
+
+    with pytest.warns(UserWarning, match="entity/copy indices"):
+        _ = to_protenix([uniaf3_conf], strict=False)
 
 
 def test_protein_fields(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):

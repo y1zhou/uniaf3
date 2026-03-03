@@ -15,7 +15,8 @@ def af3_uni(
     """Convert AF3Config to UniAF3Config."""
     from uniaf3.adapters import from_alphafold3
 
-    return from_alphafold3(af3_conf, tmp_path_factory.mktemp("msa"))
+    with pytest.warns(UserWarning):
+        return from_alphafold3(af3_conf, tmp_path_factory.mktemp("msa"))
 
 
 @pytest.fixture(scope="module")
@@ -43,9 +44,23 @@ def test_to_uniaf3_af3_preserves_sequences(
     from uniaf3.adapters import to_uniaf3
 
     msa_dir = tmp_path_factory.mktemp("msa_bug1b")
-    result = to_uniaf3(af3_conf, msa_dir=msa_dir)
+    with pytest.warns(UserWarning):
+        result = to_uniaf3(af3_conf, msa_dir=msa_dir)
     assert isinstance(result, UniAF3Config)
     assert len(result.sequences) == len(af3_conf.sequences)
+
+
+def test_from_af3_warns_on_lossy_metadata(
+    af3_conf: AF3Config, tmp_path_factory: pytest.TempPathFactory
+):
+    from uniaf3.adapters import from_alphafold3
+
+    conf = af3_conf.model_copy(deep=True)
+    conf.userCCD = "data_MY_LIGAND"
+
+    with pytest.warns(UserWarning) as records:
+        _ = from_alphafold3(conf, msa_dir=tmp_path_factory.mktemp("msa_warn_af3"))
+    assert any("AF3Config.{userCCD,userCCDPath}" in str(w.message) for w in records)
 
 
 def test_seeds(af3_uni: UniAF3Config, af3_conf: AF3Config):

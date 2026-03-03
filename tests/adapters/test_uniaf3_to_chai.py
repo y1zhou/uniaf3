@@ -12,13 +12,22 @@ def chai(uniaf3_conf: UniAF3Config):
     """Convert UniAF3 to Chai config."""
     from uniaf3.adapters import to_chai
 
-    return to_chai(uniaf3_conf, strict=False)
+    with pytest.warns(UserWarning):
+        return to_chai(uniaf3_conf, strict=False)
 
 
 # ruff: noqa: S101
 def test_entity_count(uniaf3_conf: UniAF3Config, chai: ChaiConfig):
     # protein id=["A","B"] expands to 2 entities; dna, 2 ligands, 1 glycan = 6
     assert len(chai.entities) == 6
+
+
+def test_warns_on_ccd_to_smiles_conversion(uniaf3_conf: UniAF3Config):
+    from uniaf3.adapters import to_chai
+
+    with pytest.warns(UserWarning) as records:
+        _ = to_chai(uniaf3_conf, strict=False)
+    assert any("Ligand.ccd 'ATP' is converted" in str(w.message) for w in records)
 
 
 def test_protein_entity_type(uniaf3_conf: UniAF3Config, chai: ChaiConfig):

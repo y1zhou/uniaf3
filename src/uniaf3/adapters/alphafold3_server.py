@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from uniaf3.adapters._helpers import ensure_list, err_unsupported_feature
+from uniaf3.adapters._helpers import (
+    ensure_list,
+    err_unsupported_feature,
+    warn_lossy_conversion,
+)
 from uniaf3.constant import (
     KNOWN_ION_CCD_CODES,
     KNOWN_LIGAND_CCD_CODES,
@@ -46,6 +50,9 @@ def _to_alphafold3_server(
         strict: If True, raise errors when encountering unsupported features.
 
     """
+    warn_lossy_conversion(
+        "UniAF3Config.sequences[*].id are converted to AF3ServerSequenceEntry.*.count; explicit chain IDs are not preserved."
+    )
     sequences: list[AF3ServerSequenceEntry] = []
     for seq in config.sequences:
         if isinstance(seq, Glycan):
@@ -63,6 +70,10 @@ def _to_alphafold3_server(
             isinstance(seq, Polymer) and seq.seq_type == PolymerType.Protein
         ):
             ids = ensure_list(seq.id)
+            if seq.description is not None:
+                warn_lossy_conversion(
+                    "UniAF3Config.sequences[*].description is not represented in AF3ServerSequenceEntry.proteinChain."
+                )
             mods = None
             if seq.modifications:
                 mods = [
@@ -73,6 +84,14 @@ def _to_alphafold3_server(
                 ]
 
             # TODO: map structural templates
+            if isinstance(seq, ProteinSeq) and (
+                seq.unpaired_msa is not None
+                or seq.paired_msa is not None
+                or seq.templates is not None
+            ):
+                warn_lossy_conversion(
+                    "UniAF3 ProteinSeq fields {msa_dir,unpaired_msa,paired_msa,templates} are not represented in AF3ServerSequenceEntry.proteinChain."
+                )
             protein = AF3ServerProtein(
                 sequence=seq.sequence,
                 count=len(ids),
@@ -82,6 +101,10 @@ def _to_alphafold3_server(
 
         elif isinstance(seq, Polymer) and seq.seq_type == PolymerType.DNA:
             ids = ensure_list(seq.id)
+            if seq.description is not None:
+                warn_lossy_conversion(
+                    "UniAF3Config.sequences[*].description is not represented in AF3ServerSequenceEntry.dnaSequence."
+                )
             mods = None
             if seq.modifications:
                 mods = [
@@ -97,6 +120,10 @@ def _to_alphafold3_server(
 
         elif isinstance(seq, Polymer) and seq.seq_type == PolymerType.RNA:
             ids = ensure_list(seq.id)
+            if seq.description is not None:
+                warn_lossy_conversion(
+                    "UniAF3Config.sequences[*].description is not represented in AF3ServerSequenceEntry.rnaSequence."
+                )
             mods = None
             if seq.modifications:
                 mods = [
@@ -115,6 +142,9 @@ def _to_alphafold3_server(
             count = len(ids)
             if seq.ccd is not None:
                 if len(seq.ccd) > 1:
+                    warn_lossy_conversion(
+                        f"UniAF3Config.sequences[*].Ligand.ccd supports multiple entries, but AF3ServerSequenceEntry.ligand.ligand accepts one code; only '{seq.ccd[0]}' is kept."
+                    )
                     err_unsupported_feature(
                         strict,
                         f"AF3 Server only supports one CCD code per ligand: {seq}",
@@ -209,6 +239,14 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
         if entry.proteinChain is not None:
             pc = entry.proteinChain
             chain_ids = _next_chain_ids(pc.count)
+            if pc.glycans is not None:
+                warn_lossy_conversion(
+                    "AF3ServerSequenceEntry.proteinChain.glycans are not converted to UniAF3Config.sequences and are dropped."
+                )
+            if pc.maxTemplateDate is not None or pc.useStructureTemplate is not True:
+                warn_lossy_conversion(
+                    "AF3ServerSequenceEntry.proteinChain.{useStructureTemplate,maxTemplateDate} are not represented in UniAF3Config."
+                )
             mods = None
             if pc.modifications:
                 mods = [
@@ -279,6 +317,10 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
             sequences.append(lig)
 
     # NOTE: AF3 Server config does not include seeds; default to [42].
+    if not job.modelSeeds:
+        warn_lossy_conversion(
+            "AF3ServerJob.modelSeeds is empty; UniAF3Config.seeds defaults to [42]."
+        )
     return UniAF3Config(
         sequences=sequences,
         seeds=job.modelSeeds if job.modelSeeds else [42],
