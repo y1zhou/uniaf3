@@ -115,7 +115,7 @@ def test_pocket_restraint(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
 
 def test_seeds_default(boltz_uni: UniAF3Config, boltz_conf: BoltzConfig):
     # NOTE: Boltz config does not include seeds
-    assert boltz_uni.seeds == [42]
+    assert boltz_uni.aux.seeds == [42]
 
 
 def test_a3m_msa_writes_to_a3ms_subdir(
@@ -140,7 +140,9 @@ def test_warns_on_default_seed_from_boltz(
 ):
     from uniaf3.adapters import from_boltz
 
-    with pytest.warns(UserWarning, match="BoltzConfig has no seed field"):
+    with pytest.warns(
+        UserWarning, match=r"UniAF3Config\.aux\.seeds defaults to \[42\]"
+    ):
         _ = from_boltz(boltz_conf, msa_dir=tmp_path_factory.mktemp("msa_warn_boltz"))
 
 

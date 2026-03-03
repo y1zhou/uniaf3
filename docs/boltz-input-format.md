@@ -52,13 +52,13 @@ properties:
 
 ### Protein
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `str \| list[str]` | Yes | Unique chain ID(s). List for homomeric copies. |
-| `sequence` | `str` | Yes | Amino acid sequence. |
-| `msa` | `str` | Conditional | Path to MSA file (`.a3m` or `.csv`). Set to `"empty"` for single-sequence mode. Required unless `--use_msa_server` flag is used. |
-| `modifications` | `list[{position, ccd}]` | No | Modified residues with 1-based position and CCD code. |
-| `cyclic` | `bool` | No | Whether the polymer is cyclic (default: false). |
+| Field           | Type                    | Required    | Description                                                                                                                      |
+| --------------- | ----------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | `str \| list[str]`      | Yes         | Unique chain ID(s). List for homomeric copies.                                                                                   |
+| `sequence`      | `str`                   | Yes         | Amino acid sequence.                                                                                                             |
+| `msa`           | `str`                   | Conditional | Path to MSA file (`.a3m` or `.csv`). Set to `"empty"` for single-sequence mode. Required unless `--use_msa_server` flag is used. |
+| `modifications` | `list[{position, ccd}]` | No          | Modified residues with 1-based position and CCD code.                                                                            |
+| `cyclic`        | `bool`                  | No          | Whether the polymer is cyclic (default: false).                                                                                  |
 
 #### MSA Format
 
@@ -71,12 +71,12 @@ For multi-chain inputs with multiple protein chains, use CSV format to enable cr
 
 ### DNA
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `str \| list[str]` | Yes | Chain ID(s). |
-| `sequence` | `str` | Yes | DNA sequence (A, T, G, C). |
-| `modifications` | `list[{position, ccd}]` | No | Modified bases. |
-| `cyclic` | `bool` | No | Cyclic polymer flag. |
+| Field           | Type                    | Required | Description                |
+| --------------- | ----------------------- | -------- | -------------------------- |
+| `id`            | `str \| list[str]`      | Yes      | Chain ID(s).               |
+| `sequence`      | `str`                   | Yes      | DNA sequence (A, T, G, C). |
+| `modifications` | `list[{position, ccd}]` | No       | Modified bases.            |
+| `cyclic`        | `bool`                  | No       | Cyclic polymer flag.       |
 
 ### RNA
 
@@ -84,11 +84,11 @@ Same structure as DNA but uses RNA bases (A, U, G, C).
 
 ### Ligand
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `str \| list[str]` | Yes | Chain ID(s). |
-| `ccd` | `str` | Conditional | Single CCD code. Mutually exclusive with `smiles`. |
-| `smiles` | `str` | Conditional | SMILES string. |
+| Field    | Type               | Required    | Description                                        |
+| -------- | ------------------ | ----------- | -------------------------------------------------- |
+| `id`     | `str \| list[str]` | Yes         | Chain ID(s).                                       |
+| `ccd`    | `str`              | Conditional | Single CCD code. Mutually exclusive with `smiles`. |
+| `smiles` | `str`              | Conditional | SMILES string.                                     |
 
 **Note:** Boltz supports only single-CCD ligands (no multi-CCD). For multi-component ligands, use SMILES instead.
 
@@ -172,12 +172,12 @@ properties:
 
 Boltz inference parameters are specified as CLI arguments, not in the YAML config:
 
-| Parameter | Default | Description |
-|---|---|---|
-| `--recycling_steps` | 3 | Number of recycling steps. |
-| `--sampling_steps` | 200 | Number of diffusion sampling steps. |
-| `--diffusion_samples` | 1 | Number of diffusion samples. |
-| `--step_scale` | 1.638 | Diffusion step size (temperature). Lower = more diversity. |
+| Parameter             | Default | Description                                                |
+| --------------------- | ------- | ---------------------------------------------------------- |
+| `--recycling_steps`   | 3       | Number of recycling steps.                                 |
+| `--sampling_steps`    | 200     | Number of diffusion sampling steps.                        |
+| `--diffusion_samples` | 1       | Number of diffusion samples.                               |
+| `--step_scale`        | 1.638   | Diffusion step size (temperature). Lower = more diversity. |
 
 ## UniAF3 Adapter Notes
 

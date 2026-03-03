@@ -52,7 +52,7 @@ def test_warns_on_unsupported_restraints(uniaf3_conf: UniAF3Config, tmp_path):
 
 def test_name_and_seeds(uniaf3_conf: UniAF3Config, af3: AF3Config):
     assert af3.name == "test-af3-adapter"
-    assert af3.modelSeeds == uniaf3_conf.seeds
+    assert af3.modelSeeds == uniaf3_conf.aux.seeds
     assert af3.dialect == "alphafold3"
 
 

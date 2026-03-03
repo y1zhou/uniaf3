@@ -31,16 +31,16 @@ uses a different format from the AlphaFold Server (see
 
 ### Fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | `str` | Yes | Job name. A sanitized version is used for output filenames. |
-| `modelSeeds` | `list[int]` | Yes | Random seeds. At least one required. Each seed produces one prediction. |
-| `sequences` | `list[SequenceEntry]` | Yes | List of molecular entities. |
-| `bondedAtomPairs` | `list[BondedAtomPair]` | No | Covalent bonds between atoms. |
-| `userCCD` | `str` | No | Inline CCD mmCIF string for custom ligands. Mutually exclusive with `userCCDPath`. |
-| `userCCDPath` | `str` | No | Path to CCD mmCIF file. Mutually exclusive with `userCCD`. |
-| `dialect` | `"alphafold3"` | Yes | Must be `"alphafold3"`. |
-| `version` | `1 \| 2 \| 3 \| 4` | Yes | Input format version. |
+| Field             | Type                   | Required | Description                                                                        |
+| ----------------- | ---------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `name`            | `str`                  | Yes      | Job name. A sanitized version is used for output filenames.                        |
+| `modelSeeds`      | `list[int]`            | Yes      | Random seeds. At least one required. Each seed produces one prediction.            |
+| `sequences`       | `list[SequenceEntry]`  | Yes      | List of molecular entities.                                                        |
+| `bondedAtomPairs` | `list[BondedAtomPair]` | No       | Covalent bonds between atoms.                                                      |
+| `userCCD`         | `str`                  | No       | Inline CCD mmCIF string for custom ligands. Mutually exclusive with `userCCDPath`. |
+| `userCCDPath`     | `str`                  | No       | Path to CCD mmCIF file. Mutually exclusive with `userCCD`.                         |
+| `dialect`         | `"alphafold3"`         | Yes      | Must be `"alphafold3"`.                                                            |
+| `version`         | `1 \| 2 \| 3 \| 4`     | Yes      | Input format version.                                                              |
 
 ### Versions
 
@@ -80,17 +80,17 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `str \| list[str]` | Yes | Unique chain ID(s). List implies homomeric copies. |
-| `sequence` | `str` | Yes | Amino acid sequence (1-letter standard codes). |
-| `modifications` | `list[{ptmType, ptmPosition}]` | No | Post-translational modifications. CCD code + 1-based position. |
-| `description` | `str` | No | Textual description (v4+). |
-| `unpairedMsa` | `str` | No | Inline unpaired MSA (A3M format). Mutually exclusive with path. |
-| `unpairedMsaPath` | `str` | No | Path to unpaired MSA file (v2+). |
-| `pairedMsa` | `str` | No | Inline paired MSA (A3M format). Not recommended by DeepMind. |
-| `pairedMsaPath` | `str` | No | Path to paired MSA file (v2+). |
-| `templates` | `list[Template]` | No | Structural templates. |
+| Field             | Type                           | Required | Description                                                     |
+| ----------------- | ------------------------------ | -------- | --------------------------------------------------------------- |
+| `id`              | `str \| list[str]`             | Yes      | Unique chain ID(s). List implies homomeric copies.              |
+| `sequence`        | `str`                          | Yes      | Amino acid sequence (1-letter standard codes).                  |
+| `modifications`   | `list[{ptmType, ptmPosition}]` | No       | Post-translational modifications. CCD code + 1-based position.  |
+| `description`     | `str`                          | No       | Textual description (v4+).                                      |
+| `unpairedMsa`     | `str`                          | No       | Inline unpaired MSA (A3M format). Mutually exclusive with path. |
+| `unpairedMsaPath` | `str`                          | No       | Path to unpaired MSA file (v2+).                                |
+| `pairedMsa`       | `str`                          | No       | Inline paired MSA (A3M format). Not recommended by DeepMind.    |
+| `pairedMsaPath`   | `str`                          | No       | Path to paired MSA file (v2+).                                  |
+| `templates`       | `list[Template]`               | No       | Structural templates.                                           |
 
 #### MSA Rules
 
@@ -102,12 +102,12 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
 
 #### Templates
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `mmcif` | `str` | Conditional | Inline mmCIF string. Mutually exclusive with `mmcifPath`. |
-| `mmcifPath` | `str` | Conditional | Path to mmCIF file (v2+). |
-| `queryIndices` | `list[int]` | Yes | 0-based query residue indices for alignment. |
-| `templateIndices` | `list[int]` | Yes | 0-based template residue indices. Must match length of `queryIndices`. |
+| Field             | Type        | Required    | Description                                                            |
+| ----------------- | ----------- | ----------- | ---------------------------------------------------------------------- |
+| `mmcif`           | `str`       | Conditional | Inline mmCIF string. Mutually exclusive with `mmcifPath`.              |
+| `mmcifPath`       | `str`       | Conditional | Path to mmCIF file (v2+).                                              |
+| `queryIndices`    | `list[int]` | Yes         | 0-based query residue indices for alignment.                           |
+| `templateIndices` | `list[int]` | Yes         | 0-based template residue indices. Must match length of `queryIndices`. |
 
 ### RNA
 
@@ -126,12 +126,12 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | `str \| list[str]` | Unique chain ID(s). |
-| `sequence` | `str` | RNA sequence (A, C, G, U only). |
-| `modifications` | `list[{modificationType, basePosition}]` | CCD code + 1-based position. |
-| `unpairedMsa` / `unpairedMsaPath` | `str` | Optional MSA (no paired MSA for RNA). |
+| Field                             | Type                                     | Description                           |
+| --------------------------------- | ---------------------------------------- | ------------------------------------- |
+| `id`                              | `str \| list[str]`                       | Unique chain ID(s).                   |
+| `sequence`                        | `str`                                    | RNA sequence (A, C, G, U only).       |
+| `modifications`                   | `list[{modificationType, basePosition}]` | CCD code + 1-based position.          |
+| `unpairedMsa` / `unpairedMsaPath` | `str`                                    | Optional MSA (no paired MSA for RNA). |
 
 ### DNA
 
@@ -148,11 +148,11 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | `str \| list[str]` | Unique chain ID(s). |
-| `sequence` | `str` | DNA sequence (A, C, G, T only). |
-| `modifications` | `list[{modificationType, basePosition}]` | CCD code + 1-based position. |
+| Field           | Type                                     | Description                     |
+| --------------- | ---------------------------------------- | ------------------------------- |
+| `id`            | `str \| list[str]`                       | Unique chain ID(s).             |
+| `sequence`      | `str`                                    | DNA sequence (A, C, G, T only). |
+| `modifications` | `list[{modificationType, basePosition}]` | CCD code + 1-based position.    |
 
 **Note:** DNA has no MSA support.
 
@@ -168,11 +168,11 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | `str \| list[str]` | Unique chain ID(s). |
-| `ccdCodes` | `list[str]` | CCD codes. Mutually exclusive with `smiles`. Supports multi-CCD for branched ligands. |
-| `smiles` | `str` | SMILES string. Cannot specify covalent bonds with SMILES ligands. |
+| Field      | Type               | Description                                                                           |
+| ---------- | ------------------ | ------------------------------------------------------------------------------------- |
+| `id`       | `str \| list[str]` | Unique chain ID(s).                                                                   |
+| `ccdCodes` | `list[str]`        | CCD codes. Mutually exclusive with `smiles`. Supports multi-CCD for branched ligands. |
+| `smiles`   | `str`              | SMILES string. Cannot specify covalent bonds with SMILES ligands.                     |
 
 **Important:** SMILES strings must be JSON-escaped (backslashes doubled).
 
@@ -191,13 +191,14 @@ Covalent bonds between atoms. Each bond is a pair of `[entity_id, residue_id, at
 ]
 ```
 
-| Component | Type | Description |
-|---|---|---|
-| Entity ID | `str` | The `id` of the entity. |
+| Component  | Type  | Description                                                                 |
+| ---------- | ----- | --------------------------------------------------------------------------- |
+| Entity ID  | `str` | The `id` of the entity.                                                     |
 | Residue ID | `int` | 1-based residue index. For multi-CCD ligands, refers to the CCD part index. |
-| Atom Name | `str` | Atom name as defined in CCD. |
+| Atom Name  | `str` | Atom name as defined in CCD.                                                |
 
 **Limitations:**
+
 - Cannot specify bonds to SMILES ligands (no stable atom names).
 - Use `userCCD` to define custom ligands with named atoms for bonding.
 
@@ -218,28 +219,28 @@ For custom ligands that need specific atom names (required for bonding) or when 
 
 ### UniAF3 → AF3 Conversion
 
-| UniAF3 Feature | AF3 Mapping | Notes |
-|---|---|---|
-| `ProteinSeq` | `protein` entry | MSA paths preserved if available |
-| `Polymer(dna)` | `dna` entry | |
-| `Polymer(rna)` | `rna` entry | |
-| `Ligand(ccd)` | `ligand` with `ccdCodes` | |
-| `Ligand(smiles)` | `ligand` with `smiles` | |
-| `Glycan` | **Dropped** | AF3 has no native glycan type |
-| `CovalentBond` | `bondedAtomPairs` | Direct mapping |
-| `ContactRestraint` | **Dropped** | AF3 does not support non-covalent restraints |
-| `PocketRestraint` | **Dropped** | AF3 does not support pocket restraints |
-| `seeds` | `modelSeeds` | |
+| UniAF3 Feature     | AF3 Mapping              | Notes                                        |
+| ------------------ | ------------------------ | -------------------------------------------- |
+| `ProteinSeq`       | `protein` entry          | MSA paths preserved if available             |
+| `Polymer(dna)`     | `dna` entry              |                                              |
+| `Polymer(rna)`     | `rna` entry              |                                              |
+| `Ligand(ccd)`      | `ligand` with `ccdCodes` |                                              |
+| `Ligand(smiles)`   | `ligand` with `smiles`   |                                              |
+| `Glycan`           | **Dropped**              | AF3 has no native glycan type                |
+| `CovalentBond`     | `bondedAtomPairs`        | Direct mapping                               |
+| `ContactRestraint` | **Dropped**              | AF3 does not support non-covalent restraints |
+| `PocketRestraint`  | **Dropped**              | AF3 does not support pocket restraints       |
+| `aux.seeds`        | `modelSeeds`             |                                              |
 
 ### AF3 → UniAF3 Conversion
 
-| AF3 Feature | UniAF3 Mapping | Notes |
-|---|---|---|
-| `protein` | `ProteinSeq` | MSA files copied to hash-based directory |
-| `dna` | `Polymer(dna)` | |
-| `rna` | `Polymer(rna)` | |
-| `ligand` (CCD) | `Ligand(ccd)` | |
-| `ligand` (SMILES) | `Ligand(smiles)` | |
-| `bondedAtomPairs` | `CovalentBond` | |
-| `userCCD` | **Not preserved** | |
-| `name` | **Not preserved** | Stored in `aux.name` on conversion |
+| AF3 Feature       | UniAF3 Mapping    | Notes                                    |
+| ----------------- | ----------------- | ---------------------------------------- |
+| `protein`         | `ProteinSeq`      | MSA files copied to hash-based directory |
+| `dna`             | `Polymer(dna)`    |                                          |
+| `rna`             | `Polymer(rna)`    |                                          |
+| `ligand` (CCD)    | `Ligand(ccd)`     |                                          |
+| `ligand` (SMILES) | `Ligand(smiles)`  |                                          |
+| `bondedAtomPairs` | `CovalentBond`    |                                          |
+| `userCCD`         | **Not preserved** |                                          |
+| `name`            | **Not preserved** | Stored in `aux.name` on conversion       |

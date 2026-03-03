@@ -26,6 +26,7 @@ from uniaf3.schema.alphafold3_server import (
     AF3ServerSequenceEntry,
 )
 from uniaf3.schema.base import (
+    AuxiliaryParams,
     Glycan,
     Ligand,
     Polymer,
@@ -189,7 +190,7 @@ def _to_alphafold3_server(
             err_unsupported_feature(
                 strict, f"AF3 Server does not support constraints: {field}"
             )
-    return AF3ServerJob(name=name, modelSeeds=config.seeds, sequences=sequences)
+    return AF3ServerJob(name=name, modelSeeds=config.aux.seeds, sequences=sequences)
 
 
 def to_alphafold3_server(
@@ -319,11 +320,11 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
     # NOTE: AF3 Server config does not include seeds; default to [42].
     if not job.modelSeeds:
         warn_lossy_conversion(
-            "AF3ServerJob.modelSeeds is empty; UniAF3Config.seeds defaults to [42]."
+            "AF3ServerJob.modelSeeds is empty; UniAF3Config.aux.seeds defaults to [42]."
         )
     return UniAF3Config(
         sequences=sequences,
-        seeds=job.modelSeeds if job.modelSeeds else [42],
+        aux=AuxiliaryParams(seeds=job.modelSeeds if job.modelSeeds else [42]),
     )
 
 

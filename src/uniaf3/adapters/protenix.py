@@ -9,6 +9,7 @@ from uniaf3.adapters._helpers import (
 )
 from uniaf3.schema.base import (
     Atom,
+    AuxiliaryParams,
     ContactRestraint,
     CovalentBond,
     Glycan,
@@ -483,14 +484,14 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
             )
 
     warn_lossy_conversion(
-        "ProtenixConfig has no seed field; UniAF3Config.seeds defaults to [42]."
+        "ProtenixConfig has no seed field; UniAF3Config.aux.seeds defaults to [42]."
     )
     return UniAF3Config(
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,
         contact_restraints=contact_rsts or None,
         pocket_restraints=pocket_rsts or None,
-        seeds=[42],  # NOTE: Protenix config does not include seeds
+        aux=AuxiliaryParams(seeds=[42]),
     )
 
 

@@ -635,13 +635,13 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 aux.boltz_affinity_binder_chain = prop.affinity.binder
 
     warn_lossy_conversion(
-        "BoltzConfig has no seed field; UniAF3Config.seeds defaults to [42]."
+        "BoltzConfig has no seed field; UniAF3Config.aux.seeds defaults to [42]."
     )
+    aux.seeds = [42]
     return UniAF3Config(
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,
         pocket_restraints=pocket_rsts or None,
         contact_restraints=contact_rsts or None,
-        seeds=[42],  # NOTE: Boltz config does not include seeds
         aux=aux,
     )

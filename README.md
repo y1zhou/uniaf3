@@ -12,39 +12,39 @@ UniAF3 provides a unified YAML-based input format that serves as a common interm
 
 The following table summarizes feature support across all models:
 
-| Feature | UniAF3 | AlphaFold3 | AF3 Server | Boltz | Chai-1 | Protenix |
-|---|---|---|---|---|---|---|
-| **Sequences** | | | | | | |
-| Protein chains | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| DNA chains | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| RNA chains | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Ligands (CCD) | ✅ | ✅ | ✅ (limited set) | ✅ (single CCD only) | ⚠️ (converted to SMILES) | ✅ (multi-CCD supported) |
-| Ligands (SMILES) | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ |
-| Ligands (file path) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Ligands (user CCD) | ❌ | ✅ ([user-provided CCD](https://github.com/google-deepmind/alphafold3/blob/main/docs/input.md#user-provided-ccd)) | ❌ | ❌ | ❌ | ❌ |
-| Multi-CCD ligands | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Glycans | ✅ ([Chai notation](https://github.com/chaidiscovery/chai-lab/tree/main/examples/covalent_bonds#glycans)) | ⚠️ ([as multi-CCD ligands with bonds](https://github.com/google-deepmind/alphafold3/blob/main/docs/input.md#defining-glycans)) | ❌ | ⚠️ (single sugar only) | ✅ | ⚠️ (as multi-CCD ligand) |
-| Ions | ✅ (as CCD ligand) | ✅ (as CCD ligand) | ✅ (dedicated type) | ✅ (as CCD ligand) | ❌ | ✅ (dedicated type) |
-| Homomeric copies | ✅ (via id list) | ✅ (via id list) | ✅ (via count) | ✅ (via id list) | ❌ (separate entities) | ✅ (via count) |
-| **Modifications** | | | | | | |
-| Protein PTMs | ✅ | ✅ | ✅ (limited CCD set) | ✅ | ✅ (inline CCD) | ✅ |
-| DNA modifications | ✅ | ✅ | ✅ (limited CCD set) | ✅ | ✅ (inline CCD) | ✅ |
-| RNA modifications | ✅ | ✅ | ✅ (limited CCD set) | ✅ | ✅ (inline CCD) | ✅ |
-| Cyclic polymers | ✅ (Boltz-specific) | ❌ | ❌ | ✅ | ❌ | ❌ |
-| **MSA & Templates** | | | | | | |
-| Custom MSA | ✅ (via msa_dir) | ✅ (inline or path) | ❌ | ✅ (CSV or A3M) | ✅ (via msa_directory) | ✅ (path) |
-| Paired MSA | ✅ | ✅ | ❌ | ✅ (CSV key column) | ✅ | ✅ |
-| Structural templates | ✅ | ✅ (mmCIF) | ❌ | ✅ (CIF/PDB) | ✅ (via server) | ✅ (A3M/HHR) |
-| **Restraints** | | | | | | |
-| Covalent bonds | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ |
-| Contact restraints | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Pocket restraints | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **Inference Parameters** | | | | | | |
-| Random seeds | ✅ | ✅ | ✅ (can be empty) | ❌ (CLI arg) | ✅ (single seed) | ❌ (CLI arg) |
-| Recycling steps | ✅ | ❌ (CLI arg) | ❌ | ❌ (CLI arg) | ✅ | ❌ (CLI arg) |
-| Diffusion steps | ✅ | ❌ (CLI arg) | ❌ | ❌ (CLI arg) | ✅ | ❌ (CLI arg) |
-| Diffusion samples | ✅ | ❌ (CLI arg) | ❌ | ❌ (CLI arg) | ✅ | ❌ (CLI arg) |
-| Affinity prediction | ✅ (Boltz-specific) | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Feature                  | UniAF3                                                                                                    | AlphaFold3                                                                                                                     | AF3 Server           | Boltz                  | Chai-1                   | Protenix                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- | ---------------------- | ------------------------ | ------------------------ |
+| **Sequences**            |                                                                                                           |                                                                                                                                |                      |                        |                          |                          |
+| Protein chains           | ✅                                                                                                        | ✅                                                                                                                             | ✅                   | ✅                     | ✅                       | ✅                       |
+| DNA chains               | ✅                                                                                                        | ✅                                                                                                                             | ✅                   | ✅                     | ✅                       | ✅                       |
+| RNA chains               | ✅                                                                                                        | ✅                                                                                                                             | ✅                   | ✅                     | ✅                       | ✅                       |
+| Ligands (CCD)            | ✅                                                                                                        | ✅                                                                                                                             | ✅ (limited set)     | ✅ (single CCD only)   | ⚠️ (converted to SMILES) | ✅ (multi-CCD supported) |
+| Ligands (SMILES)         | ✅                                                                                                        | ✅                                                                                                                             | ❌                   | ✅                     | ✅                       | ✅                       |
+| Ligands (file path)      | ❌                                                                                                        | ❌                                                                                                                             | ❌                   | ❌                     | ❌                       | ✅                       |
+| Ligands (user CCD)       | ❌                                                                                                        | ✅ ([user-provided CCD](https://github.com/google-deepmind/alphafold3/blob/main/docs/input.md#user-provided-ccd))              | ❌                   | ❌                     | ❌                       | ❌                       |
+| Multi-CCD ligands        | ✅                                                                                                        | ✅                                                                                                                             | ❌                   | ❌                     | ❌                       | ✅                       |
+| Glycans                  | ✅ ([Chai notation](https://github.com/chaidiscovery/chai-lab/tree/main/examples/covalent_bonds#glycans)) | ⚠️ ([as multi-CCD ligands with bonds](https://github.com/google-deepmind/alphafold3/blob/main/docs/input.md#defining-glycans)) | ❌                   | ⚠️ (single sugar only) | ✅                       | ⚠️ (as multi-CCD ligand) |
+| Ions                     | ✅ (as CCD ligand)                                                                                        | ✅ (as CCD ligand)                                                                                                             | ✅ (dedicated type)  | ✅ (as CCD ligand)     | ❌                       | ✅ (dedicated type)      |
+| Homomeric copies         | ✅ (via id list)                                                                                          | ✅ (via id list)                                                                                                               | ✅ (via count)       | ✅ (via id list)       | ❌ (separate entities)   | ✅ (via count)           |
+| **Modifications**        |                                                                                                           |                                                                                                                                |                      |                        |                          |                          |
+| Protein PTMs             | ✅                                                                                                        | ✅                                                                                                                             | ✅ (limited CCD set) | ✅                     | ✅ (inline CCD)          | ✅                       |
+| DNA modifications        | ✅                                                                                                        | ✅                                                                                                                             | ✅ (limited CCD set) | ✅                     | ✅ (inline CCD)          | ✅                       |
+| RNA modifications        | ✅                                                                                                        | ✅                                                                                                                             | ✅ (limited CCD set) | ✅                     | ✅ (inline CCD)          | ✅                       |
+| Cyclic polymers          | ✅ (Boltz-specific)                                                                                       | ❌                                                                                                                             | ❌                   | ✅                     | ❌                       | ❌                       |
+| **MSA & Templates**      |                                                                                                           |                                                                                                                                |                      |                        |                          |                          |
+| Custom MSA               | ✅ (via msa_dir)                                                                                          | ✅ (inline or path)                                                                                                            | ❌                   | ✅ (CSV or A3M)        | ✅ (via msa_directory)   | ✅ (path)                |
+| Paired MSA               | ✅                                                                                                        | ✅                                                                                                                             | ❌                   | ✅ (CSV key column)    | ✅                       | ✅                       |
+| Structural templates     | ✅                                                                                                        | ✅ (mmCIF)                                                                                                                     | ❌                   | ✅ (CIF/PDB)           | ✅ (via server)          | ✅ (A3M/HHR)             |
+| **Restraints**           |                                                                                                           |                                                                                                                                |                      |                        |                          |                          |
+| Covalent bonds           | ✅                                                                                                        | ✅                                                                                                                             | ❌                   | ✅                     | ✅                       | ✅                       |
+| Contact restraints       | ✅                                                                                                        | ❌                                                                                                                             | ❌                   | ✅                     | ✅                       | ✅                       |
+| Pocket restraints        | ✅                                                                                                        | ❌                                                                                                                             | ❌                   | ✅                     | ✅                       | ✅                       |
+| **Inference Parameters** |                                                                                                           |                                                                                                                                |                      |                        |                          |                          |
+| Random seeds             | ✅                                                                                                        | ✅                                                                                                                             | ✅ (can be empty)    | ❌ (CLI arg)           | ✅ (single seed)         | ❌ (CLI arg)             |
+| Recycling steps          | ✅                                                                                                        | ❌ (CLI arg)                                                                                                                   | ❌                   | ❌ (CLI arg)           | ✅                       | ❌ (CLI arg)             |
+| Diffusion steps          | ✅                                                                                                        | ❌ (CLI arg)                                                                                                                   | ❌                   | ❌ (CLI arg)           | ✅                       | ❌ (CLI arg)             |
+| Diffusion samples        | ✅                                                                                                        | ❌ (CLI arg)                                                                                                                   | ❌                   | ❌ (CLI arg)           | ✅                       | ❌ (CLI arg)             |
+| Affinity prediction      | ✅ (Boltz-specific)                                                                                       | ❌                                                                                                                             | ❌                   | ✅                     | ❌                       | ❌                       |
 
 Legend: ✅ = fully supported, ⚠️ = partially supported / lossy conversion, ❌ = not supported
 
@@ -59,9 +59,11 @@ uniaf3 validate INPUT_CONFIG_FILE [--format FORMAT]
 ```
 
 **Arguments:**
+
 - `INPUT_CONFIG_FILE` — Path to the config file to validate (required).
 
 **Options:**
+
 - `--format`, `-f` — Format of the input config file (default: `uniaf3`). Supported values: `uniaf3`, `alphafold3`, `alphafold3server`, `boltz`, `chai`, `protenix`.
 
 **Examples:**
@@ -88,11 +90,13 @@ uniaf3 convert INPUT_CONFIG_FILE OUTPUT_DIR [PREFIX] [--from-format FORMAT] [--t
 ```
 
 **Arguments:**
+
 - `INPUT_CONFIG_FILE` — Path to the input config file (required).
 - `OUTPUT_DIR` — Directory for the output config file(s) (required).
 - `PREFIX` — Prefix for output file name(s). Defaults to the input file name without extension.
 
 **Options:**
+
 - `--from-format`, `-f` — Source format (default: `uniaf3`).
 - `--to-format`, `-t` — Target format (default: `alphafold3`).
 
@@ -122,9 +126,9 @@ contact_restraints:   # Optional
   - # ContactRestraint entries
 pocket_restraints:   # Optional
   - # PocketRestraint entries
-seeds:
-  - 42
 aux:   # Optional, inference parameters
+  seeds:
+    - 42
   num_trunk_recycles: 3
   num_diffn_timesteps: 200
   num_diffn_samples: 5
@@ -230,6 +234,7 @@ For single sugars without bonds: `chai_str: NAG`
 ### Chain IDs
 
 Chain IDs (`id` field) serve as unique identifiers for each entity. They can be:
+
 - A single string: `id: A`
 - A list of strings for homomeric copies: `id: [A, B, C]`
 
@@ -264,6 +269,7 @@ covalent_bonds:
 ```
 
 **Notes:**
+
 - `atom_name` is required for both atoms.
 - `residue_name` is used by Chai-1 for validation and restraint formatting.
 - For ligands, `residue_idx` is typically 1 for single-CCD or SMILES ligands.
@@ -291,6 +297,7 @@ contact_restraints:
 ```
 
 **Notes:**
+
 - `max_distance` must be between 4.0 and 20.0 Å (Boltz requirement, applied universally).
 - `min_distance` is only used by Protenix.
 - AF3 and AF3 Server do **not** support contact restraints.
@@ -317,6 +324,7 @@ pocket_restraints:
 ```
 
 **Notes:**
+
 - Contact tokens must NOT be on the same chain as `binder_chain`.
 - Protenix supports only a single pocket constraint per job.
 - AF3 and AF3 Server do **not** support pocket restraints.
@@ -337,12 +345,13 @@ aux:
 
 ### Seeds
 
-The `seeds` field is a required list of integer random seeds:
+Seeds are stored in `aux.seeds` as a list of integer random seeds:
 
 ```yaml
-seeds:
-  - 42
-  - 123
+aux:
+  seeds:
+    - 42
+    - 123
 ```
 
 - AF3 uses all seeds directly.
@@ -425,11 +434,10 @@ pocket_restraints:
         atom_name: null
         residue_name: L
 
-seeds:
-  - 42
-  - 123
-
 aux:
+  seeds:
+    - 42
+    - 123
   num_trunk_recycles: 3
   num_diffn_timesteps: 200
   num_diffn_samples: 5

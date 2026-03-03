@@ -64,7 +64,7 @@ def test_from_af3_warns_on_lossy_metadata(
 
 
 def test_seeds(af3_uni: UniAF3Config, af3_conf: AF3Config):
-    assert af3_uni.seeds == af3_conf.modelSeeds == [10, 42]
+    assert af3_uni.aux.seeds == af3_conf.modelSeeds == [10, 42]
 
 
 def test_protein_fields(af3_uni: UniAF3Config, af3_conf: AF3Config):

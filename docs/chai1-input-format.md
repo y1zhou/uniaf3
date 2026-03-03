@@ -5,6 +5,7 @@
 Chai-1 ([chaidiscovery/chai-lab](https://github.com/chaidiscovery/chai-lab)) uses a multi-entity FASTA file for sequences and an optional CSV file for restraints. This makes it the most different input format among all supported models.
 
 **References:**
+
 - <https://github.com/chaidiscovery/chai-lab/blob/main/chai_lab/chai1.py>
 - <https://github.com/chaidiscovery/chai-lab/tree/main/examples/restraints/README.md>
 - <https://github.com/chaidiscovery/chai-lab/tree/main/examples/covalent_bonds/README.md>
@@ -30,13 +31,13 @@ NAG(NAG)(BMA)
 
 ### Entity Types
 
-| Type | Sequence Content | Description |
-|---|---|---|
+| Type      | Sequence Content                                       | Description                                            |
+| --------- | ------------------------------------------------------ | ------------------------------------------------------ |
 | `protein` | Amino acid sequence with optional inline modifications | Standard 1-letter codes. Modifications in parentheses. |
-| `dna` | DNA nucleotide sequence | A, T, G, C. |
-| `rna` | RNA nucleotide sequence | A, U, G, C. |
-| `ligand` | CCD code or SMILES string | Single CCD code (3 letters) or full SMILES. |
-| `glycan` | Chai glycan notation | CCD codes with bond syntax. |
+| `dna`     | DNA nucleotide sequence                                | A, T, G, C.                                            |
+| `rna`     | RNA nucleotide sequence                                | A, U, G, C.                                            |
+| `ligand`  | CCD code or SMILES string                              | Single CCD code (3 letters) or full SMILES.            |
+| `glycan`  | Chai glycan notation                                   | CCD codes with bond syntax.                            |
 
 ### Inline Modifications
 
@@ -56,18 +57,18 @@ Chai-1 assigns chain IDs alphabetically (A, B, C, ..., Z, AA, AB, ...) based on 
 
 Restraints are provided in a separate CSV file with the following columns:
 
-| Column | Type | Description |
-|---|---|---|
-| `restraint_id` | `str` | Unique identifier for the restraint. |
-| `chainA` | `str` | Chain ID of the first entity (auto-assigned A-Z order). |
-| `res_idxA` | `str \| empty` | Residue index for chain A. Format: `{residue_name}{position}[@atom_name]`. Empty for pocket binder side. |
-| `chainB` | `str` | Chain ID of the second entity. |
-| `res_idxB` | `str` | Residue index for chain B. Same format as `res_idxA`. |
-| `connection_type` | `str` | One of: `contact`, `pocket`, `covalent`. |
-| `confidence` | `float` | Confidence score (currently unused by the model). |
-| `min_distance_angstrom` | `float` | Minimum distance in Å (currently unused by the model). |
-| `max_distance_angstrom` | `float` | Maximum distance in Å. |
-| `comment` | `str` | Optional comment (not used by the model). |
+| Column                  | Type           | Description                                                                                              |
+| ----------------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
+| `restraint_id`          | `str`          | Unique identifier for the restraint.                                                                     |
+| `chainA`                | `str`          | Chain ID of the first entity (auto-assigned A-Z order).                                                  |
+| `res_idxA`              | `str \| empty` | Residue index for chain A. Format: `{residue_name}{position}[@atom_name]`. Empty for pocket binder side. |
+| `chainB`                | `str`          | Chain ID of the second entity.                                                                           |
+| `res_idxB`              | `str`          | Residue index for chain B. Same format as `res_idxA`.                                                    |
+| `connection_type`       | `str`          | One of: `contact`, `pocket`, `covalent`.                                                                 |
+| `confidence`            | `float`        | Confidence score (currently unused by the model).                                                        |
+| `min_distance_angstrom` | `float`        | Minimum distance in Å (currently unused by the model).                                                   |
+| `max_distance_angstrom` | `float`        | Maximum distance in Å.                                                                                   |
+| `comment`               | `str`          | Optional comment (not used by the model).                                                                |
 
 ### Residue Index Format
 
@@ -144,14 +145,14 @@ msa_dir/
 
 Chai-1 accepts inference parameters as function arguments to `run_inference()`:
 
-| Parameter | Default | Description |
-|---|---|---|
-| `num_trunk_recycles` | 3 | Number of recycling steps. |
-| `num_diffn_timesteps` | 200 | Number of diffusion timesteps. |
-| `num_diffn_samples` | 5 | Number of diffusion samples. |
-| `num_trunk_samples` | 1 | >1 adds to seed for multiple trunk runs. |
-| `seed` | None | Random seed. |
-| `use_esm_embeddings` | True | Whether to use ESM embeddings. |
+| Parameter             | Default | Description                              |
+| --------------------- | ------- | ---------------------------------------- |
+| `num_trunk_recycles`  | 3       | Number of recycling steps.               |
+| `num_diffn_timesteps` | 200     | Number of diffusion timesteps.           |
+| `num_diffn_samples`   | 5       | Number of diffusion samples.             |
+| `num_trunk_samples`   | 1       | >1 adds to seed for multiple trunk runs. |
+| `seed`                | None    | Random seed.                             |
+| `use_esm_embeddings`  | True    | Whether to use ESM embeddings.           |
 
 ## UniAF3 Adapter Notes
 

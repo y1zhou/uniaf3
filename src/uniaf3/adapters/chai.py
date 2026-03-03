@@ -227,7 +227,7 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
         num_diffn_timesteps=config.aux.num_diffn_timesteps,
         num_diffn_samples=config.aux.num_diffn_samples,
         num_trunk_samples=config.aux.num_trunk_samples,
-        seed=config.seeds[0] if config.seeds else None,
+        seed=config.aux.seeds[0] if config.aux.seeds else None,
     )
 
 
@@ -405,16 +405,22 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
             else:
                 continue
 
+    aux = AuxiliaryParams(
+        seeds=[config.seed] if config.seed is not None else [42],
+        num_trunk_recycles=config.num_trunk_recycles,
+        num_diffn_timesteps=config.num_diffn_timesteps,
+        num_diffn_samples=config.num_diffn_samples,
+        num_trunk_samples=config.num_trunk_samples,
+    )
+    if config.seed is None:
+        warn_lossy_conversion(
+            "ChaiConfig.seed is missing; UniAF3Config.aux.seeds defaults to [42]."
+        )
+
     return UniAF3Config(
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,
         contact_restraints=contact_restraints or None,
         pocket_restraints=list(pocket_restraints.values()) or None,
-        seeds=[config.seed] if config.seed is not None else [42],
-        aux=AuxiliaryParams(
-            num_trunk_recycles=config.num_trunk_recycles,
-            num_diffn_timesteps=config.num_diffn_timesteps,
-            num_diffn_samples=config.num_diffn_samples,
-            num_trunk_samples=config.num_trunk_samples,
-        ),
+        aux=aux,
     )

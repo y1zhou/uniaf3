@@ -23,12 +23,12 @@ The JSON is always a list of job objects, even for a single job:
 
 ### Fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | `str` | Yes | Job name. Used for output directory naming. |
-| `sequences` | `list[SequenceEntry]` | Yes | List of molecular entities. |
-| `covalent_bonds` | `list[CovalentBond]` | No | Inter-entity covalent bonds. |
-| `constraint` | `{contact, pocket}` | No | Structural constraints. |
+| Field            | Type                  | Required | Description                                 |
+| ---------------- | --------------------- | -------- | ------------------------------------------- |
+| `name`           | `str`                 | Yes      | Job name. Used for output directory naming. |
+| `sequences`      | `list[SequenceEntry]` | Yes      | List of molecular entities.                 |
+| `covalent_bonds` | `list[CovalentBond]`  | No       | Inter-entity covalent bonds.                |
+| `constraint`     | `{contact, pocket}`   | No       | Structural constraints.                     |
 
 ## Sequences
 
@@ -49,14 +49,14 @@ The JSON is always a list of job objects, even for a single job:
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `sequence` | `str` | Amino acid sequence. Standard 20 AA + X (UNK). |
-| `count` | `int` | Number of copies (default: 1). |
-| `modifications` | `list[{ptmType, ptmPosition}]` | PTMs. CCD codes are `CCD_`-prefixed. |
-| `unpairedMsaPath` | `str` | Path to unpaired MSA (.a3m). Absolute paths recommended. |
-| `pairedMsaPath` | `str` | Path to paired MSA (.a3m). |
-| `templatesPath` | `str` | Path to template file (.a3m or .hhr). |
+| Field             | Type                           | Description                                              |
+| ----------------- | ------------------------------ | -------------------------------------------------------- |
+| `sequence`        | `str`                          | Amino acid sequence. Standard 20 AA + X (UNK).           |
+| `count`           | `int`                          | Number of copies (default: 1).                           |
+| `modifications`   | `list[{ptmType, ptmPosition}]` | PTMs. CCD codes are `CCD_`-prefixed.                     |
+| `unpairedMsaPath` | `str`                          | Path to unpaired MSA (.a3m). Absolute paths recommended. |
+| `pairedMsaPath`   | `str`                          | Path to paired MSA (.a3m).                               |
+| `templatesPath`   | `str`                          | Path to template file (.a3m or .hhr).                    |
 
 ### DNA Sequence
 
@@ -96,11 +96,11 @@ The JSON is always a list of job objects, even for a single job:
 {"ligand": {"ligand": "FILE_/path/to/molecule.sdf", "count": 1}}
 ```
 
-| Prefix | Type | Description |
-|---|---|---|
-| `CCD_` | CCD code | Standard or multi-CCD ligand. Multi-CCD uses `_` separator. |
+| Prefix  | Type      | Description                                                                   |
+| ------- | --------- | ----------------------------------------------------------------------------- |
+| `CCD_`  | CCD code  | Standard or multi-CCD ligand. Multi-CCD uses `_` separator.                   |
 | `FILE_` | File path | Molecular structure file (PDB, SDF, MOL, MOL2). Must include 3D conformation. |
-| (none) | SMILES | SMILES string. |
+| (none)  | SMILES    | SMILES string.                                                                |
 
 ### Ion
 
@@ -132,12 +132,12 @@ Ion CCD codes do NOT have the `CCD_` prefix.
 ]
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `entity1` / `entity2` | `int` | 1-based entity number (order in `sequences` list). |
-| `copy1` / `copy2` | `int \| null` | 1-based copy index. Both must be set or both null. If null, bonds created between all copy pairs. |
-| `position1` / `position2` | `int` | 1-based position. For polymers: residue index. For multi-CCD ligands: CCD part index. For single CCD/SMILES/FILE ligands: always 1. |
-| `atom1` / `atom2` | `str` | Atom name (CCD naming) or atom index (for SMILES/FILE ligands). |
+| Field                     | Type          | Description                                                                                                                         |
+| ------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `entity1` / `entity2`     | `int`         | 1-based entity number (order in `sequences` list).                                                                                  |
+| `copy1` / `copy2`         | `int \| null` | 1-based copy index. Both must be set or both null. If null, bonds created between all copy pairs.                                   |
+| `position1` / `position2` | `int`         | 1-based position. For polymers: residue index. For multi-CCD ligands: CCD part index. For single CCD/SMILES/FILE ligands: always 1. |
+| `atom1` / `atom2`         | `str`         | Atom name (CCD naming) or atom index (for SMILES/FILE ligands).                                                                     |
 
 **Key difference from other formats:** Protenix uses entity/copy indexing instead of chain IDs.
 
@@ -160,12 +160,12 @@ Ion CCD codes do NOT have the `CCD_` prefix.
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `entity1/2`, `copy1/2`, `position1/2` | `int` | Same indexing as covalent bonds. Copy indices are **required** (not optional). |
-| `atom1/2` | `str \| null` | Optional. If omitted, constraint applies at token level (central atom). |
-| `max_distance` | `float` | Maximum expected distance in Å. |
-| `min_distance` | `float` | Minimum expected distance in Å (default: 0). |
+| Field                                 | Type          | Description                                                                    |
+| ------------------------------------- | ------------- | ------------------------------------------------------------------------------ |
+| `entity1/2`, `copy1/2`, `position1/2` | `int`         | Same indexing as covalent bonds. Copy indices are **required** (not optional). |
+| `atom1/2`                             | `str \| null` | Optional. If omitted, constraint applies at token level (central atom).        |
+| `max_distance`                        | `float`       | Maximum expected distance in Å.                                                |
+| `min_distance`                        | `float`       | Minimum expected distance in Å (default: 0).                                   |
 
 Constraints are **soft**: the model is encouraged but not strictly required to satisfy them.
 
@@ -183,11 +183,11 @@ Constraints are **soft**: the model is encouraged but not strictly required to s
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `binder_chain` | `{entity, copy}` | The binding chain. |
-| `contact_residues` | `list[{entity, copy, position}]` | Residues forming the binding pocket. |
-| `max_distance` | `float` | Maximum distance between binder and contacts in Å. |
+| Field              | Type                             | Description                                        |
+| ------------------ | -------------------------------- | -------------------------------------------------- |
+| `binder_chain`     | `{entity, copy}`                 | The binding chain.                                 |
+| `contact_residues` | `list[{entity, copy, position}]` | Residues forming the binding pocket.               |
+| `max_distance`     | `float`                          | Maximum distance between binder and contacts in Å. |
 
 **Note:** Only one pocket constraint is supported per job.
 

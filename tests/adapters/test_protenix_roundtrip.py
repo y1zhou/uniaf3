@@ -154,7 +154,7 @@ def test_pocket_restraint(ptx_uni: list[UniAF3Config], protenix_confs: ProtenixC
 
 def test_seeds_default(ptx_uni: list[UniAF3Config]):
     # NOTE: Protenix config does not include seeds
-    assert ptx_uni[0].seeds == [42]
+    assert ptx_uni[0].aux.seeds == [42]
 
 
 def test_warns_on_default_seed_from_protenix(protenix_confs: ProtenixConfig):
@@ -162,7 +162,11 @@ def test_warns_on_default_seed_from_protenix(protenix_confs: ProtenixConfig):
 
     with pytest.warns(UserWarning) as records:
         _ = from_protenix(protenix_confs)
-    assert any("ProtenixConfig has no seed field" in str(w.message) for w in records)
+    assert any(
+        "ProtenixConfig has no seed field; UniAF3Config.aux.seeds defaults to [42]."
+        in str(w.message)
+        for w in records
+    )
 
 
 ##########################################

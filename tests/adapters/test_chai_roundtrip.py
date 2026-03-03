@@ -114,7 +114,19 @@ def test_pocket_restraint(chai_uni: UniAF3Config, chai_conf: ChaiConfig):
 
 def test_seeds_default(chai_uni: UniAF3Config):
     # NOTE: Chai seed=None → default [42]
-    assert chai_uni.seeds == [42]
+    assert chai_uni.aux.seeds == [42]
+
+
+def test_warns_on_missing_seed(chai_conf: ChaiConfig):
+    from uniaf3.adapters import from_chai
+
+    with pytest.warns(UserWarning) as records:
+        _ = from_chai(chai_conf)
+    assert any(
+        "ChaiConfig.seed is missing; UniAF3Config.aux.seeds defaults to [42]."
+        in str(w.message)
+        for w in records
+    )
 
 
 def test_no_pocket_restraints_returns_none():
@@ -140,6 +152,7 @@ def test_no_pocket_restraints_returns_none():
                 sequence="GKVGAHAG",
             ),
         ],
+        seed=1,
         restraints=[
             ChaiRestraint(
                 restraint_id="r0",

@@ -59,10 +59,10 @@ pocket_restraints:
         atom_name: null
         residue_name: L
 
-seeds:
-  - 42
-  - 123
 aux:
+  seeds:
+    - 42
+    - 123
   num_trunk_recycles: 3
   num_diffn_timesteps: 200
   num_diffn_samples: 5

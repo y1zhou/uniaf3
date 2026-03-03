@@ -21,7 +21,7 @@ def test_job_metadata(uniaf3_conf: UniAF3Config, af3s: AF3ServerConfig):
     job = af3s[0]
     assert job.name == "test"
     assert job.dialect == "alphafoldserver"
-    assert job.modelSeeds == uniaf3_conf.seeds
+    assert job.modelSeeds == uniaf3_conf.aux.seeds
 
 
 def test_warns_on_chain_id_loss(uniaf3_conf: UniAF3Config):

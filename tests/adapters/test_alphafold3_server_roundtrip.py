@@ -103,7 +103,11 @@ def test_warns_on_default_seed_from_af3_server(af3_server_confs: AF3ServerConfig
 
     with pytest.warns(UserWarning) as records:
         _ = from_alphafold3_server(af3_server_confs)
-    assert any("AF3ServerJob.modelSeeds is empty" in str(w.message) for w in records)
+    assert any(
+        "AF3ServerJob.modelSeeds is empty; UniAF3Config.aux.seeds defaults to [42]."
+        in str(w.message)
+        for w in records
+    )
 
 
 def test_dna_modifications(
@@ -168,7 +172,7 @@ def test_ion_as_ligand(af3s_uni: list[UniAF3Config], af3_server_confs: AF3Server
 
 def test_seeds_from_job(af3s_uni: list[UniAF3Config]):
     # AF3 server fixture has empty modelSeeds → default [42]
-    assert af3s_uni[0].seeds == [42]
+    assert af3s_uni[0].aux.seeds == [42]
 
 
 ##########################################

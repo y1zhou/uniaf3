@@ -10,6 +10,7 @@ import orjson
 import yaml
 from pydantic import (
     BaseModel,
+    Field,
     NonNegativeFloat,
     NonNegativeInt,
     PositiveInt,
@@ -178,8 +179,8 @@ class PolymerType(StrEnum):
 class Polymer(BaseModel):
     """Base schema for polymers (protein, DNA, and RNA)."""
 
-    polymer_type: PolymerType
     id: str | list[str]  # A, B, ..., Z, AA, BA, CA, ..., ZA, AB, BB, CB, ..., ZB, ...
+    polymer_type: PolymerType
     sequence: str
     modifications: list[SequenceModification] | None = None
     description: str | None = None  # comment describing the chain
@@ -420,6 +421,7 @@ class AuxiliaryParams(BaseModel):
     # Model-specific settings
     name: str | None = None  # optional name for the config, used in AF3 server
     boltz_affinity_binder_chain: str | None = None
+    seeds: list[int] = Field(default_factory=lambda: [42])
 
 
 class UniAF3Config(UniAF3BaseConfig):
@@ -430,7 +432,6 @@ class UniAF3Config(UniAF3BaseConfig):
     covalent_bonds: list[CovalentBond] | None = None
     contact_restraints: list[ContactRestraint] | None = None
     pocket_restraints: list[PocketRestraint] | None = None
-    seeds: list[int]
 
     # Inference parameters and model-specific settings
     aux: AuxiliaryParams = AuxiliaryParams()

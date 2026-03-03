@@ -32,13 +32,13 @@ The top-level is always a JSON array of job objects:
 
 ### Fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | `str` | Yes | Job name. |
-| `modelSeeds` | `list[int]` | Yes | Random seeds. Can be empty (a seed will be generated). |
-| `sequences` | `list[SequenceEntry]` | Yes | List of entities. |
-| `dialect` | `"alphafoldserver"` | Yes | Must be `"alphafoldserver"`. |
-| `version` | `1` | Yes | Must be `1`. |
+| Field        | Type                  | Required | Description                                            |
+| ------------ | --------------------- | -------- | ------------------------------------------------------ |
+| `name`       | `str`                 | Yes      | Job name.                                              |
+| `modelSeeds` | `list[int]`           | Yes      | Random seeds. Can be empty (a seed will be generated). |
+| `sequences`  | `list[SequenceEntry]` | Yes      | List of entities.                                      |
+| `dialect`    | `"alphafoldserver"`   | Yes      | Must be `"alphafoldserver"`.                           |
+| `version`    | `1`                   | Yes      | Must be `1`.                                           |
 
 ## Sequences
 
@@ -63,14 +63,14 @@ Each entry must contain exactly one of: `proteinChain`, `dnaSequence`, `rnaSeque
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `sequence` | `str` | Amino acid sequence (20 standard AA codes only). |
-| `count` | `int` | Number of homomeric copies (default: 1). |
-| `glycans` | `list[{residues, position}]` | Glycan attachments using Chai notation + 1-based position. |
-| `modifications` | `list[{ptmType, ptmPosition}]` | PTMs with `CCD_`-prefixed CCD codes. Limited to a known set. |
-| `useStructureTemplate` | `bool` | Whether to use PDB templates (default: true). |
-| `maxTemplateDate` | `date` | Upper date limit for PDB templates (1976-01-01 to 2025-02-03). |
+| Field                  | Type                           | Description                                                    |
+| ---------------------- | ------------------------------ | -------------------------------------------------------------- |
+| `sequence`             | `str`                          | Amino acid sequence (20 standard AA codes only).               |
+| `count`                | `int`                          | Number of homomeric copies (default: 1).                       |
+| `glycans`              | `list[{residues, position}]`   | Glycan attachments using Chai notation + 1-based position.     |
+| `modifications`        | `list[{ptmType, ptmPosition}]` | PTMs with `CCD_`-prefixed CCD codes. Limited to a known set.   |
+| `useStructureTemplate` | `bool`                         | Whether to use PDB templates (default: true).                  |
+| `maxTemplateDate`      | `date`                         | Upper date limit for PDB templates (1976-01-01 to 2025-02-03). |
 
 **Supported PTM CCD Codes:**
 `CCD_SEP`, `CCD_TPO`, `CCD_PTR`, `CCD_NEP`, `CCD_HIP`, `CCD_ALY`, `CCD_MLY`, `CCD_M3L`, `CCD_MLZ`, `CCD_2MR`, `CCD_AGM`, `CCD_MCS`, `CCD_HYP`, `CCD_HY3`, `CCD_LYZ`, `CCD_AHB`, `CCD_P1L`, `CCD_SNN`, `CCD_SNC`, `CCD_TRF`, `CCD_KCR`, `CCD_CIR`, `CCD_YHA`
@@ -152,16 +152,16 @@ Note: Ion CCD codes do NOT have the `CCD_` prefix.
 
 ### UniAF3 → AF3 Server
 
-| UniAF3 Feature | AF3 Server Mapping | Notes |
-|---|---|---|
-| `ProteinSeq` / `Polymer(protein)` | `proteinChain` | `count` derived from `len(ids)`. MSA/templates dropped. |
-| `Polymer(dna)` | `dnaSequence` | Modifications prefixed with `CCD_`. |
-| `Polymer(rna)` | `rnaSequence` | Modifications prefixed with `CCD_`. |
-| `Ligand` (known ion CCD) | `ion` entry | Auto-detected from `KNOWN_ION_CCD_CODES`. |
-| `Ligand` (known ligand CCD) | `ligand` entry | Only supported CCD codes accepted. |
-| `Ligand` (SMILES) | **Dropped** | Not supported. |
-| `Glycan` | **Dropped** | Standalone glycans not supported. |
-| All restraints | **Dropped** | Not supported. |
+| UniAF3 Feature                    | AF3 Server Mapping | Notes                                                   |
+| --------------------------------- | ------------------ | ------------------------------------------------------- |
+| `ProteinSeq` / `Polymer(protein)` | `proteinChain`     | `count` derived from `len(ids)`. MSA/templates dropped. |
+| `Polymer(dna)`                    | `dnaSequence`      | Modifications prefixed with `CCD_`.                     |
+| `Polymer(rna)`                    | `rnaSequence`      | Modifications prefixed with `CCD_`.                     |
+| `Ligand` (known ion CCD)          | `ion` entry        | Auto-detected from `KNOWN_ION_CCD_CODES`.               |
+| `Ligand` (known ligand CCD)       | `ligand` entry     | Only supported CCD codes accepted.                      |
+| `Ligand` (SMILES)                 | **Dropped**        | Not supported.                                          |
+| `Glycan`                          | **Dropped**        | Standalone glycans not supported.                       |
+| All restraints                    | **Dropped**        | Not supported.                                          |
 
 ### AF3 Server → UniAF3
 

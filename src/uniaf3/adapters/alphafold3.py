@@ -22,6 +22,7 @@ from uniaf3.schema.alphafold3 import (
 )
 from uniaf3.schema.base import (
     Atom,
+    AuxiliaryParams,
     CovalentBond,
     Glycan,
     Ligand,
@@ -201,7 +202,7 @@ def to_alphafold3(
 
     return AF3Config(
         name=name,
-        modelSeeds=config.seeds,
+        modelSeeds=config.aux.seeds,
         sequences=sequences,
         bondedAtomPairs=bonded_atom_pairs or None,
     )
@@ -361,5 +362,5 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
     return UniAF3Config(
         sequences=sequences,
         covalent_bonds=covalent_bonds or None,
-        seeds=config.modelSeeds,
+        aux=AuxiliaryParams(seeds=config.modelSeeds),
     )

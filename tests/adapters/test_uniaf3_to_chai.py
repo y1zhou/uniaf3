@@ -128,4 +128,4 @@ def test_inference_params(uniaf3_conf: UniAF3Config, chai: ChaiConfig):
 
 def test_seed(uniaf3_conf: UniAF3Config, chai: ChaiConfig):
     # Only first seed is taken
-    assert chai.seed == uniaf3_conf.seeds[0]
+    assert chai.seed == uniaf3_conf.aux.seeds[0]

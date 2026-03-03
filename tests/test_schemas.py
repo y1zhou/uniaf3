@@ -345,7 +345,7 @@ class TestUniAF3Schema:
 
     def test_load_data(self, uniaf3_conf: UniAF3Config):
         assert len(uniaf3_conf.sequences) == 5
-        assert uniaf3_conf.seeds == [42, 123]
+        assert uniaf3_conf.aux.seeds == [42, 123]
 
     def test_yaml_str(self, uniaf3_conf: UniAF3Config):
         y = uniaf3_conf.to_yaml()
