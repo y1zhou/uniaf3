@@ -17,7 +17,7 @@ def warn_conversion(msg: str):
 
 def warn_lossy_conversion(msg: str):
     """Emit a warning for lossy conversion behavior."""
-    warn_conversion(msg)
+    warn_conversion(f"Lossy conversion: {msg}")
 
 
 def err_unsupported_feature(strict: bool, msg: str):
@@ -25,4 +25,4 @@ def err_unsupported_feature(strict: bool, msg: str):
     if strict:
         raise ValueError(msg)
     else:
-        warn_conversion(msg)
+        warn_conversion(f"Skipping unsupported feature: {msg}")
