@@ -53,7 +53,7 @@ class UniAF3BaseConfig(BaseModel):
                 kwargs[default_arg] = True
 
         return yaml.safe_dump(
-            self.model_dump(**kwargs),
+            self.model_dump(by_alias=True, **kwargs),
             sort_keys=False,
             default_flow_style=None,
             width=80,
@@ -71,7 +71,7 @@ class UniAF3BaseConfig(BaseModel):
                 kwargs[default_arg] = True
 
         return orjson.dumps(
-            self.model_dump(**kwargs), option=orjson.OPT_INDENT_2
+            self.model_dump(by_alias=True, **kwargs), option=orjson.OPT_INDENT_2
         ).decode("utf-8")
 
     def to_str(self, **kwargs) -> str:
