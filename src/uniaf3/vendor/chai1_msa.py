@@ -14,21 +14,16 @@ chai_lab/data/parsing/templates/m8.py
 # Copyright (c) 2024 Chai Discovery, Inc.
 import logging
 import os
-import random
-import tarfile
 import tempfile
-import time
-import typing
 from enum import Enum
 from pathlib import Path
 
 import polars as pl
-import requests
-from tqdm import tqdm
 
 # from chai_lab.data.parsing.fasta import Fasta, read_fasta
 from uniaf3.schema.base import hash_sequence
 from uniaf3.vendor.chai1_fasta import Fasta, read_fasta
+from uniaf3.vendor.colabfold_msa import run_mmseqs2
 
 logger = logging.getLogger(__name__)
 
@@ -119,268 +114,6 @@ def parse_m8_file(fname: Path) -> pl.DataFrame:
     return table
 
 
-# N.B. this function (and this function only) is copied from https://github.com/sokrypton/ColabFold
-# and follows the license in that repository
-# We have made modifications to how templates are returned from this function.
-@typing.no_type_check  # Original ColabFold code was not well typed
-def _run_mmseqs2(
-    x,
-    prefix,
-    use_env=True,
-    use_filter=True,
-    use_templates=False,
-    filter=None,
-    use_pairing=False,
-    pairing_strategy="greedy",
-    host_url="https://api.colabfold.com",
-    user_agent: str = "",
-) -> tuple[list[str], str | None]:
-    """Return a block of a3m lines and optionally template hits for each of the input sequences in x."""
-    submission_endpoint = "ticket/pair" if use_pairing else "ticket/msa"
-
-    headers = {}
-    if user_agent != "":
-        headers["User-Agent"] = user_agent
-    else:
-        logger.warning(
-            "No user agent specified. Please set a user agent (e.g., 'toolname/version contact@email') to help us debug in case of problems. This warning will become an error in the future."
-        )
-
-    def submit(seqs, mode, N=101):
-        n, query = N, ""
-        for seq in seqs:
-            query += f">{n}\n{seq}\n"
-            n += 1
-
-        while True:
-            error_count = 0
-            try:
-                # https://requests.readthedocs.io/en/latest/user/advanced/#advanced
-                # "good practice to set connect timeouts to slightly larger than a multiple of 3"
-                res = requests.post(
-                    f"{host_url}/{submission_endpoint}",
-                    data={"q": query, "mode": mode},
-                    timeout=6.02,
-                    headers=headers,
-                )
-            except requests.exceptions.Timeout:
-                logger.warning("Timeout while submitting to MSA server. Retrying...")
-                continue
-            except Exception as e:
-                error_count += 1
-                logger.warning(
-                    f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
-                )
-                logger.warning(f"Error: {e}")
-                time.sleep(5)
-                if error_count > 5:
-                    raise
-                continue
-            break
-
-        try:
-            out = res.json()
-        except ValueError:
-            logger.error(f"Server didn't reply with json: {res.text}")
-            out = {"status": "ERROR"}
-        return out
-
-    def status(ID):
-        while True:
-            error_count = 0
-            try:
-                res = requests.get(
-                    f"{host_url}/ticket/{ID}", timeout=6.02, headers=headers
-                )
-            except requests.exceptions.Timeout:
-                logger.warning(
-                    "Timeout while fetching status from MSA server. Retrying..."
-                )
-                continue
-            except Exception as e:
-                error_count += 1
-                logger.warning(
-                    f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
-                )
-                logger.warning(f"Error: {e}")
-                time.sleep(5)
-                if error_count > 5:
-                    raise
-                continue
-            break
-        try:
-            out = res.json()
-        except ValueError:
-            logger.error(f"Server didn't reply with json: {res.text}")
-            out = {"status": "ERROR"}
-        return out
-
-    def download(ID, path):
-        error_count = 0
-        while True:
-            try:
-                res = requests.get(
-                    f"{host_url}/result/download/{ID}", timeout=6.02, headers=headers
-                )
-            except requests.exceptions.Timeout:
-                logger.warning(
-                    "Timeout while fetching result from MSA server. Retrying..."
-                )
-                continue
-            except Exception as e:
-                error_count += 1
-                logger.warning(
-                    f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
-                )
-                logger.warning(f"Error: {e}")
-                time.sleep(5)
-                if error_count > 5:
-                    raise
-                continue
-            break
-        with open(path, "wb") as out:
-            out.write(res.content)
-
-    # process input x
-    seqs = [x] if isinstance(x, str) else x
-
-    # compatibility to old option
-    if filter is not None:
-        use_filter = filter
-
-    # setup mode
-    if use_filter:
-        mode = "env" if use_env else "all"
-    else:
-        mode = "env-nofilter" if use_env else "nofilter"
-
-    if use_pairing:
-        use_templates = False
-        mode = ""
-        # greedy is default, complete was the previous behavior
-        if pairing_strategy == "greedy":
-            mode = "pairgreedy"
-        elif pairing_strategy == "complete":
-            mode = "paircomplete"
-        if use_env:
-            mode = mode + "-env"
-
-    # define path
-    path = f"{prefix}_{mode}"
-    if not os.path.isdir(path):
-        os.mkdir(path)
-
-    # call mmseqs2 api
-    tar_gz_file = f"{path}/out.tar.gz"
-    N, REDO = 101, True
-
-    # deduplicate and keep track of order
-    seqs_unique = []
-    # TODO this might be slow for large sets
-    [seqs_unique.append(x) for x in seqs if x not in seqs_unique]
-    Ms = [N + seqs_unique.index(seq) for seq in seqs]
-    # lets do it!
-    if not os.path.isfile(tar_gz_file):
-        TIME_ESTIMATE = 150 * len(seqs_unique)
-        with tqdm(total=TIME_ESTIMATE, bar_format=TQDM_BAR_FORMAT) as pbar:
-            while REDO:
-                pbar.set_description("SUBMIT")
-
-                # Resubmit job until it goes through
-                out = submit(seqs_unique, mode, N)
-                while out["status"] in ["UNKNOWN", "RATELIMIT"]:
-                    sleep_time = 5 + random.randint(0, 5)  # noqa: S311
-                    logger.info(f"Sleeping for {sleep_time}s. Reason: {out['status']}")
-                    # resubmit
-                    time.sleep(sleep_time)
-                    out = submit(seqs_unique, mode, N)
-
-                if out["status"] == "ERROR":
-                    raise Exception(
-                        "MMseqs2 API is giving errors. Please confirm your input is a valid protein sequence. If error persists, please try again an hour later."
-                    )
-
-                if out["status"] == "MAINTENANCE":
-                    raise Exception(
-                        "MMseqs2 API is undergoing maintenance. Please try again in a few minutes."
-                    )
-
-                # wait for job to finish
-                ID, TIME = out["id"], 0
-                pbar.set_description(out["status"])
-                while out["status"] in ["UNKNOWN", "RUNNING", "PENDING"]:
-                    t = 5 + random.randint(0, 5)  # noqa: S311
-                    logger.info(f"Sleeping for {t}s. Reason: {out['status']}")
-                    time.sleep(t)
-                    out = status(ID)
-                    pbar.set_description(out["status"])
-                    if out["status"] == "RUNNING":
-                        TIME += t
-                        pbar.update(n=t)
-                    # if TIME > 900 and out["status"] != "COMPLETE":
-                    #  # something failed on the server side, need to resubmit
-                    #  N += 1
-                    #  break
-
-                if out["status"] == "COMPLETE":
-                    if TIME < TIME_ESTIMATE:
-                        pbar.update(n=(TIME_ESTIMATE - TIME))
-                    REDO = False
-
-                if out["status"] == "ERROR":
-                    REDO = False
-                    raise Exception(
-                        "MMseqs2 API is giving errors. Please confirm your input is a valid protein sequence. If error persists, please try again an hour later."
-                    )
-
-            # Download results
-            download(ID, tar_gz_file)
-
-    # prep list of a3m files
-    if use_pairing:
-        a3m_files = [f"{path}/pair.a3m"]
-    else:
-        a3m_files = [f"{path}/uniref.a3m"]
-        if use_env:
-            a3m_files.append(f"{path}/bfd.mgnify30.metaeuk30.smag30.a3m")
-
-    # extract a3m files
-    if any(not os.path.isfile(a3m_file) for a3m_file in a3m_files):
-        with tarfile.open(tar_gz_file) as tar_gz:
-            tar_gz.extractall(path)  # noqa: S202
-
-    # templates
-    template_path: str | None = None
-    if use_templates:
-        # print("seq\tpdb\tcid\tevalue")
-        # NOTE this section has been significantly reduced to enable Chai-1 to take m8 files
-        # as a common input format, while also reducing how much we ping the server.
-        template_path = os.path.join(path, "pdb70.m8")
-        if not os.path.isfile(template_path):
-            raise FileNotFoundError(
-                f"Expected template hits file not found at {template_path}."
-            )
-
-    # gather a3m lines
-    a3m_lines = {}
-    for a3m_file in a3m_files:
-        update_M, M = True, None
-        for line in open(a3m_file):
-            if len(line) > 0:
-                if "\x00" in line:
-                    line = line.replace("\x00", "")
-                    update_M = True
-                if line.startswith(">") and update_M:
-                    M = int(line[1:].rstrip())
-                    update_M = False
-                    if M not in a3m_lines:
-                        a3m_lines[M] = []
-                a3m_lines[M].append(line)
-
-    a3m_lines = ["".join(a3m_lines[n]) for n in Ms]
-    return a3m_lines, template_path
-
-
 def _is_padding_msa_row(sequence: str) -> bool:
     """Check if the given MSA sequence is a a padding sequence."""
     seq_chars = set(sequence)
@@ -439,7 +172,7 @@ def generate_colabfold_msas(
         # as the i-th index of the sequence so long as it isn't a padding sequence (all -)
         paired_msas: list[str]
         if len(protein_seqs) > 1:
-            paired_msas, _ = _run_mmseqs2(
+            paired_msas, _ = run_mmseqs2(
                 protein_seqs,
                 mmseqs_paired_dir,
                 use_pairing=True,
@@ -453,7 +186,7 @@ def generate_colabfold_msas(
 
         # MSAs without pairing logic attached; may include sequences not contained in the paired MSA
         # Needs a second call as the colabfold server returns either paired or unpaired, not both
-        per_chain_msas, template_hits_file = _run_mmseqs2(
+        per_chain_msas, template_hits_file = run_mmseqs2(
             protein_seqs,
             mmseqs_dir,
             use_pairing=False,
