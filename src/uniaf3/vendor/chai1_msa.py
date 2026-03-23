@@ -19,7 +19,7 @@ from pathlib import Path
 
 import polars as pl
 
-# from chai_lab.data.parsing.fasta import Fasta, read_fasta
+from uniaf3.msa import parse_m8_file
 from uniaf3.utils import hash_sequence
 from uniaf3.vendor.chai1_fasta import Fasta, read_fasta
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
@@ -78,39 +78,6 @@ class MSADataSource(Enum):
             MSADataSource.UNIREF90,
             MSADataSource.UNIPROT,
         ]
-
-
-# from chai_lab.data.parsing.templates.m8 import parse_m8_file
-def parse_m8_file(fname: Path) -> pl.DataFrame:
-    """Parse the m8 alignment format describing template information."""
-    table = (
-        pl.read_csv(
-            fname,
-            separator="\t",
-            has_header=False,
-            columns=[
-                "query_id",
-                "subject_id",
-                "pident",
-                "length",
-                "mismatch",
-                "gapopen",
-                "query_start",
-                "query_end",
-                "subject_start",
-                "subject_end",
-                "evalue",
-                "bitscore",
-                "comment",
-            ],
-        )
-        .sort(by=["query_id", "evalue"])
-        .with_columns(
-            pl.col(c).cast(pl.Int64)
-            for c in ("query_start", "query_end", "subject_start", "subject_end")
-        )
-    )
-    return table
 
 
 def _is_padding_msa_row(sequence: str) -> bool:

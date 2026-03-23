@@ -15,6 +15,7 @@ class Fasta(NamedTuple):
     sequence: str
 
 
+# from chai_lab.data.parsing.fasta import Fasta, read_fasta
 def read_fasta(file_path: str | Path) -> list[Fasta]:
     """Read a FASTA file and return a list of Fasta named tuples."""
     sequences = []
