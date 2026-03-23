@@ -23,7 +23,7 @@ class ColabFoldResponse(BaseModel):
     seq_hashes: list[str]  # sha256(seq1), sha256(seq2), ...
     query_ids: list[int]  # ColabFold query IDs, starting from 101
     single_msas: list[Path]
-    paired_msas: list[Path]
+    paired_msas: list[Path] | None
     templates_m8_file: Path | None = None
     templates_df: pl.DataFrame | None = None
 
@@ -31,16 +31,27 @@ class ColabFoldResponse(BaseModel):
     def check_list_lengths(self):
         """Validate that the lengths of fields are the same."""
         n = len(self.protein_seqs)
-        if not (
-            len(self.seq_hashes)
-            == len(self.query_ids)
-            == len(self.single_msas)
-            == len(self.paired_msas)
-            == n
-        ):
+        if len(self.seq_hashes) != n:
             raise ValueError(
-                "The lengths of protein_seqs, seq_hashes, query_ids, single_msas, and paired_msas must be the same."
+                f"Length of seq_hashes ({len(self.seq_hashes)}) does not match length of protein_seqs ({n})."
             )
+        if len(self.query_ids) != n:
+            raise ValueError(
+                f"Length of query_ids ({len(self.query_ids)}) does not match length of protein_seqs ({n})."
+            )
+        if len(self.single_msas) != n:
+            raise ValueError(
+                f"Length of single_msas ({len(self.single_msas)}) does not match length of protein_seqs ({n})."
+            )
+        if n > 1:
+            if self.paired_msas is None:
+                raise ValueError(
+                    "paired_msas cannot be None when there are multiple protein sequences."
+                )
+            if len(self.paired_msas) != n:
+                raise ValueError(
+                    f"Length of paired_msas ({len(self.paired_msas)}) does not match length of protein_seqs ({n})."
+                )
         return self
 
     def __getitem__(self, protein_seq: str) -> dict[str, int | str | Path | None]:
@@ -50,7 +61,9 @@ class ColabFoldResponse(BaseModel):
             "seq_hash": self.seq_hashes[idx],
             "query_id": self.query_ids[idx],
             "single_msa": self.single_msas[idx],
-            "paired_msa": self.paired_msas[idx],
+            "paired_msa": self.paired_msas[idx]
+            if self.paired_msas is not None
+            else None,
         }
 
 
@@ -114,7 +127,16 @@ def query_colabfold(
     a3ms_dir = msa_dir / "a3ms"
     a3ms_dir.mkdir(exist_ok=True)
 
+    # Expected output files to be cached
     seq_hashes = [hash_sequence(s.upper()) for s in seqs_unique]
+    num_seqs = len(seqs_unique)
+
+    single_a3m_files = [a3ms_dir / f"{seq_hash}.single.a3m" for seq_hash in seq_hashes]
+    paired_a3m_files = (
+        [a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes]
+        if num_seqs > 1
+        else []
+    )
     expected_tmpl_m8_file = msa_dir / "pdb70.m8"
 
     # Query ColabFold API if cached results do not exist
@@ -129,11 +151,8 @@ def query_colabfold(
         # Run paired MSA search
         # In paired mode, mmseqs2 returns paired a3ms where all a3ms have the same number of rows
         # and each row is already paired to have the same species.
-        num_seqs = len(seqs_unique)
+
         if num_seqs > 1:
-            paired_a3m_files = [
-                a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes
-            ]
             if force or not all(p.exists() for p in paired_a3m_files):
                 paired_msas, _ = run_mmseqs2(
                     x=seqs_unique,
@@ -150,10 +169,6 @@ def query_colabfold(
             paired_msas = [""] * num_seqs
 
         # Run MSA search without pairing to get more hits for each chain
-        single_a3m_files = [
-            a3ms_dir / f"{seq_hash}.single.a3m" for seq_hash in seq_hashes
-        ]
-
         if (
             force
             or not all(p.exists() for p in single_a3m_files)
@@ -235,7 +250,7 @@ def query_colabfold(
             )
         )
         templates_df = all_templates.join(
-            template_pdb_ids, on="pdb_id", maintain_order="left"
+            template_pdb_ids, on="subject_pdb_id", maintain_order="left"
         )
 
     return ColabFoldResponse(
@@ -244,8 +259,8 @@ def query_colabfold(
         protein_seqs=seqs_unique,
         seq_hashes=seq_hashes,
         query_ids=query_indices,
-        single_msas=[a3ms_dir / f"{seq_hash}.single.a3m" for seq_hash in seq_hashes],
-        paired_msas=[a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes],
+        single_msas=single_a3m_files,
+        paired_msas=paired_a3m_files if num_seqs > 1 else None,
         templates_m8_file=expected_tmpl_m8_file if search_templates else None,
         templates_df=templates_df,
     )

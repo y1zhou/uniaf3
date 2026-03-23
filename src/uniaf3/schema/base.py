@@ -204,6 +204,8 @@ class ProteinSeq(Polymer):
     """Schema for individual protein sequences."""
 
     msa_dir: str | None = None
+    unpaired_msa_path: str | None = None
+    paired_msa_path: str | None = None
     templates: list[StructuralTemplate] | None = None
 
     @computed_field
@@ -213,6 +215,8 @@ class ProteinSeq(Polymer):
 
         The filename assumption comes from Chai-1 MSA search methods.
         """
+        if self.unpaired_msa_path is not None:
+            return self.unpaired_msa_path
         if self.msa_dir is None:
             return None
 
@@ -233,6 +237,8 @@ class ProteinSeq(Polymer):
 
         The filename assumption comes from Chai-1 MSA search methods.
         """
+        if self.paired_msa_path is not None:
+            return self.paired_msa_path
         if self.msa_dir is None:
             return None
 
@@ -610,6 +616,9 @@ class UniAF3Config(UniAF3BaseConfig):
                 continue
 
             seq.msa_dir = str(out_path)
+            seq_msa_res = msa_data[seq.sequence]
+            seq.unpaired_msa_path = seq_msa_res["single_msa"]
+            seq.paired_msa_path = seq_msa_res["paired_msa"]
 
             custom_templates = seq.templates or []
             if seq.seq_hash in template_map:
