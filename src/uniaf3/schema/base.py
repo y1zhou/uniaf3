@@ -579,7 +579,8 @@ class UniAF3Config(UniAF3BaseConfig):
 
         # TODO: make dummy m8 file when search_templates is False and custom templates are provided
         # As of 2026-03, AF3, Boltz, and Chai-1 support custom local templates.
-        # AF3-server searches MSA and templates online.
+        # Chai-1 requires the templates to be passed in via a handmade m8 file.
+        # AF3-server searches MSA and templates online, and no local files can be fed.
         # Protenix only supports automatically searched templates via the a3m/hhr files.
         template_map: dict[str, list[StructuralTemplate]] = {}
         templates_df: DataFrame | None = msa_data.templates_df
