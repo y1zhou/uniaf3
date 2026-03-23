@@ -6,7 +6,7 @@ from pathlib import Path
 
 import polars as pl
 from platformdirs import PlatformDirs
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from uniaf3.utils import download_files, hash_sequence
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
@@ -14,6 +14,8 @@ from uniaf3.vendor.colabfold_msa import run_mmseqs2
 
 class ColabFoldResponse(BaseModel):
     """Response from ColabFold API."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     query_key: str  # sha256(seq1|seq2|...)
     msa_dir: Path  # directory containing MSA files and template hits
@@ -23,6 +25,7 @@ class ColabFoldResponse(BaseModel):
     single_msas: list[Path]
     paired_msas: list[Path]
     templates_m8_file: Path | None = None
+    templates_df: pl.DataFrame | None = None
 
     @model_validator(mode="after")
     def check_list_lengths(self):
@@ -55,7 +58,7 @@ def query_colabfold(
     seqs: list[str],
     msa_cache_dir: str | Path | None = None,
     search_templates: bool = False,
-    download_templates: bool = False,
+    download_num_templates_per_seq: int = 0,
     template_cache_dir: Path | None = None,
     force: bool = False,
     **kwargs,
@@ -71,8 +74,10 @@ def query_colabfold(
         msa_cache_dir: Directory to cache MSA files. Defaults to
             ``$XDG_CACHE_HOME/uniaf3/colabfold_msas/``.
         search_templates: Whether to search for templates.
-        download_templates: Whether to download template files. If True,
-            asymmetric unit mmCIF files will be fetched from RCSB.
+        download_num_templates_per_seq: Number of template files to fetch per sequence.
+            If greater than 0, asymmetric unit mmCIF files will be fetched from RCSB.
+            If smaller than 0, all templates in the API-returned m8 file will be fetched.
+            Defaults to 0, i.e. no template files will be fetched.
         template_cache_dir: Directory to cache template hits. Defaults to
             ``$XDG_CACHE_HOME/uniaf3/rcsb/``.
         force: Whether to ignore cache and re-query the server.
@@ -173,7 +178,8 @@ def query_colabfold(
     # Cache mmCIF files for templates (some models can use local files)
     # Note that we always go for asymmetric unit files, as biological assemblies can
     # miss chains that are present in the m8 file.
-    if download_templates:
+    templates_df = None
+    if download_num_templates_per_seq != 0:
         if template_cache_dir is None:
             template_cache_dir = PlatformDirs("uniaf3").user_cache_path / "rcsb"
         template_cache_dir = Path(template_cache_dir).expanduser().resolve()
@@ -183,29 +189,43 @@ def query_colabfold(
                 f"Expected template hits file not found at {expected_tmpl_m8_file}."
             )
         all_templates = parse_m8_file(expected_tmpl_m8_file)
+
+        # Models cannot fit too many templates into GPU memory anyways, so it makes
+        # sense to only download a few templates per query sequence
+        if download_num_templates_per_seq > 0:
+            all_templates = all_templates.group_by(
+                "query_id", maintain_order=True
+            ).head(download_num_templates_per_seq)
+
+        all_templates = all_templates.with_columns(
+            pl.col("subject_id")
+            .str.split("_")
+            .list.first()
+            .str.to_uppercase()
+            .alias("subject_pdb_id")
+        )
         template_pdb_ids = (
-            all_templates.select(
-                pl.col("subject_id")
-                .str.split("_")
-                .list.first()
-                .str.to_uppercase()
-                .alias("pdb_id")
-            )
+            all_templates.select("subject_pdb_id")
             .unique()
             .with_columns(
                 pl.concat_str(
                     pl.lit("https://files.rcsb.org/download/"),
-                    pl.col("pdb_id"),
+                    pl.col("subject_pdb_id"),
                     pl.lit(".cif.gz"),  # -assembly1.cif.gz for biological assembly
-                ).alias("cif_url")
+                ).alias("cif_url"),
+                pl.concat_str(
+                    pl.lit(f"{template_cache_dir}/"),
+                    pl.col("subject_pdb_id").str.slice(offset=-3, length=2),
+                    pl.lit("/"),
+                    pl.col("subject_pdb_id"),
+                    pl.lit(".cif.gz"),
+                ).alias("local_cif_path"),
             )
         )
         asyncio.run(
             download_files(
                 {
-                    r["cif_url"]: template_cache_dir
-                    / r["pdb_id"][-3:-1]
-                    / f"{r['pdb_id']}.cif.gz"
+                    r["cif_url"]: Path(r["local_cif_path"])
                     for r in template_pdb_ids.iter_rows(named=True)
                 },
                 force=force,
@@ -213,6 +233,9 @@ def query_colabfold(
                 num_retries=3,
                 progress_bar_desc="Downloading templates from RCSB",
             )
+        )
+        templates_df = all_templates.join(
+            template_pdb_ids, on="pdb_id", maintain_order="left"
         )
 
     return ColabFoldResponse(
@@ -224,6 +247,7 @@ def query_colabfold(
         single_msas=[a3ms_dir / f"{seq_hash}.single.a3m" for seq_hash in seq_hashes],
         paired_msas=[a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes],
         templates_m8_file=expected_tmpl_m8_file if search_templates else None,
+        templates_df=templates_df,
     )
 
 

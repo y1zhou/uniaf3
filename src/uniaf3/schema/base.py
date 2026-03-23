@@ -7,6 +7,8 @@ from typing import TypeVar
 
 import orjson
 import yaml
+from platformdirs import PlatformDirs
+from polars.dataframe.frame import DataFrame
 from pydantic import (
     BaseModel,
     Field,
@@ -18,6 +20,7 @@ from pydantic import (
 )
 from yaml import representer
 
+from uniaf3.msa import query_colabfold
 from uniaf3.utils import hash_sequence
 
 T = TypeVar("T", bound="UniAF3BaseConfig")
@@ -513,3 +516,103 @@ class UniAF3Config(UniAF3BaseConfig):
                             f"Atom residue name {atom.residue_name} does not match sequence residue name {res_name} at index {atom.residue_idx} for chain {atom.chain_id}."
                         )
         return self
+
+    def add_msa_for_protein_seqs(
+        self,
+        msa_cache_dir: str | Path | None = None,
+        chains: set[str] | None = None,
+        search_templates: bool = False,
+        num_templates_per_seq: int = 5,
+        template_cache_dir: Path | None = None,
+        force: bool = False,
+    ):
+        """Add MSA paths to protein sequences in the config.
+
+        Args:
+            msa_cache_dir: Output directory to store MSA files. Defaults to
+                $XDG_CACHE_HOME/uniaf3/colabfold_msas/ if not set.
+            chains: Set of chain IDs to process. If None, process all protein chains.
+            search_templates: Whether to search for templates.
+            num_templates_per_seq: Number of templates to fetch per sequence.
+            template_cache_dir: Directory to cache fetched templates. Defaults to
+                $XDG_CACHE_HOME/uniaf3/rcsb/ if not set.
+            force: Whether to overwrite existing files.
+
+        """
+        # Figure out which protein sequences to process
+        if chains is None:
+            chains = {
+                c
+                for seq in self.sequences
+                if isinstance(seq, ProteinSeq)
+                for c in (seq.id if isinstance(seq.id, list) else [seq.id])
+            }
+        protein_seqs = [
+            seq.sequence
+            for seq in self.sequences
+            if isinstance(seq, ProteinSeq)
+            and any(
+                c in chains for c in (seq.id if isinstance(seq.id, list) else [seq.id])
+            )
+        ]
+
+        # Generate MSAs using ColabFold API
+        if msa_cache_dir is None:
+            msa_cache_dir = PlatformDirs("uniaf3").user_cache_path / "colabfold_msas"
+
+        out_path = Path(msa_cache_dir).expanduser().resolve()
+        out_path.mkdir(parents=True, exist_ok=True)
+        msa_data = query_colabfold(
+            protein_seqs,
+            msa_cache_dir=out_path,
+            search_templates=search_templates,
+            download_num_templates_per_seq=num_templates_per_seq,
+            template_cache_dir=template_cache_dir,
+            force=force,
+        )
+
+        # TODO: make dummy m8 file when search_templates is False and custom templates are provided
+        # As of 2026-03, AF3, Boltz, and Chai-1 support custom local templates.
+        # AF3-server searches MSA and templates online.
+        # Protenix only supports automatically searched templates via the a3m/hhr files.
+        template_map: dict[str, list[StructuralTemplate]] = {}
+        templates_df: DataFrame | None = msa_data.templates_df
+        if templates_df is not None:
+            hash_to_chains: dict[str, list[str]] = {
+                seq.seq_hash: (seq.id if isinstance(seq.id, list) else [seq.id])
+                for seq in self.sequences
+                if isinstance(seq, ProteinSeq)
+            }
+            for r in templates_df.iter_rows(named=True):
+                _, template_chain_id = r["subject_id"].split("_")
+
+                if r["query_id"] not in template_map:
+                    template_map[r["query_id"]] = []
+                template_map[r["query_id"]].append(
+                    StructuralTemplate(
+                        path=r["local_cif_path"],
+                        query_idx=list(range(r["query_start"] - 1, r["query_end"])),
+                        template_idx=list(
+                            range(r["subject_start"] - 1, r["subject_end"])
+                        ),
+                        query_chains=hash_to_chains[r["query_id"]],
+                        template_chains=[template_chain_id],
+                    )
+                )
+
+        # Update config with MSA paths and templates
+        for seq in self.sequences:
+            if not isinstance(seq, ProteinSeq):
+                continue
+            if isinstance(seq.id, str) and seq.id not in chains:
+                continue
+            elif isinstance(seq.id, list) and not any(c in chains for c in seq.id):
+                continue
+
+            seq.msa_dir = str(out_path)
+
+            custom_templates = seq.templates or []
+            if seq.seq_hash in template_map:
+                seq.templates = custom_templates + template_map[seq.seq_hash]
+
+            # TODO: copy template files to expected locations?
