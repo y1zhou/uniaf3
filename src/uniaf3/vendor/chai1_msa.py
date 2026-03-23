@@ -20,7 +20,7 @@ from pathlib import Path
 import polars as pl
 
 # from chai_lab.data.parsing.fasta import Fasta, read_fasta
-from uniaf3.schema.base import hash_sequence
+from uniaf3.utils import hash_sequence
 from uniaf3.vendor.chai1_fasta import Fasta, read_fasta
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
 

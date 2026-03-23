@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from tqdm.rich import tqdm
 
 from uniaf3.schema import UniAF3Config
-from uniaf3.schema.base import ProteinSeq, StructuralTemplate, hash_sequence
+from uniaf3.schema.base import ProteinSeq, StructuralTemplate
+from uniaf3.utils import hash_sequence
 from uniaf3.vendor.chai1_msa import generate_colabfold_msas, parse_m8_file
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
 

@@ -32,8 +32,8 @@ from uniaf3.schema.base import (
     SequenceModification,
     StructuralTemplate,
     UniAF3Config,
-    hash_sequence,
 )
+from uniaf3.utils import hash_sequence
 
 
 def to_alphafold3(

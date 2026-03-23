@@ -269,7 +269,7 @@ def to_protenix(
 
 def _from_protenix(job: ProtenixJob) -> UniAF3Config:
     """Convert a Protenix job to a UniAF3Config."""
-    from uniaf3.constant import int_to_letters
+    from uniaf3.utils import int_to_letters
 
     # Protenix does not support assigning chain IDs to input entities.
     # We generate chain IDs based on entity order (A, B, C, ...).

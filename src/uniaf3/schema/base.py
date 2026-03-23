@@ -1,6 +1,5 @@
 """Schemas for UniAF3 input configs."""
 
-import hashlib
 from enum import Enum, StrEnum
 from functools import cached_property
 from pathlib import Path
@@ -19,14 +18,7 @@ from pydantic import (
 )
 from yaml import representer
 
-
-def hash_sequence(seq: str | bytes) -> str:
-    """Compute the Chai-style sequence hash.
-
-    Source: chai_lab.data.parsing.msas.aligned_pqt.hash_sequence
-    """
-    return hashlib.sha256(seq.encode() if isinstance(seq, str) else seq).hexdigest()
-
+from uniaf3.utils import hash_sequence
 
 T = TypeVar("T", bound="UniAF3BaseConfig")
 

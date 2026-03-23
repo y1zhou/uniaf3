@@ -21,8 +21,8 @@ from pathlib import Path
 import polars as pl
 from pydantic import BaseModel, NonNegativeFloat, model_validator
 
-from uniaf3.constant import int_to_letters
 from uniaf3.schema.base import UniAF3BaseConfig
+from uniaf3.utils import int_to_letters
 
 
 class ChaiEntityType(StrEnum):

@@ -7,11 +7,7 @@ from uniaf3.adapters._helpers import (
     err_unsupported_feature,
     warn_lossy_conversion,
 )
-from uniaf3.constant import (
-    KNOWN_ION_CCD_CODES,
-    KNOWN_LIGAND_CCD_CODES,
-    int_to_letters,
-)
+from uniaf3.constant import KNOWN_ION_CCD_CODES, KNOWN_LIGAND_CCD_CODES
 from uniaf3.schema.alphafold3_server import (
     AF3ServerConfig,
     AF3ServerDNA,
@@ -35,6 +31,7 @@ from uniaf3.schema.base import (
     SequenceModification,
     UniAF3Config,
 )
+from uniaf3.utils import int_to_letters
 
 
 def _to_alphafold3_server(

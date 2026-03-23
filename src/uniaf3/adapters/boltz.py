@@ -26,7 +26,6 @@ from uniaf3.schema.base import (
     SequenceModification,
     StructuralTemplate,
     UniAF3Config,
-    hash_sequence,
 )
 from uniaf3.schema.boltz import (
     BoltzAffinityProperty,
@@ -44,6 +43,7 @@ from uniaf3.schema.boltz import (
     BoltzSequenceEntry,
     BoltzTemplate,
 )
+from uniaf3.utils import hash_sequence
 from uniaf3.vendor.chai1_fasta import read_fasta
 from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
 

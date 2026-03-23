@@ -9,7 +9,6 @@ from uniaf3.adapters._helpers import (
     err_unsupported_feature,
     warn_lossy_conversion,
 )
-from uniaf3.constant import int_to_letters
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -31,6 +30,7 @@ from uniaf3.schema.chai import (
     ChaiRestraint,
     ChaiRestraintType,
 )
+from uniaf3.utils import int_to_letters
 from uniaf3.vendor.chai1_fasta import constituents_of_modified_fasta
 
 
