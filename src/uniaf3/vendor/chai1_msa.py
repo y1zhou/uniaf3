@@ -13,7 +13,6 @@ chai_lab/data/parsing/templates/m8.py
 # See the LICENSE file for details.
 # Copyright (c) 2024 Chai Discovery, Inc.
 import logging
-import os
 import tempfile
 from enum import Enum
 from pathlib import Path
@@ -195,11 +194,11 @@ def generate_colabfold_msas(
             user_agent=user_agent,
         )
         if search_templates:
-            if template_hits_file is None or not os.path.isfile(template_hits_file):
+            if template_hits_file is None or not template_hits_file.is_file():
                 raise FileNotFoundError(
                     f"Expected template hits file not found at {template_hits_file}."
                 )
-            all_templates = parse_m8_file(Path(template_hits_file))
+            all_templates = parse_m8_file(template_hits_file)
             # query IDs are 101, 102, ... from the server; remap IDs
             query_map = {}
             for orig_query_id, orig_seq in enumerate(protein_seqs, start=101):

@@ -1,15 +1,150 @@
 """Query MSA and templates for protein sequences."""
 
+import tempfile
 from pathlib import Path
 
 import polars as pl
 import requests
 from platformdirs import PlatformDirs
+from pydantic import BaseModel
 from tqdm.rich import tqdm
 
 from uniaf3.schema import UniAF3Config
-from uniaf3.schema.base import ProteinSeq, StructuralTemplate
+from uniaf3.schema.base import ProteinSeq, StructuralTemplate, hash_sequence
 from uniaf3.vendor.chai1_msa import generate_colabfold_msas, parse_m8_file
+from uniaf3.vendor.colabfold_msa import run_mmseqs2
+
+
+class ColabFoldResponse(BaseModel):
+    """Response from ColabFold API."""
+
+    query_key: str  # sha256(seq1|seq2|...)
+    msa_dir: Path  # directory containing MSA files and template hits
+    protein_seqs: list[str]
+    seq_hashes: list[str]  # sha256(seq1), sha256(seq2), ...
+    single_msas: list[Path]
+    paired_msas: list[Path]
+    templates_m8_file: Path | None = None
+
+
+def query_colabfold(
+    seqs: list[str],
+    msa_cache_dir: str | Path | None = None,
+    use_templates: bool = False,
+    force: bool = False,
+    **kwargs,
+) -> ColabFoldResponse:
+    """Query ColabFold API for MSAs and templates.
+
+    Note that if ``kwargs`` are passed with filters or pairing strategies
+    specified, the cache results could be invalid. In that case, set ``force=True`` to ignore cache and re-query the server.
+
+    Args:
+        seqs: List of protein sequences. The order matters, as the concatenated sequences
+            will be used as the cache key under ``msa_cache_dir``.
+        msa_cache_dir: Directory to cache MSA files. Defaults to $XDG_CACHE_HOME/uniaf3/colabfold_msas/.
+        use_templates: Whether to search for templates.
+        force: Whether to ignore cache and re-query the server.
+        kwargs: Additional args to pass to ``run_mmseqs2``.
+
+    Returns:
+        The MSA directory. The MSA directory has the following structure:
+
+        ```
+        msa_cache_dir/
+          <seqs_hash>[:2]/
+            <seqs_hash>/
+                a3ms/
+                  <seq_hash>.single.a3m
+                  <seq_hash>.pair.a3m
+                pdb70.m8 (if use_templates is True)
+                templates/ (TODO: if use_templates is True, currently not implemented)
+
+        ```
+
+    """
+    if not seqs:
+        raise ValueError("No protein sequences for MSA generation; this is a no-op.")
+    if msa_cache_dir is None:
+        msa_cache_dir = PlatformDirs("uniaf3").user_cache_path / "colabfold_msas"
+
+    seqs_hash = hash_sequence("|".join(seqs).upper())
+    msa_dir = Path(msa_cache_dir).expanduser() / seqs_hash[:2] / seqs_hash
+    msa_dir.mkdir(parents=True, exist_ok=True)
+    msa_dir = msa_dir.resolve()
+
+    a3ms_dir = msa_dir / "a3ms"
+    a3ms_dir.mkdir(exist_ok=True)
+
+    seq_hashes = [hash_sequence(s.upper()) for s in seqs]
+
+    with tempfile.TemporaryDirectory() as tmp_dir_path:
+        tmp_dir = Path(tmp_dir_path)
+        mmseqs_paired_dir = tmp_dir / "mmseqs2_paired"
+        mmseqs_paired_dir.mkdir()
+
+        mmseqs_dir = tmp_dir / "mmseqs2"
+        mmseqs_dir.mkdir()
+
+        # Run paired MSA search
+        num_seqs = len(seqs)
+        if num_seqs > 1:
+            # Skip run if a cached tarball already exists, but we reuse
+            # the run_mmseqs2 function to load the a3m into memory
+            paired_a3m_files = [
+                a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes
+            ]
+            if force or not all(p.exists() for p in paired_a3m_files):
+                paired_msas, _ = run_mmseqs2(
+                    x=seqs,
+                    prefix=mmseqs_paired_dir,
+                    use_pairing=True,
+                    use_templates=False,
+                    **kwargs,
+                )
+                for f, paired_msa in zip(paired_a3m_files, paired_msas, strict=True):
+                    if force or not f.exists():
+                        f.write_text(paired_msa)
+        else:
+            paired_msas = [""] * num_seqs
+
+        # Run MSA search without pairing to get more hits for each chain
+        single_a3m_files = [
+            a3ms_dir / f"{seq_hash}.single.a3m" for seq_hash in seq_hashes
+        ]
+        expected_tmpl_m8_file = msa_dir / "pdb70.m8"
+        if (
+            force
+            or not all(p.exists() for p in single_a3m_files)
+            or (use_templates and not expected_tmpl_m8_file.exists())
+        ):
+            per_chain_msas, template_hits_m8_file = run_mmseqs2(
+                x=seqs,
+                prefix=mmseqs_dir,
+                use_pairing=False,
+                use_templates=use_templates,
+                **kwargs,
+            )
+            for f, single_msa in zip(single_a3m_files, per_chain_msas, strict=True):
+                if force or not f.exists():
+                    f.write_text(single_msa)
+            if template_hits_m8_file is not None:
+                if force or not expected_tmpl_m8_file.exists():
+                    import shutil
+
+                    shutil.copyfile(template_hits_m8_file, expected_tmpl_m8_file)
+
+            # TODO: fetch templates from RCSB using template_hits_m8_file
+
+    return ColabFoldResponse(
+        query_key=seqs_hash,
+        msa_dir=msa_dir,
+        protein_seqs=seqs,
+        seq_hashes=seq_hashes,
+        single_msas=[a3ms_dir / f"{seq_hash}.single.a3m" for seq_hash in seq_hashes],
+        paired_msas=[a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes],
+        templates_m8_file=expected_tmpl_m8_file if use_templates else None,
+    )
 
 
 # Adapted from antid.io.struct.RCSBDownloader
@@ -144,7 +279,7 @@ def add_msa_to_config(
         chains: Set of chain IDs to process. If None, process all protein chains.
         search_templates: Whether to search for templates.
         template_cache_dir: Directory to cache fetched templates. Defaults to
-            $CACHE_DIR/rcsb/ if not set.
+            $XDG_CACHE_HOME/uniaf3/rcsb/ if not set.
 
     """
     # Figure out which protein sequences to process
@@ -178,7 +313,7 @@ def add_msa_to_config(
     template_map: dict[str, list[StructuralTemplate]] = {}
     if search_templates:
         template_cache = (
-            PlatformDirs("rcsb").user_cache_path
+            PlatformDirs("uniaf3").user_cache_path / "rcsb"
             if template_cache_dir is None
             else template_cache_dir
         )

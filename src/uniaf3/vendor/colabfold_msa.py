@@ -32,7 +32,7 @@ def run_mmseqs2(
     pairing_strategy: str = "greedy",
     host_url: str = "https://api.colabfold.com",
     user_agent: str = f"UniAF3/{__version__} uniaf3@y1zhou.com",
-) -> tuple[list[str], str | None]:
+) -> tuple[list[str], Path | None]:
     """Return a block of a3m lines and optionally template hits for each of the input sequences in x.
 
     Note that this is the Chai-1 adaptation of the original function, which has modifications
@@ -263,12 +263,11 @@ def run_mmseqs2(
             raise FileNotFoundError(
                 f"Expected template hits file not found at {template_path}."
             )
-    template_path_str = str(template_path) if template_path is not None else "None"
 
     # gather a3m lines
     a3m_lines: dict[int, list[str]] = {}
     for a3m_file in a3m_files:
-        update_M, M = True, None
+        update_M, M = True, N - 1  # (N-1) is not a key
         with a3m_file.open() as f:
             for line in f:
                 if len(line) > 0:
@@ -282,4 +281,4 @@ def run_mmseqs2(
                             a3m_lines[M] = []
                     a3m_lines[M].append(line)
 
-    return ["".join(a3m_lines[n]) for n in Ms], template_path_str
+    return ["".join(a3m_lines[n]) for n in Ms], template_path
