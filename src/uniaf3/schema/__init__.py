@@ -28,3 +28,6 @@ AnyConfig = (
     | ChaiConfig
     | ProtenixConfig
 )
+AnyConfigList = (
+    list[UniAF3Config] | list[AF3Config] | list[BoltzConfig] | list[ChaiConfig]
+)

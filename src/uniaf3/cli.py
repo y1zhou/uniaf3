@@ -8,6 +8,7 @@ import typer
 from rich.console import Console
 
 from uniaf3.adapters import AnyConfig
+from uniaf3.schema import UniAF3Config
 
 app = typer.Typer(pretty_exceptions_short=False)
 console = Console(tab_size=2)
@@ -137,6 +138,8 @@ def validate_config(
         raise typer.Exit(code=1) from exc
 
     if format.value == "uniaf3":
+        if not isinstance(conf, UniAF3Config):
+            raise TypeError(f"Expected UniAF3Config, got {type(conf)}")
         console.print(f"Config hash: [bold]{conf.hash}[/bold]")
 
     console.print(
@@ -198,7 +201,13 @@ def convert_config(
         )
         if prefix is None:
             prefix = input_config_file.stem
-        dst_conf.to_files(output_dir, prefix)
+        if isinstance(dst_conf, AnyConfig):
+            dst_conf.to_files(output_dir, prefix)
+        elif isinstance(dst_conf, list):
+            for i, conf in enumerate(dst_conf):
+                conf.to_files(output_dir, f"{prefix}_{i}")
+        else:
+            raise TypeError(f"Unexpected output config type: {type(dst_conf)}")
         console.print(
             f"[bold green]Converted {from_format.value} → {to_format.value}[/bold green]"
         )

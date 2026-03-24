@@ -264,7 +264,9 @@ class TestChaiSchema:
         assert lines[0] == ">protein|Hemoglobin subunit"
 
     def test_restraints_to_df(self, chai_conf: ChaiConfig):
-        df = chai_conf.restraints_to_df()
+        import polars as pl
+
+        df = pl.DataFrame(chai_conf.restraints)
         assert df is not None
         assert len(df) == 3
         assert "connection_type" in df.columns

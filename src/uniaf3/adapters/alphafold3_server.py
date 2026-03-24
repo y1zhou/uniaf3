@@ -189,7 +189,9 @@ def _to_alphafold3_server(
 
 
 def to_alphafold3_server(
-    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = False
+    config: UniAF3Config | list[UniAF3Config],
+    name: str = "uniaf3_job",
+    strict: bool = False,
 ) -> AF3ServerConfig:
     """Convert a list of UniAF3Config to an AlphaFold3 Server config.
 

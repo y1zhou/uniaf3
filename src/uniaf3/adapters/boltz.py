@@ -125,7 +125,7 @@ def merge_colabfold_msa_to_csv(
 
 def split_boltz_csv_to_a3m(
     csv_file: str | Path, out_dir: str | Path
-) -> tuple[Path, Path] | tuple[Path, None]:
+) -> tuple[Path, Path | None]:
     """Split a Boltz MSA CSV file into unpaired and paired A3M files for UniAF3.
 
     Args:
@@ -347,6 +347,11 @@ def to_boltz(
     # Constraints
     constraints: list[BoltzConstraintEntry] = []
     for b in config.covalent_bonds or []:
+        if b.atom1.atom_name is None or b.atom2.atom_name is None:
+            err_unsupported_feature(
+                strict, f"Atom names must be specified for Boltz covalent bonds: {b}"
+            )
+            continue
         bond = BoltzBondConstraint(
             atom1=(b.atom1.chain_id, b.atom1.residue_idx, b.atom1.atom_name),
             atom2=(b.atom2.chain_id, b.atom2.residue_idx, b.atom2.atom_name),
@@ -380,12 +385,21 @@ def to_boltz(
         )
         constraints.append(BoltzConstraintEntry(contact=contact))
     for p in config.pocket_restraints or []:
-        token_indices = [
-            (t.chain_id, t.atom_name)
-            if seq_types[t.chain_id] == "ligand"
-            else (t.chain_id, t.residue_idx)
-            for t in p.contact_tokens
-        ]
+        token_indices: list[tuple[str, str | int]] = []
+        for t in p.contact_tokens:
+            if seq_types[t.chain_id] == "ligand":
+                if t.atom_name is None:
+                    raise ValueError(
+                        f"Atom name must be specified for pocket restraints on ligands: {t}"
+                    )
+                token_indices.append((t.chain_id, t.atom_name))
+            else:
+                if t.residue_idx is None:
+                    raise ValueError(
+                        f"Residue index must be specified for pocket restraints on polymers: {t}"
+                    )
+                token_indices.append((t.chain_id, t.residue_idx))
+
         pocket = BoltzPocketConstraint(
             binder=p.binder_chain,
             contacts=token_indices,
@@ -517,7 +531,14 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
 
         for tmpl in config.templates:
             # BoltzTemplate validator ensures exactly one of cif/pdb is set
-            tmpl_path = tmpl.cif if tmpl.cif is not None else tmpl.pdb
+            if tmpl.cif is not None:
+                tmpl_path = tmpl.cif
+            elif tmpl.pdb is not None:
+                tmpl_path = tmpl.pdb
+            else:
+                raise ValueError(
+                    f"BoltzTemplate must have either cif or pdb path specified: {tmpl}"
+                )
             tmpl_chain_ids = ensure_list(tmpl.chain_id) if tmpl.chain_id else []
             tmpl_template_ids = (
                 ensure_list(tmpl.template_id) if tmpl.template_id else None
@@ -582,12 +603,12 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 resi1, atomn1 = (
                     (int(resi_or_atomn1), None)
                     if chain1 in polymer_chains
-                    else (0, resi_or_atomn1)
+                    else (0, str(resi_or_atomn1))
                 )
                 resi2, atomn2 = (
                     (int(resi_or_atomn2), None)
                     if chain2 in polymer_chains
-                    else (0, resi_or_atomn2)
+                    else (0, str(resi_or_atomn2))
                 )
                 contact_rsts.append(
                     ContactRestraint(
@@ -615,7 +636,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                     resi, atomn = (
                         (int(resi_or_atomn), None)
                         if chain_id in polymer_chains
-                        else (0, resi_or_atomn)
+                        else (0, str(resi_or_atomn))
                     )
                     contact_atoms.append(
                         Atom(

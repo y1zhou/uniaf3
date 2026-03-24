@@ -20,6 +20,7 @@ from uniaf3.schema import (
     AF3Config,
     AF3ServerConfig,
     AnyConfig,
+    AnyConfigList,
     BoltzConfig,
     ChaiConfig,
     ProtenixConfig,
@@ -80,7 +81,7 @@ def from_uniaf3(
     name: str = "uniaf3_job",
     msa_dir: str | Path = ".",
     strict: bool = False,
-) -> AnyConfig | list[AnyConfig]:
+) -> AnyConfig | AnyConfigList:
     """Convert a UniAF3Config to a specific model config.
 
     Args:
@@ -104,9 +105,7 @@ def from_uniaf3(
             return [to_alphafold3(c, name=name, strict=strict) for c in conf]
         return to_alphafold3(conf, name=name, strict=strict)
     if target is AF3ServerConfig:
-        return to_alphafold3_server(
-            conf if isinstance(conf, list) else [conf], name=name, strict=strict
-        )
+        return to_alphafold3_server(conf, name=name, strict=strict)
     if target is BoltzConfig:
         if isinstance(conf, list):
             return [to_boltz(c, msa_dir=msa_dir, strict=strict) for c in conf]
@@ -116,5 +115,5 @@ def from_uniaf3(
             return [to_chai(c, msa_dir=msa_dir, strict=strict) for c in conf]
         return to_chai(conf, msa_dir=msa_dir, strict=strict)
     if target is ProtenixConfig:
-        return to_protenix(conf, name=name)
+        return to_protenix(conf, name=name, strict=strict)
     raise TypeError(f"Unsupported target type: {target}")

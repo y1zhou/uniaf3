@@ -178,6 +178,13 @@ def _to_protenix(
                 f"Chain ID corresponding to entity not found for covalent bond: {r}"
             ) from e
 
+        if r.atom1.atom_name is None or r.atom2.atom_name is None:
+            err_unsupported_feature(
+                strict,
+                f"Protenix covalent bonds require atom names; got {r}",
+            )
+            continue
+
         covalent_bonds.append(
             ProtenixCovalentBond(
                 entity1=entity1,

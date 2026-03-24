@@ -144,6 +144,9 @@ class ChaiConfig(UniAF3BaseConfig):
                 ChaiEntityType.RNA,
             }:
                 seq_a = constituents_of_modified_fasta(seq_a)
+            else:
+                seq_a = list(seq_a)
+
             _ensure_valid_restraint(
                 r.connection_type, entity_map[r.chainA].entity_type, r.res_idxA, seq_a
             )
@@ -154,6 +157,8 @@ class ChaiConfig(UniAF3BaseConfig):
                 ChaiEntityType.RNA,
             }:
                 seq_b = constituents_of_modified_fasta(seq_b)
+            else:
+                seq_b = list(seq_b)
             _ensure_valid_restraint(
                 r.connection_type, entity_map[r.chainB].entity_type, r.res_idxB, seq_b
             )
@@ -168,18 +173,14 @@ class ChaiConfig(UniAF3BaseConfig):
             lines.append(e.sequence)
         return "\n".join(lines)
 
-    def restraints_to_df(self) -> pl.DataFrame | None:
-        """Convert the restraints list to a CSV string."""
-        if self.restraints is None:
-            return None
-
-        return pl.DataFrame(self.restraints)
-
     @classmethod
     def from_yaml(cls, conf_file: str | Path) -> ChaiConfig:
         """Load a ChaiConfig from a YAML file."""
         return super().from_file(conf_file)
 
+    # TODO: from_file should use the conf_file dumped by UniAF3
+    # For the current implementation, put it under from_chai_files() and have
+    # higher-level functions call it explicitly
     @classmethod
     def from_file(
         cls, fasta_file: str | Path, restraints_file: str | Path | None = None, **kwargs
@@ -219,21 +220,23 @@ class ChaiConfig(UniAF3BaseConfig):
         fasta_path = output_path.with_suffix(".fasta")
         with open(fasta_path, "w") as f:
             f.write(self.entities_to_fasta())
-        if self.restraints is not None:
+        if (restraints := self.restraints) is not None:
             restraints_path = output_path.with_suffix(".csv")
-            self.restraints_to_df().write_csv(restraints_path)
+            pl.DataFrame(restraints).write_csv(restraints_path)
 
 
 def _ensure_valid_restraint(
     connection: ChaiRestraintType,
     entity_type: ChaiEntityType,
-    res_idx: str,
+    res_idx: str | None,
     seq: list[str],
 ):
     """Validate that covalent bonds refer to valid entities and atoms."""
     polymer_type = {ChaiEntityType.Protein, ChaiEntityType.DNA, ChaiEntityType.RNA}
     if connection == ChaiRestraintType.Covalent:
         # N436@N for residues, @C1 for ligands and glycans
+        if res_idx is None:
+            raise ValueError("res_idx cannot be empty for covalent restraints")
         try:
             idx, atom = res_idx.split("@")
         except ValueError as e:
@@ -258,6 +261,8 @@ def _ensure_valid_restraint(
             )
     elif connection == ChaiRestraintType.Contact:
         # R84 for residues; ligands and glycans not supported
+        if res_idx is None:
+            raise ValueError("res_idx cannot be empty for contact restraints")
         if entity_type not in polymer_type:
             raise ValueError(
                 f"Contact restraints currently only supported for protein/DNA/RNA entities, got {entity_type}"

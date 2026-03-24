@@ -131,9 +131,7 @@ def _find_or_reconstruct_m8(
 
 
 def to_chai(
-    config: UniAF3Config,
-    msa_dir: str | Path | None = None,
-    strict: bool = False,
+    config: UniAF3Config, msa_dir: str | Path | None = None, strict: bool = False
 ) -> ChaiConfig:
     """Convert a UniAF3Config to a Chai-1 config.
 
@@ -326,36 +324,33 @@ def to_chai(
 
     # --- MSA handling ---
     chai_msa_directory: str | None = None
-    chai_template_hits_path: str | None = None
+    for seq in config.sequences:
+        if not (isinstance(seq, ProteinSeq) and seq.unpaired_msa is not None):
+            continue
 
-    protein_seqs_with_msa = [
-        seq
-        for seq in config.sequences
-        if isinstance(seq, ProteinSeq) and seq.unpaired_msa is not None
-    ]
-    if protein_seqs_with_msa:
         if msa_dir is not None:
             from uniaf3.vendor.chai1_msa import a3m_to_aligned_pqt
 
             msa_dir_path = Path(msa_dir).expanduser().resolve()
             msa_dir_path.mkdir(parents=True, exist_ok=True)
 
-            for seq in protein_seqs_with_msa:
-                a3m_to_aligned_pqt(
-                    single_a3m_path=seq.unpaired_msa,
-                    pair_a3m_path=seq.paired_msa,
-                    output_dir=msa_dir_path,
-                    query_sequence=seq.sequence,
-                )
+            a3m_to_aligned_pqt(
+                single_a3m_path=seq.unpaired_msa,
+                pair_a3m_path=seq.paired_msa,
+                output_dir=msa_dir_path,
+                query_sequence=seq.sequence,
+            )
             chai_msa_directory = str(msa_dir_path)
         else:
             warn_lossy_conversion(
                 "ProteinSeq MSA data (msa_dir/unpaired_msa/paired_msa) cannot be "
                 "converted to Chai format without an output msa_dir parameter; "
-                "MSA information is dropped."
+                f"MSA information is dropped: {seq}"
             )
 
     # --- Template handling ---
+    chai_template_hits_path: str | None = None
+
     protein_seqs_with_templates = [
         seq for seq in config.sequences if isinstance(seq, ProteinSeq) and seq.templates
     ]
@@ -385,6 +380,14 @@ def to_chai(
                 "without an output msa_dir parameter; template information is dropped."
             )
 
+    seeds = config.aux.seeds
+    if len(seeds) > 1:
+        warn_lossy_conversion(
+            "Multiple seeds provided in UniAF3Config.aux.seeds; "
+            "ChaiConfig.seed can only take a single value. "
+            f"Using the first seed {seeds[0]} for ChaiConfig."
+        )
+
     return ChaiConfig(
         entities=entities,
         restraints=restraints or None,
@@ -392,7 +395,7 @@ def to_chai(
         num_diffn_timesteps=config.aux.num_diffn_timesteps,
         num_diffn_samples=config.aux.num_diffn_samples,
         num_trunk_samples=config.aux.num_trunk_samples,
-        seed=config.aux.seeds[0] if config.aux.seeds else None,
+        seed=seeds[0],
         msa_directory=chai_msa_directory,
         template_hits_path=chai_template_hits_path,
     )

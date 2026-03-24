@@ -318,34 +318,36 @@ class ProtenixJob(BaseModel):
                 for copy_idx in range(1, entry.ion.count + 1):
                     entity_lengths[(entity_id, copy_idx)] = -1
 
-        for bond in self.covalent_bonds or []:
-            seq1_len = entity_lengths.get((bond.entity1, bond.copy1 or 1))
-            if not (1 <= bond.position1 <= seq1_len):
-                raise ValueError(
-                    f"Bond position1 {bond.position1} out of range for entity {bond.entity1} copy {bond.copy1}"
-                )
-            seq2_len = entity_lengths.get((bond.entity2, bond.copy2 or 1))
-            if not (1 <= bond.position2 <= seq2_len):
-                raise ValueError(
-                    f"Bond position2 {bond.position2} out of range for entity {bond.entity2} copy {bond.copy2}"
-                )
+        if (bonds := self.covalent_bonds) is not None:
+            for bond in bonds:
+                seq1_len = entity_lengths.get((bond.entity1, bond.copy1 or 1), 0)
+                if not (1 <= bond.position1 <= seq1_len):
+                    raise ValueError(
+                        f"Bond position1 {bond.position1} out of range for entity {bond.entity1} copy {bond.copy1}"
+                    )
+                seq2_len = entity_lengths.get((bond.entity2, bond.copy2 or 1), 0)
+                if not (1 <= bond.position2 <= seq2_len):
+                    raise ValueError(
+                        f"Bond position2 {bond.position2} out of range for entity {bond.entity2} copy {bond.copy2}"
+                    )
+
         if self.constraint is None:
             return self
-        if self.constraint.contact is not None:
-            for contact in self.constraint.contact:
-                seq1_len = entity_lengths.get((contact.entity1, contact.copy1))
+        if (contacts := self.constraint.contact) is not None:
+            for contact in contacts:
+                seq1_len = entity_lengths.get((contact.entity1, contact.copy1), 0)
                 if not (1 <= contact.position1 <= seq1_len):
                     raise ValueError(
                         f"Contact constraint position1 {contact.position1} out of range for entity {contact.entity1} copy {contact.copy1}"
                     )
-                seq2_len = entity_lengths.get((contact.entity2, contact.copy2))
+                seq2_len = entity_lengths.get((contact.entity2, contact.copy2), 0)
                 if not (1 <= contact.position2 <= seq2_len):
                     raise ValueError(
                         f"Contact constraint position2 {contact.position2} out of range for entity {contact.entity2} copy {contact.copy2}"
                     )
-        if self.constraint.pocket is not None:
-            for contact in self.constraint.pocket.contact_residues:
-                seq_len = entity_lengths.get((contact.entity, contact.copy_idx))
+        if (pocket := self.constraint.pocket) is not None:
+            for contact in pocket.contact_residues:
+                seq_len = entity_lengths.get((contact.entity, contact.copy_idx), 0)
                 if not (1 <= contact.position <= seq_len):
                     raise ValueError(
                         f"Pocket constraint contact residue position {contact.position} out of range for entity {contact.entity} copy {contact.copy_idx}"

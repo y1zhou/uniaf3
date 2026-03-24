@@ -177,6 +177,13 @@ def to_alphafold3(
     bonded_atom_pairs: list[tuple[AF3BondedAtom, AF3BondedAtom]] = []
     if config.covalent_bonds:
         for r in config.covalent_bonds:
+            # AF3 requires atom names to be given
+            if r.atom1.atom_name is None or r.atom2.atom_name is None:
+                err_unsupported_feature(
+                    strict,
+                    f"AF3 bondedAtomPairs require atom names, but got: {r}",
+                )
+                continue
             a1: AF3BondedAtom = (
                 r.atom1.chain_id,
                 r.atom1.residue_idx,
