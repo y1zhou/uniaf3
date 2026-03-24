@@ -86,6 +86,99 @@ def _is_padding_msa_row(sequence: str) -> bool:
     return len(seq_chars) == 1 and seq_chars.pop() == "-"
 
 
+def a3m_to_aligned_pqt(
+    single_a3m_path: str | Path,
+    pair_a3m_path: str | Path | None,
+    output_dir: str | Path,
+    query_sequence: str,
+) -> Path:
+    """Convert A3M MSA files to Chai-1's aligned Parquet format.
+
+    Reads paired and unpaired A3M files, assigns pairing keys and source
+    database annotations, and writes a single ``.aligned.pqt`` Parquet file
+    suitable for ``chai_lab.chai1.run_inference``.
+
+    Args:
+        single_a3m_path: Path to the unpaired/single MSA A3M file.
+        pair_a3m_path: Path to the paired MSA A3M file, or None if no paired
+            MSA exists.
+        output_dir: Directory to write the .aligned.pqt file.
+        query_sequence: The query protein sequence (used for hash-based filename).
+
+    Returns:
+        Path to the written .aligned.pqt file.
+
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    msa_path = output_dir / expected_basename(query_sequence)
+    if msa_path.exists():
+        # Homomer dedup: same sequence produces the same file
+        return msa_path
+
+    single_a3m_path = Path(single_a3m_path)
+    if not single_a3m_path.exists():
+        raise FileNotFoundError(f"Single MSA A3M file not found at {single_a3m_path}")
+
+    # Read paired A3M if available
+    if pair_a3m_path is not None:
+        pair_a3m_path = Path(pair_a3m_path)
+        paired_fasta: list[tuple[str, str, str]] = [
+            (str(pairkey), record.header, record.sequence)
+            for pairkey, record in enumerate(read_fasta(pair_a3m_path))
+            if not _is_padding_msa_row(record.sequence)
+        ]
+        pairing_key, paired_headers, paired_msa_seqs = (
+            zip(*paired_fasta, strict=True) if paired_fasta else ((), (), ())
+        )
+    else:
+        pairing_key, paired_headers, paired_msa_seqs = (), (), ()
+
+    unique_paired_msa_seqs = set(paired_msa_seqs)
+
+    # Non-paired MSA sequences that weren't already covered in the paired MSA
+    # If there were paired MSAs, then skip the header to avoid duplication
+    single_fasta: list[Fasta] = [
+        record
+        for i, record in enumerate(read_fasta(single_a3m_path))
+        if (
+            (len(paired_headers) == 0 or i > 0)
+            and not _is_padding_msa_row(record.sequence)
+            and record.sequence not in unique_paired_msa_seqs
+        )
+    ]
+    single_headers = [record.header for record in single_fasta]
+    single_msa_seqs = [record.sequence for record in single_fasta]
+    single_null_pair_keys = [""] * len(single_msa_seqs)
+
+    # Best-effort source database synthesis from headers
+    source_databases = ["query"] + [
+        (
+            MSADataSource.UNIREF90.value
+            if h.startswith("UniRef")
+            else MSADataSource.BFD_UNICLUST.value
+        )
+        for h in (list(paired_headers) + single_headers)[1:]
+    ]
+
+    all_sequences = list(paired_msa_seqs) + single_msa_seqs
+    all_pairing_keys = list(pairing_key) + single_null_pair_keys
+    if not (len(all_sequences) == len(all_pairing_keys) == len(source_databases)):
+        raise ValueError(
+            f"Mismatched lengths: {len(all_sequences)=} {len(all_pairing_keys)=} {len(source_databases)=}"
+        )
+
+    aligned_df = pl.from_dict(
+        data=dict(
+            sequence=all_sequences,
+            source_database=source_databases,
+            pairing_key=all_pairing_keys,
+        ),
+    ).with_columns(pl.lit("").alias("comment"))
+    aligned_df.write_parquet(msa_path)
+    return msa_path
+
+
 def generate_colabfold_msas(
     protein_seqs: list[str],
     msa_dir: Path,
@@ -192,69 +285,13 @@ def generate_colabfold_msas(
             single_a3m_path = a3ms_dir / f"{hkey}.single.a3m"
             single_a3m_path.write_text(single_msa)
 
-            ## Convert the A3M file into aligned parquet files
-            # Set the pairing key as the ith-index in the sequences, skip over sequences that have
-            # been inserted as padding as our internal pairing logic will match on pairing key.
-            paired_fasta: list[tuple[str, str, str]] = [
-                (str(pairkey), record.header, record.sequence)
-                for pairkey, record in enumerate(read_fasta(pair_a3m_path))
-                if not _is_padding_msa_row(record.sequence)
-            ]
-            pairing_key, paired_headers, paired_msa_seqs = (
-                zip(*paired_fasta, strict=True) if paired_fasta else ((), (), ())
+            # Convert the A3M files into aligned parquet files
+            pair_path = pair_a3m_path if pair_msa else None
+            msa_path = a3m_to_aligned_pqt(
+                single_a3m_path=single_a3m_path,
+                pair_a3m_path=pair_path,
+                output_dir=msa_dir,
+                query_sequence=protein_seq,
             )
-            unique_paired_msa_seqs = set(paired_msa_seqs)
-
-            # Non-paired MSA sequences that weren't already covered in the paired MSA
-            # If there were paired MSAs, then skip the header to avoid duplication
-            single_fasta: list[Fasta] = [
-                record
-                for i, record in enumerate(read_fasta(single_a3m_path))
-                if (
-                    (len(paired_headers) == 0 or i > 0)
-                    and not _is_padding_msa_row(record.sequence)
-                    and record.sequence not in unique_paired_msa_seqs
-                )
-            ]
-            single_headers = [record.header for record in single_fasta]
-            single_msa_seqs = [record.sequence for record in single_fasta]
-            # Create null pairing keys for each of the entries in the single MSA seq
-            single_null_pair_keys = [""] * len(single_msa_seqs)
-
-            # This shouldn't have much of an effect on the model, but we make
-            # a best effort to synthesize a source database anyway
-            # NOTE we already dropped the query row from the single MSAs so no need to slice
-            source_databases = ["query"] + [
-                (
-                    MSADataSource.UNIREF90.value
-                    if h.startswith("UniRef")
-                    else MSADataSource.BFD_UNICLUST.value
-                )
-                for h in (list(paired_headers) + single_headers)[1:]
-            ]
-
-            # Combine information across paired and single hits
-            all_sequences = list(paired_msa_seqs) + single_msa_seqs
-            all_pairing_keys = list(pairing_key) + single_null_pair_keys
-            if not (
-                len(all_sequences) == len(all_pairing_keys) == len(source_databases)
-            ):
-                raise ValueError(
-                    f"Mismatched lengths: {len(all_sequences)=} {len(all_pairing_keys)=} {len(source_databases)=}"
-                )
-
-            # Map the MSAs to our internal format
-            aligned_df = pl.from_dict(
-                data=dict(
-                    sequence=all_sequences,
-                    source_database=source_databases,
-                    pairing_key=all_pairing_keys,
-                ),
-            ).with_columns(pl.lit("").alias("comment"))
-            msa_path = msa_dir / expected_basename(protein_seq)
-            if not msa_path.exists():
-                # If we have a homomer, we might see the same chain multiple
-                # times. The MSAs should be identical for each.
-                aligned_df.write_parquet(msa_path)
-                msa_paths[protein_seq] = msa_path
+            msa_paths[protein_seq] = msa_path
     return msa_paths

@@ -117,8 +117,8 @@ def from_uniaf3(
         return to_boltz(conf, msa_dir=msa_dir, strict=strict)
     if target is ChaiConfig:
         if isinstance(conf, list):
-            return [to_chai(c) for c in conf]
-        return to_chai(conf)
+            return [to_chai(c, msa_dir=msa_dir, strict=strict) for c in conf]
+        return to_chai(conf, msa_dir=msa_dir, strict=strict)
     if target is ProtenixConfig:
         return to_protenix(conf, name=name)
     raise TypeError(f"Unsupported target type: {target}")

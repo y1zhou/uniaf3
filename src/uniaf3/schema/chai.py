@@ -43,13 +43,14 @@ class ChaiEntity(BaseModel):
 
     The sequence field holds the amino acid / nucleotide sequence or a SMILES
     string (for ligands) / Chai glycan notation (for glycans).
+
+    NOTE: UniAF3 MSAs (A3M) are converted to Chai's .aligned.pqt format
+    # by the to_chai() adapter. MSA data is not embedded in the FASTA.
     """
 
     entity_type: ChaiEntityType
     entity_name: str  # unique name used as chain description
     sequence: str  # AA/nucleotide sequence, SMILES, or glycan notation
-
-    # TODO: UniAF3 MSAs are not compatible with the FASTA format
 
 
 class ChaiRestraintType(StrEnum):

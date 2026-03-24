@@ -3,7 +3,14 @@
 import pytest
 
 from uniaf3.schema import ChaiConfig, UniAF3Config
-from uniaf3.schema.base import Glycan, Ligand, Polymer, ProteinSeq
+from uniaf3.schema.base import (
+    Glycan,
+    Ligand,
+    Polymer,
+    PolymerType,
+    ProteinSeq,
+    StructuralTemplate,
+)
 from uniaf3.schema.chai import ChaiEntityType
 
 
@@ -129,3 +136,193 @@ def test_inference_params(uniaf3_conf: UniAF3Config, chai: ChaiConfig):
 def test_seed(uniaf3_conf: UniAF3Config, chai: ChaiConfig):
     # Only first seed is taken
     assert chai.seed == uniaf3_conf.aux.seeds[0]
+
+
+# --- MSA and template conversion tests ---
+
+
+def _make_a3m_content(query_seq: str, num_hits: int = 3) -> str:
+    """Create a minimal A3M file content."""
+    lines = [f">query\n{query_seq}"]
+    for i in range(num_hits):
+        gap_seq = query_seq[: max(1, len(query_seq) - i)] + "-" * i
+        lines.append(f">UniRef100_hit{i}\n{gap_seq}")
+    return "\n".join(lines) + "\n"
+
+
+def _make_paired_a3m_content(query_seq: str, num_hits: int = 2) -> str:
+    """Create a minimal paired A3M file content."""
+    lines = [f">query\n{query_seq}"]
+    for i in range(num_hits):
+        lines.append(f">paired_hit{i}\n{query_seq}")
+    return "\n".join(lines) + "\n"
+
+
+@pytest.fixture
+def msa_config_with_files(tmp_path):
+    """Create a UniAF3Config with ProteinSeq that has actual MSA files."""
+    from uniaf3.utils import hash_sequence
+
+    seq_str = "MVLSPADKTNVK"
+    seq_hash = hash_sequence(seq_str)
+
+    # Create MSA directory structure
+    a3ms_dir = tmp_path / "msas" / "a3ms"
+    a3ms_dir.mkdir(parents=True)
+
+    single_path = a3ms_dir / f"{seq_hash}.single.a3m"
+    single_path.write_text(_make_a3m_content(seq_str))
+
+    paired_path = a3ms_dir / f"{seq_hash}.pair.a3m"
+    paired_path.write_text(_make_paired_a3m_content(seq_str))
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence=seq_str,
+                unpaired_msa_path=str(single_path),
+                paired_msa_path=str(paired_path),
+                msa_dir=str(tmp_path / "msas"),
+            )
+        ]
+    )
+    return config
+
+
+def test_msa_directory_set_when_msa_data_present(msa_config_with_files, tmp_path):
+    """When ProteinSeq has MSA data and msa_dir is provided, chai.msa_directory is set."""
+    from uniaf3.adapters import to_chai
+
+    out_dir = tmp_path / "chai_msa_out"
+    chai = to_chai(msa_config_with_files, msa_dir=out_dir)
+
+    assert chai.msa_directory is not None
+    assert chai.msa_directory == str(out_dir.resolve())
+
+    # Check that .aligned.pqt file was created
+    import polars as pl
+
+    from uniaf3.utils import hash_sequence
+
+    seq_hash = hash_sequence(msa_config_with_files.sequences[0].sequence.upper())
+    pqt_path = out_dir.resolve() / f"{seq_hash}.aligned.pqt"
+    assert pqt_path.exists()
+
+    # Verify parquet has expected columns
+    df = pl.read_parquet(pqt_path)
+    assert set(df.columns) == {"sequence", "source_database", "pairing_key", "comment"}
+    assert df.height > 0
+    assert df.item(0, "source_database") == "query"
+
+
+def test_msa_directory_none_when_no_msa_data(tmp_path):
+    """When ProteinSeq has no MSA data, chai.msa_directory stays None."""
+    from uniaf3.adapters import to_chai
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein, id="A", sequence="MVLSPADKTNVK"
+            )
+        ]
+    )
+    chai = to_chai(config, msa_dir=tmp_path / "out")
+    assert chai.msa_directory is None
+
+
+def test_warns_when_msa_present_but_no_msa_dir(msa_config_with_files):
+    """When MSA data exists but no msa_dir param, a lossy warning is emitted."""
+    from uniaf3.adapters import to_chai
+
+    with pytest.warns(UserWarning, match="MSA information is dropped"):
+        chai = to_chai(msa_config_with_files)
+
+    assert chai.msa_directory is None
+
+
+def test_template_reconstruction_without_m8(tmp_path):
+    """StructuralTemplate objects should be reconstructed into an m8 file."""
+    from uniaf3.adapters import to_chai
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+                templates=[
+                    StructuralTemplate(
+                        path="/some/path/1abc.cif.gz",
+                        query_idx=[0, 1, 2, 3, 4],
+                        template_idx=[10, 11, 12, 13, 14],
+                        template_chains=["B"],
+                    )
+                ],
+            )
+        ]
+    )
+
+    out_dir = tmp_path / "chai_out"
+    with pytest.warns(UserWarning, match="placeholder scoring"):
+        chai = to_chai(config, msa_dir=out_dir)
+
+    assert chai.template_hits_path is not None
+    from pathlib import Path
+
+    m8_path = Path(chai.template_hits_path)
+    assert m8_path.exists()
+
+    content = m8_path.read_text()
+    assert "1abc_B" in content
+    assert "reconstructed_by_uniaf3" in content
+
+
+def test_template_warns_on_boltz_fields(tmp_path):
+    """Boltz-specific template fields should emit a lossy warning."""
+    from uniaf3.adapters import to_chai
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+                templates=[
+                    StructuralTemplate(
+                        path="/some/path/1abc.cif",
+                        boltz_enable_force=True,
+                        boltz_template_threshold=2.0,
+                    )
+                ],
+            )
+        ]
+    )
+
+    out_dir = tmp_path / "chai_out"
+    with pytest.warns(UserWarning) as records:
+        chai = to_chai(config, msa_dir=out_dir)
+
+    assert any("boltz_enable_force" in str(w.message) for w in records)
+
+
+def test_template_warns_when_no_msa_dir(tmp_path):
+    """Templates without msa_dir should emit a lossy warning."""
+    from uniaf3.adapters import to_chai
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+                templates=[StructuralTemplate(path="/some/path/1abc.cif")],
+            )
+        ]
+    )
+
+    with pytest.warns(UserWarning, match="template information is dropped"):
+        chai = to_chai(config)
+
+    assert chai.template_hits_path is None

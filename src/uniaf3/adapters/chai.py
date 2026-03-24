@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import polars as pl
+
 from uniaf3.adapters._helpers import (
     ensure_list,
     err_unsupported_feature,
@@ -30,17 +32,119 @@ from uniaf3.schema.chai import (
     ChaiRestraint,
     ChaiRestraintType,
 )
-from uniaf3.utils import int_to_letters
+from uniaf3.utils import hash_sequence, int_to_letters
 from uniaf3.vendor.chai1_fasta import constituents_of_modified_fasta
 
 
-def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
+def _find_or_reconstruct_m8(
+    protein_seqs: list[ProteinSeq],
+    output_dir: Path,
+) -> str | None:
+    """Find the original pdb70.m8 template hits file or reconstruct one.
+
+    Strategy:
+    1. Try to find the original pdb70.m8 file relative to the MSA paths.
+       If found, remap query IDs from integer (101, 102, ...) to sequence
+       hashes, as Chai-1 expects.
+    2. If not found, reconstruct a minimal m8 file from StructuralTemplate data
+       with placeholder scoring fields.
+
+    Returns:
+        Path to the remapped/reconstructed m8 file, or None if not possible.
+
+    """
+    out_path = output_dir / "template_hits.m8"
+
+    # Strategy 1: Find original m8 file from any protein's MSA path
+    m8_path: Path | None = None
+    for seq in protein_seqs:
+        if seq.unpaired_msa_path is not None:
+            candidate = Path(seq.unpaired_msa_path).parent.parent / "pdb70.m8"
+            if candidate.exists():
+                m8_path = candidate
+                break
+
+    if m8_path is not None:
+        from uniaf3.msa import parse_m8_file
+
+        all_templates = parse_m8_file(m8_path)
+        # Remap integer query IDs (101, 102, ...) to sequence hashes
+        unique_seqs = list(dict.fromkeys(seq.sequence for seq in protein_seqs))
+        query_map = {
+            str(101 + i): hash_sequence(seq) for i, seq in enumerate(unique_seqs)
+        }
+        all_templates = all_templates.with_columns(
+            pl.col("query_id").replace_strict(query_map, default=pl.col("query_id"))
+        )
+        all_templates.write_csv(out_path, include_header=False, separator="\t")
+        return str(out_path)
+
+    # Strategy 2: Reconstruct from StructuralTemplate objects
+    rows: list[dict] = []
+    for seq in protein_seqs:
+        if not seq.templates:
+            continue
+        seq_hash = hash_sequence(seq.sequence)
+        for tmpl in seq.templates:
+            # Extract PDB ID and chain from the template path
+            tmpl_filename = Path(tmpl.path).name
+            # Handle .cif.gz, .pdb.gz, .cif, .pdb
+            pdb_id = tmpl_filename.split(".")[0].lower()
+            tmpl_chain = tmpl.template_chains[0] if tmpl.template_chains else "A"
+            subject_id = f"{pdb_id}_{tmpl_chain}"
+
+            query_start = (tmpl.query_idx[0] + 1) if tmpl.query_idx else 1
+            query_end = (tmpl.query_idx[-1] + 1) if tmpl.query_idx else 1
+            subject_start = (tmpl.template_idx[0] + 1) if tmpl.template_idx else 1
+            subject_end = (tmpl.template_idx[-1] + 1) if tmpl.template_idx else 1
+            length = max(query_end - query_start + 1, 1)
+
+            rows.append(
+                {
+                    "query_id": seq_hash,
+                    "subject_id": subject_id,
+                    "pident": 0.0,
+                    "length": length,
+                    "mismatch": 0,
+                    "gapopen": 0,
+                    "query_start": query_start,
+                    "query_end": query_end,
+                    "subject_start": subject_start,
+                    "subject_end": subject_end,
+                    "evalue": 999.0,
+                    "bitscore": 0.0,
+                    "comment": "reconstructed_by_uniaf3",
+                }
+            )
+
+    if not rows:
+        return None
+
+    warn_lossy_conversion(
+        "UniAF3 StructuralTemplate objects were reconstructed into Chai m8 "
+        "format with placeholder scoring fields (pident, evalue, bitscore); "
+        "template ranking may differ from the original search results."
+    )
+    df = pl.DataFrame(rows)
+    df.write_csv(out_path, include_header=False, separator="\t")
+    return str(out_path)
+
+
+def to_chai(
+    config: UniAF3Config,
+    msa_dir: str | Path | None = None,
+    strict: bool = False,
+) -> ChaiConfig:
     """Convert a UniAF3Config to a Chai-1 config.
 
     Lossy terms:
 
     - CCD ligand IDs are not supported in Chai FASTA format.
     - Chain IDs are not preserved. Chai uses A, B, ..., Z, AA, AB, ... outputs.
+    - MSA A3M files are converted to Chai's .aligned.pqt Parquet format;
+      header information is partially lost (source database is heuristic).
+    - Templates are passed via an m8 file; if the original pdb70.m8 is not
+      available, a minimal file is reconstructed with placeholder scores.
     """
     entities: list[ChaiEntity] = []
     if any(len(ensure_list(seq.id)) > 1 for seq in config.sequences):
@@ -220,6 +324,67 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
             )
             restraint_idx += 1
 
+    # --- MSA handling ---
+    chai_msa_directory: str | None = None
+    chai_template_hits_path: str | None = None
+
+    protein_seqs_with_msa = [
+        seq
+        for seq in config.sequences
+        if isinstance(seq, ProteinSeq) and seq.unpaired_msa is not None
+    ]
+    if protein_seqs_with_msa:
+        if msa_dir is not None:
+            from uniaf3.vendor.chai1_msa import a3m_to_aligned_pqt
+
+            msa_dir_path = Path(msa_dir).expanduser().resolve()
+            msa_dir_path.mkdir(parents=True, exist_ok=True)
+
+            for seq in protein_seqs_with_msa:
+                a3m_to_aligned_pqt(
+                    single_a3m_path=seq.unpaired_msa,
+                    pair_a3m_path=seq.paired_msa,
+                    output_dir=msa_dir_path,
+                    query_sequence=seq.sequence,
+                )
+            chai_msa_directory = str(msa_dir_path)
+        else:
+            warn_lossy_conversion(
+                "ProteinSeq MSA data (msa_dir/unpaired_msa/paired_msa) cannot be "
+                "converted to Chai format without an output msa_dir parameter; "
+                "MSA information is dropped."
+            )
+
+    # --- Template handling ---
+    protein_seqs_with_templates = [
+        seq for seq in config.sequences if isinstance(seq, ProteinSeq) and seq.templates
+    ]
+    if protein_seqs_with_templates:
+        if msa_dir is not None:
+            msa_dir_path = Path(msa_dir).expanduser().resolve()
+            msa_dir_path.mkdir(parents=True, exist_ok=True)
+
+            # Warn about Boltz-specific fields that are not representable
+            has_boltz_fields = any(
+                tmpl.boltz_enable_force or tmpl.boltz_template_threshold is not None
+                for seq in protein_seqs_with_templates
+                for tmpl in (seq.templates or [])
+            )
+            if has_boltz_fields:
+                warn_lossy_conversion(
+                    "StructuralTemplate.{boltz_enable_force,boltz_template_threshold} "
+                    "are not represented in Chai's template format."
+                )
+
+            chai_template_hits_path = _find_or_reconstruct_m8(
+                protein_seqs_with_templates, msa_dir_path
+            )
+        else:
+            warn_lossy_conversion(
+                "ProteinSeq.templates cannot be converted to Chai's m8 format "
+                "without an output msa_dir parameter; template information is dropped."
+            )
+
     return ChaiConfig(
         entities=entities,
         restraints=restraints or None,
@@ -228,6 +393,8 @@ def to_chai(config: UniAF3Config, strict: bool = False) -> ChaiConfig:
         num_diffn_samples=config.aux.num_diffn_samples,
         num_trunk_samples=config.aux.num_trunk_samples,
         seed=config.aux.seeds[0] if config.aux.seeds else None,
+        msa_directory=chai_msa_directory,
+        template_hits_path=chai_template_hits_path,
     )
 
 

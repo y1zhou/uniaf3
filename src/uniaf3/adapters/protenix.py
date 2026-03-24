@@ -251,7 +251,9 @@ def _to_protenix(
 
 
 def to_protenix(
-    config: list[UniAF3Config], name: str = "uniaf3_job", strict: bool = False
+    config: UniAF3Config | list[UniAF3Config],
+    name: str = "uniaf3_job",
+    strict: bool = False,
 ) -> ProtenixConfig:
     """Convert a list of UniAF3Config to a Protenix config."""
     if isinstance(config, UniAF3Config):
