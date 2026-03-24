@@ -303,10 +303,13 @@ def parse_m8_file(fname: str | Path) -> pl.DataFrame:
                 "subject_end",
                 "evalue",
                 "bitscore",
-                "comment",
+                "cigar",
             ],
         )
-        .sort(by=["query_id", "evalue"])
+        .sort(
+            ["query_id", "evalue", "pident", "subject_id"],
+            descending=[False, False, True, False],
+        )
         .with_columns(
             pl.col(c).cast(pl.Int64)
             for c in ("query_start", "query_end", "subject_start", "subject_end")
@@ -314,3 +317,43 @@ def parse_m8_file(fname: str | Path) -> pl.DataFrame:
         .collect()
     )
     return table
+
+
+def cigar_to_indices(
+    query_start: int,
+    subject_start: int,
+    cigar: str,
+    index_offset: int = -1,
+) -> tuple[list[int], list[int]]:
+    """Convert CIGAR string to query and subject indices.
+
+    Note that the CIGAR string is a subset of the full spec, and only contains
+    M (match), D (deletion, gap in query), or I (insertion, gap in subject)
+    operations. Ops like S, H, or X are not expected in ColabFold's m8 output.
+    """
+    import re
+
+    CIGAR_REGEX = re.compile(r"(\d+)([MID])")
+
+    query_indices = []
+    subject_indices = []
+    q_pos = query_start + index_offset
+    s_pos = subject_start + index_offset
+    for match in CIGAR_REGEX.finditer(cigar):
+        length_str, op = match.groups()
+        length = int(length_str)
+        if op == "M":
+            query_indices.extend(range(q_pos, q_pos + length))
+            subject_indices.extend(range(s_pos, s_pos + length))
+            q_pos += length
+            s_pos += length
+        elif op == "I":
+            q_pos += length
+        elif op == "D":
+            s_pos += length
+
+    if len(query_indices) != len(subject_indices):
+        raise ValueError(
+            f"CIGAR parsing error: number of query indices ({len(query_indices)}) does not match number of subject indices ({len(subject_indices)})."
+        )
+    return query_indices, subject_indices

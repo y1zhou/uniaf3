@@ -20,7 +20,7 @@ from pydantic import (
 )
 from yaml import representer
 
-from uniaf3.msa import query_colabfold
+from uniaf3.msa import cigar_to_indices, query_colabfold
 from uniaf3.utils import hash_sequence
 
 T = TypeVar("T", bound="UniAF3BaseConfig")
@@ -157,6 +157,14 @@ class StructuralTemplate(BaseModel):
     boltz_template_threshold: NonNegativeFloat | None = (
         None  # distance (Angstroms) that the prediction can deviate from the template
     )
+
+    @model_validator(mode="after")
+    def query_template_idx_same_length(self):
+        """Ensure query and template indices are the same length if both are provided."""
+        if self.query_idx is not None and self.template_idx is not None:
+            if len(self.query_idx) != len(self.template_idx):
+                raise ValueError("query_idx and template_idx must be the same length.")
+        return self
 
 
 class PolymerType(StrEnum):
@@ -560,13 +568,15 @@ class UniAF3Config(UniAF3BaseConfig):
 
                 if r_seq_hash not in template_map:
                     template_map[r_seq_hash] = []
+
+                query_idx, template_idx = cigar_to_indices(
+                    r["query_start"], r["subject_start"], r["cigar"]
+                )
                 template_map[r_seq_hash].append(
                     StructuralTemplate(
                         path=r["template_cif_path"],
-                        query_idx=list(range(r["query_start"] - 1, r["query_end"])),
-                        template_idx=list(
-                            range(r["subject_start"] - 1, r["subject_end"])
-                        ),
+                        query_idx=query_idx,
+                        template_idx=template_idx,
                         query_chains=hash_to_chains[r_seq_hash],
                         template_chains=[template_chain_id],
                     )
