@@ -89,7 +89,15 @@ def _to_protenix(
                             )
                         # NOTE: Protenix uses a single templatesPath for
                         # template .a3m/.hhr files; we use the first template.
-                        pc.templatesPath = seq.templates[0].path
+                        tmpl = seq.templates[0]
+                        pc.templatesPath = tmpl.path
+                        if (
+                            tmpl.boltz_enable_force
+                            or tmpl.boltz_template_threshold is not None
+                        ):
+                            warn_lossy_conversion(
+                                "UniAF3Config.sequences[*].templates.{boltz_enable_force,boltz_template_threshold} are not represented by ProtenixProteinChain.templatesPath."
+                            )
                 sequences.append(ProtenixSequenceEntry(proteinChain=pc))
             elif seq.polymer_type == PolymerType.DNA:
                 mods = None
@@ -299,14 +307,13 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                 id=chain_ids,
                 sequence=pc.sequence,
                 modifications=mods,
-                # NOTE: Protenix uses direct MSA file paths, but UniAF3 uses
-                # hash-based directory lookup. MSA paths are not preserved.
+                unpaired_msa=pc.unpairedMsaPath,
+                paired_msa=pc.pairedMsaPath,
             )
-            if pc.unpairedMsaPath is not None or pc.pairedMsaPath is not None:
-                warn_lossy_conversion(
-                    "ProtenixProteinChain.{unpairedMsaPath,pairedMsaPath} are not preserved in UniAF3; UniAF3 expects hash-based files under msa_dir/a3ms."
-                )
             if pc.templatesPath:
+                # TODO: Protenix templates use a3m/hhr format files, which need
+                # conversion to m8 to be correctly parsed by other models.
+                # Implement this format conversion in a future change.
                 seq.templates = [StructuralTemplate(path=pc.templatesPath)]
             sequences.append(seq)
         elif entry.dnaSequence is not None:

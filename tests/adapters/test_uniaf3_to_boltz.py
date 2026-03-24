@@ -1,7 +1,5 @@
 """Tests for UniAF3Config -> BoltzConfig adapter."""
 
-from pathlib import Path
-
 import pytest
 
 from uniaf3.schema import BoltzConfig, UniAF3Config
@@ -58,8 +56,8 @@ def test_protein_fields(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):
     assert prot.id == src.id
     assert prot.sequence == src.sequence
     assert prot.cyclic == src.boltz_cyclic
-    # MSA: "empty" because src.msa_dir is None
-    assert Path(prot.msa).stem == src.seq_hash
+    # MSA: "empty" because src.unpaired_msa is None
+    assert prot.msa == "empty"
 
 
 def test_protein_modifications(uniaf3_conf: UniAF3Config, boltz: BoltzConfig):

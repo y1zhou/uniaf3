@@ -97,17 +97,22 @@ def query_colabfold(
         kwargs: Additional args to pass to ``run_mmseqs2``.
 
     Returns:
-        The MSA directory. The MSA directory has the following structure:
+        The ColabFoldResponse containing MSA paths. Files are structured as:
 
         ```
         msa_cache_dir/
+          <seq_hash>[:2]/
+            <seq_hash>/
+              <seq_hash>.single.a3m          (per individual sequence)
           <seqs_hash>[:2]/
             <seqs_hash>/
-                a3ms/
-                  <seq_hash>.single.a3m
-                  <seq_hash>.pair.a3m
-                pdb70.m8 (if use_templates is True)
+              a3ms/
+                <seq_hash>.pair.a3m          (per query combination)
+              pdb70.m8 (if use_templates is True)
         ```
+
+        Single MSAs are stored per-sequence so that different queries sharing
+        the same chains can reuse cached results without re-hitting the API.
 
     """
     # Setup output directories
@@ -124,14 +129,22 @@ def query_colabfold(
     msa_dir.mkdir(parents=True, exist_ok=True)
     msa_dir = msa_dir.resolve()
 
-    a3ms_dir = msa_dir / "a3ms"
-    a3ms_dir.mkdir(exist_ok=True)
-
     # Expected output files to be cached
     seq_hashes = [hash_sequence(s.upper()) for s in seqs_unique]
     num_seqs = len(seqs_unique)
 
-    single_a3m_files = [a3ms_dir / f"{seq_hash}.single.a3m" for seq_hash in seq_hashes]
+    # Single MSAs go to per-sequence directories for cross-query reuse
+    msa_cache_root = Path(msa_cache_dir).expanduser()
+    single_a3m_files = []
+    for seq_hash in seq_hashes:
+        single_dir = msa_cache_root / seq_hash[:2] / seq_hash
+        single_dir.mkdir(parents=True, exist_ok=True)
+        single_a3m_files.append((single_dir / f"{seq_hash}.single.a3m").resolve())
+
+    # Paired MSAs stay in the per-query directory
+    if num_seqs > 1:
+        a3ms_dir = msa_dir / "a3ms"
+        a3ms_dir.mkdir(exist_ok=True)
     paired_a3m_files = (
         [a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes]
         if num_seqs > 1
@@ -227,20 +240,20 @@ def query_colabfold(
                     pl.lit("https://files.rcsb.org/download/"),
                     pl.col("subject_pdb_id"),
                     pl.lit(".cif.gz"),  # -assembly1.cif.gz for biological assembly
-                ).alias("cif_url"),
+                ).alias("template_cif_url"),
                 pl.concat_str(
                     pl.lit(f"{template_cache_dir}/"),
                     pl.col("subject_pdb_id").str.slice(offset=-3, length=2),
                     pl.lit("/"),
                     pl.col("subject_pdb_id"),
                     pl.lit(".cif.gz"),
-                ).alias("local_cif_path"),
+                ).alias("template_cif_path"),
             )
         )
         asyncio.run(
             download_files(
                 {
-                    r["cif_url"]: Path(r["local_cif_path"])
+                    r["template_cif_url"]: Path(r["template_cif_path"])
                     for r in template_pdb_ids.iter_rows(named=True)
                 },
                 force=force,
@@ -249,6 +262,7 @@ def query_colabfold(
                 progress_bar_desc="Downloading templates from RCSB",
             )
         )
+        # TODO: extract gzipped files?
         templates_df = all_templates.join(
             template_pdb_ids, on="subject_pdb_id", maintain_order="left"
         )

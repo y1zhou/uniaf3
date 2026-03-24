@@ -209,5 +209,148 @@ def convert_config(
         raise typer.Exit(code=1) from exc
 
 
+@app.command(name="msa")
+def add_msa(
+    input_config_file: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to the input config file.",
+            exists=True,
+            resolve_path=True,
+        ),
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Argument(help="Output directory for the config file(s) with MSA paths."),
+    ],
+    format: Annotated[
+        ConfigFormat,
+        typer.Option(
+            "--format",
+            "-f",
+            help="Format of the input config file",
+            case_sensitive=False,
+        ),
+    ] = ConfigFormat.UniAF3,
+    msa_cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--msa-cache-dir",
+            help="Directory to cache MSA files. Defaults to $XDG_CACHE_HOME/uniaf3/colabfold_msas/.",
+        ),
+    ] = None,
+    chains: Annotated[
+        str | None,
+        typer.Option(
+            "--chains",
+            "-c",
+            help="Comma-separated chain IDs to query MSAs for. If not set, all protein chains are processed.",
+        ),
+    ] = None,
+    search_templates: Annotated[
+        bool,
+        typer.Option(
+            "--search-templates/--no-search-templates",
+            help="Whether to search for structural templates.",
+        ),
+    ] = False,
+    num_templates: Annotated[
+        int,
+        typer.Option(
+            "--num-templates",
+            help="Number of templates to fetch per sequence.",
+        ),
+    ] = 5,
+    template_cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--template-cache-dir",
+            help="Directory to cache template files. Defaults to $XDG_CACHE_HOME/uniaf3/rcsb/.",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Re-query MSAs even if cached results exist.",
+        ),
+    ] = False,
+    with_uniaf3: Annotated[
+        bool,
+        typer.Option(
+            "--with-uniaf3",
+            help="Also write a UniAF3 YAML file alongside the output format.",
+        ),
+    ] = False,
+) -> None:
+    """Query MSAs for protein sequences and write config files with MSA paths."""
+    from uniaf3.adapters import from_uniaf3, to_uniaf3
+    from uniaf3.schema import UniAF3Config
+
+    try:
+        # 1. Load config
+        src_conf = _load_config(input_config_file, format.value)
+
+        # 2. Convert to UniAF3 (may return a list for multi-job configs)
+        if not isinstance(src_conf, UniAF3Config):
+            uni_confs = to_uniaf3(src_conf)
+        else:
+            uni_confs = src_conf
+        if not isinstance(uni_confs, list):
+            uni_confs = [uni_confs]
+
+        # 3. Parse chains argument
+        chain_set = set(chains.split(",")) if chains else None
+
+        # 4. Process each config sequentially
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for i, uni_conf in enumerate(uni_confs):
+            uni_conf.add_msa_for_protein_seqs(
+                msa_cache_dir=msa_cache_dir,
+                chains=chain_set,
+                search_templates=search_templates,
+                num_templates_per_seq=num_templates,
+                template_cache_dir=template_cache_dir,
+                force=force,
+            )
+
+            # Determine prefix: use input stem for single config, append index for multiple
+            prefix = (
+                input_config_file.stem
+                if len(uni_confs) == 1
+                else f"{input_config_file.stem}_{i}"
+            )
+
+            # Write in original format (convert back if needed)
+            if format.value != "uniaf3":
+                parser = _get_format_to_config()[format.value]
+                msa_out_dir = output_dir / "msa"
+                dst_conf = from_uniaf3(
+                    uni_conf, parser, name=prefix, msa_dir=msa_out_dir
+                )
+                if isinstance(dst_conf, list):
+                    for j, dc in enumerate(dst_conf):
+                        dc.to_files(output_dir, f"{prefix}_{j}")
+                else:
+                    dst_conf.to_files(output_dir, prefix)
+            else:
+                uni_conf.to_files(output_dir, prefix)
+
+            # Optionally also write UniAF3 YAML
+            if with_uniaf3 and format.value != "uniaf3":
+                uni_conf.to_files(output_dir, f"{prefix}_uniaf3")
+
+            console.print(f"[green]Processed config {i + 1}/{len(uni_confs)}[/green]")
+
+        console.print(
+            f"[bold green]MSA query complete.[/bold green] "
+            f"Outputs written to: {output_dir}"
+        )
+    except Exception as exc:
+        console.print_exception(show_locals=True, width=console.width)
+        console.print(f"[bold red]MSA query error:[/bold red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+
 if __name__ == "__main__":
     app()

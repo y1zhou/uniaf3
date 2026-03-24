@@ -182,9 +182,8 @@ def msa_config_with_files(tmp_path):
                 polymer_type=PolymerType.Protein,
                 id="A",
                 sequence=seq_str,
-                unpaired_msa_path=str(single_path),
-                paired_msa_path=str(paired_path),
-                msa_dir=str(tmp_path / "msas"),
+                unpaired_msa=str(single_path),
+                paired_msa=str(paired_path),
             )
         ]
     )
@@ -232,8 +231,8 @@ def test_msa_directory_none_when_no_msa_data(tmp_path):
     assert chai.msa_directory is None
 
 
-def test_warns_when_msa_present_but_no_msa_dir(msa_config_with_files):
-    """When MSA data exists but no msa_dir param, a lossy warning is emitted."""
+def test_warns_when_msa_present_but_no_msa_dir_param(msa_config_with_files):
+    """When MSA data exists but no msa_dir param to to_chai, a lossy warning is emitted."""
     from uniaf3.adapters import to_chai
 
     with pytest.warns(UserWarning, match="MSA information is dropped"):

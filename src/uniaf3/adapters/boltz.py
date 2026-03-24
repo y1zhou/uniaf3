@@ -48,7 +48,7 @@ from uniaf3.vendor.chai1_fasta import read_fasta
 from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
 
 
-def merge_chai_msa_to_csv(
+def merge_colabfold_msa_to_csv(
     unpaired_msa_file: str | Path | None,
     paired_msa_file: str | Path | None,
     msa_id: str,
@@ -126,7 +126,7 @@ def merge_chai_msa_to_csv(
 def split_boltz_csv_to_a3m(
     csv_file: str | Path, out_dir: str | Path
 ) -> tuple[Path, Path] | tuple[Path, None]:
-    """Split a Boltz MSA CSV file into unpaired and paired A3M files for Chai.
+    """Split a Boltz MSA CSV file into unpaired and paired A3M files for UniAF3.
 
     Args:
         csv_file: Path to Boltz MSA CSV file.
@@ -254,8 +254,8 @@ def to_boltz(
                 if seq.modifications
                 else None
             )
-            if seq.msa_dir is not None:
-                msa_csv_path = merge_chai_msa_to_csv(
+            if seq.unpaired_msa is not None:
+                msa_csv_path = merge_colabfold_msa_to_csv(
                     seq.unpaired_msa,
                     seq.paired_msa,
                     msa_id=seq.seq_hash,
@@ -433,26 +433,32 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 msa_dir_path.mkdir(parents=True, exist_ok=True)
                 input_msa_filetype = Path(p.msa).suffix
                 if input_msa_filetype == ".csv":
-                    _ = split_boltz_csv_to_a3m(p.msa, msa_dir_path / "a3ms")
+                    unpaired_path, paired_path = split_boltz_csv_to_a3m(
+                        p.msa, msa_dir_path / "a3ms"
+                    )
                 elif input_msa_filetype == ".a3m":
                     import shutil
 
                     (msa_dir_path / "a3ms").mkdir(parents=True, exist_ok=True)
                     prefix = hash_sequence(p.sequence)
-                    shutil.copyfile(
-                        p.msa, msa_dir_path / "a3ms" / f"{prefix}.single.a3m"
-                    )
+                    unpaired_path = msa_dir_path / "a3ms" / f"{prefix}.single.a3m"
+                    shutil.copyfile(p.msa, unpaired_path)
+                    paired_path = None
                 else:
                     raise ValueError(
                         f"Unsupported MSA file type in Boltz config: {p.msa}"
                     )
+            else:
+                unpaired_path = None
+                paired_path = None
             seq = ProteinSeq(
                 polymer_type=PolymerType.Protein,
                 id=p.id,
                 sequence=p.sequence,
                 modifications=mods,
                 boltz_cyclic=p.cyclic,
-                msa_dir=str(msa_dir),
+                unpaired_msa=str(unpaired_path) if unpaired_path else None,
+                paired_msa=str(paired_path) if paired_path else None,
             )
             sequences.append(seq)
             polymer_chains.update(ensure_list(p.id))

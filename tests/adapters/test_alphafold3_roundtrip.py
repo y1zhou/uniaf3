@@ -1,7 +1,5 @@
 """Tests for AF3Config -> UniAF3Config -> BoltzConfig adapter."""
 
-from pathlib import Path
-
 import pytest
 
 from uniaf3.schema import AF3Config, UniAF3Config
@@ -16,7 +14,7 @@ def af3_uni(
     from uniaf3.adapters import from_alphafold3
 
     with pytest.warns(UserWarning):
-        return from_alphafold3(af3_conf, tmp_path_factory.mktemp("msa"))
+        return from_alphafold3(af3_conf)
 
 
 @pytest.fixture(scope="module")
@@ -24,9 +22,7 @@ def af3_rt(af3_uni: UniAF3Config, tmp_path_factory: pytest.TempPathFactory):
     """Convert UniAF3Config back to AF3Config, i.e. roundtrip."""
     from uniaf3.adapters import to_alphafold3
 
-    return to_alphafold3(
-        af3_uni, tmp_path_factory.mktemp("msa"), name="test-roundtrip", strict=False
-    )
+    return to_alphafold3(af3_uni, name="test-roundtrip", strict=False)
 
 
 # ruff: noqa: S101
@@ -43,9 +39,8 @@ def test_to_uniaf3_af3_preserves_sequences(
     """to_uniaf3() for AF3 should produce the same number of sequences."""
     from uniaf3.adapters import to_uniaf3
 
-    msa_dir = tmp_path_factory.mktemp("msa_bug1b")
     with pytest.warns(UserWarning):
-        result = to_uniaf3(af3_conf, msa_dir=msa_dir)
+        result = to_uniaf3(af3_conf)
     assert isinstance(result, UniAF3Config)
     assert len(result.sequences) == len(af3_conf.sequences)
 
@@ -59,7 +54,7 @@ def test_from_af3_warns_on_lossy_metadata(
     conf.userCCD = "data_MY_LIGAND"
 
     with pytest.warns(UserWarning) as records:
-        _ = from_alphafold3(conf, msa_dir=tmp_path_factory.mktemp("msa_warn_af3"))
+        _ = from_alphafold3(conf)
     assert any("AF3Config.{userCCD,userCCDPath}" in str(w.message) for w in records)
 
 
@@ -90,25 +85,18 @@ def test_protein_modifications(af3_uni: UniAF3Config, af3_conf: AF3Config):
     assert prot.modifications[0].position == src.modifications[0].ptmPosition
 
 
-def test_protein_msa_dir_derived(af3_uni: UniAF3Config, af3_conf: AF3Config):
-    """AF3 MSA paths → msa_dir is parent dir."""
+def test_protein_msa_paths_preserved(af3_uni: UniAF3Config, af3_conf: AF3Config):
+    """AF3 MSA paths are preserved directly in ProteinSeq."""
     prot = af3_uni.sequences[0]
     src = af3_conf.sequences[0].protein
     assert isinstance(prot, ProteinSeq)
     assert src is not None
     if src.unpairedMsaPath:
-        assert prot.unpaired_msa is not None
-        assert (
-            Path(prot.unpaired_msa).read_bytes()
-            == Path(src.unpairedMsaPath).read_bytes()
-        )
+        assert prot.unpaired_msa == src.unpairedMsaPath
     else:
-        assert prot.msa_dir is None
+        assert prot.unpaired_msa is None
     if src.pairedMsaPath:
-        assert prot.paired_msa is not None
-        assert (
-            Path(prot.paired_msa).read_bytes() == Path(src.pairedMsaPath).read_bytes()
-        )
+        assert prot.paired_msa == src.pairedMsaPath
     else:
         assert prot.paired_msa is None
 

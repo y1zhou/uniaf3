@@ -58,8 +58,8 @@ def _find_or_reconstruct_m8(
     # Strategy 1: Find original m8 file from any protein's MSA path
     m8_path: Path | None = None
     for seq in protein_seqs:
-        if seq.unpaired_msa_path is not None:
-            candidate = Path(seq.unpaired_msa_path).parent.parent / "pdb70.m8"
+        if seq.unpaired_msa is not None:
+            candidate = Path(seq.unpaired_msa).parent.parent / "pdb70.m8"
             if candidate.exists():
                 m8_path = candidate
                 break
@@ -467,14 +467,14 @@ def _parse_chai_polymer_modifications(
 def from_chai(config: ChaiConfig) -> UniAF3Config:
     """Convert a Chai-1 config to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
-    msa_dir = config.msa_directory
-    if msa_dir is not None:
-        msa_dir_path = Path(msa_dir)
-        # Use subdirectory following MMSeqs2 output file structure
-        if (msa_dir_path / "a3ms").exists():
-            msa_dir_path = msa_dir_path / "a3ms"
-    else:
-        msa_dir_path = None
+    if config.msa_directory is not None:
+        # TODO: It is possible to reverse Chai's .aligned.pqt back to A3M
+        # if the schema is known (columns: sequence, source_database,
+        # pairing_key, comment). Implement this reversal in a future change.
+        warn_lossy_conversion(
+            "ChaiConfig.msa_directory (.aligned.pqt files) cannot be "
+            "reverse-converted to A3M format; MSA information is dropped."
+        )
     for i, entity in enumerate(config.entities, start=1):
         if entity.entity_type == ChaiEntityType.Protein:
             seq, mods = _parse_chai_polymer_modifications(entity.sequence)
@@ -485,8 +485,6 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
                     description=entity.entity_name,
                     sequence=seq,
                     modifications=mods,
-                    msa_dir=str(msa_dir_path) if msa_dir_path else None,
-                    templates=None,
                 )
             )
         elif entity.entity_type == ChaiEntityType.DNA:

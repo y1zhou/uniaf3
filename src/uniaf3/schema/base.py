@@ -203,54 +203,9 @@ class Polymer(BaseModel):
 class ProteinSeq(Polymer):
     """Schema for individual protein sequences."""
 
-    msa_dir: str | None = None
-    unpaired_msa_path: str | None = None
-    paired_msa_path: str | None = None
+    unpaired_msa: str | None = None  # path to unpaired MSA A3M file
+    paired_msa: str | None = None  # path to paired MSA A3M file
     templates: list[StructuralTemplate] | None = None
-
-    @computed_field
-    @property
-    def unpaired_msa(self) -> str | None:
-        """Get path to unpaired MSA file.
-
-        The filename assumption comes from Chai-1 MSA search methods.
-        """
-        if self.unpaired_msa_path is not None:
-            return self.unpaired_msa_path
-        if self.msa_dir is None:
-            return None
-
-        a3m_path = (
-            Path(self.msa_dir).expanduser().resolve()
-            / "a3ms"
-            / f"{self.seq_hash}.single.a3m"
-        )
-        if a3m_path.exists():
-            return str(a3m_path)
-
-        return None
-
-    @computed_field
-    @property
-    def paired_msa(self) -> str | None:
-        """Get path to paired MSA file.
-
-        The filename assumption comes from Chai-1 MSA search methods.
-        """
-        if self.paired_msa_path is not None:
-            return self.paired_msa_path
-        if self.msa_dir is None:
-            return None
-
-        a3m_path = (
-            Path(self.msa_dir).expanduser().resolve()
-            / "a3ms"
-            / f"{self.seq_hash}.pair.a3m"
-        )
-        if a3m_path.exists():
-            return str(a3m_path)
-
-        return None
 
 
 class Ligand(BaseModel):
@@ -462,10 +417,15 @@ class UniAF3Config(UniAF3BaseConfig):
         for i, seq in enumerate(conf.sequences):
             if isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein:
                 conf.sequences[i] = ProteinSeq(**seq.model_dump())
-                if (msa_dir := conf.sequences[i].msa_dir) is not None:
-                    conf.sequences[i].msa_dir = (
-                        Path(conf_file).parent / msa_dir
-                    ).resolve()
+                prot = conf.sequences[i]
+                for field in ("unpaired_msa", "paired_msa"):
+                    path = getattr(prot, field)
+                    if path is not None:
+                        if not Path(path).is_absolute():
+                            true_path = (Path(conf_file).parent / path).resolve()
+                        else:
+                            true_path = Path(path)
+                        setattr(prot, field, str(true_path))
 
         return conf
 
@@ -590,19 +550,24 @@ class UniAF3Config(UniAF3BaseConfig):
                 for seq in self.sequences
                 if isinstance(seq, ProteinSeq)
             }
+            query_id_map: dict[int, str] = {
+                msa_data.query_ids[i]: seq_hash
+                for i, seq_hash in enumerate(msa_data.seq_hashes)
+            }
             for r in templates_df.iter_rows(named=True):
                 _, template_chain_id = r["subject_id"].split("_")
+                r_seq_hash = query_id_map[r["query_id"]]
 
-                if r["query_id"] not in template_map:
-                    template_map[r["query_id"]] = []
-                template_map[r["query_id"]].append(
+                if r_seq_hash not in template_map:
+                    template_map[r_seq_hash] = []
+                template_map[r_seq_hash].append(
                     StructuralTemplate(
-                        path=r["local_cif_path"],
+                        path=r["template_cif_path"],
                         query_idx=list(range(r["query_start"] - 1, r["query_end"])),
                         template_idx=list(
                             range(r["subject_start"] - 1, r["subject_end"])
                         ),
-                        query_chains=hash_to_chains[r["query_id"]],
+                        query_chains=hash_to_chains[r_seq_hash],
                         template_chains=[template_chain_id],
                     )
                 )
@@ -616,13 +581,12 @@ class UniAF3Config(UniAF3BaseConfig):
             elif isinstance(seq.id, list) and not any(c in chains for c in seq.id):
                 continue
 
-            seq.msa_dir = str(out_path)
             seq_msa_res = msa_data[seq.sequence]
-            seq.unpaired_msa_path = seq_msa_res["single_msa"]
-            seq.paired_msa_path = seq_msa_res["paired_msa"]
+            single_msa = seq_msa_res["single_msa"]
+            paired_msa = seq_msa_res["paired_msa"]
+            seq.unpaired_msa = str(single_msa) if single_msa else None
+            seq.paired_msa = str(paired_msa) if paired_msa else None
 
             custom_templates = seq.templates or []
             if seq.seq_hash in template_map:
                 seq.templates = custom_templates + template_map[seq.seq_hash]
-
-            # TODO: copy template files to expected locations?

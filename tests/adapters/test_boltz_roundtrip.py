@@ -129,10 +129,8 @@ def test_a3m_msa_writes_to_a3ms_subdir(
         result = from_boltz(boltz_conf, msa_dir=msa_dir)
 
     prot = result.sequences[0]
-    if isinstance(prot, ProteinSeq) and prot.msa_dir is not None:
-        msa_path = prot.unpaired_msa
-        if msa_path is not None:
-            assert "/a3ms/" in str(msa_path)
+    if isinstance(prot, ProteinSeq) and prot.unpaired_msa is not None:
+        assert "/a3ms/" in prot.unpaired_msa
 
 
 def test_warns_on_default_seed_from_boltz(

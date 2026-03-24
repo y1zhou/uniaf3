@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from uniaf3.adapters._helpers import (
     err_unsupported_feature,
     warn_lossy_conversion,
@@ -33,12 +31,10 @@ from uniaf3.schema.base import (
     StructuralTemplate,
     UniAF3Config,
 )
-from uniaf3.utils import hash_sequence
 
 
 def to_alphafold3(
     config: UniAF3Config,
-    msa_dir: str | Path,
     name: str = "uniaf3_job",
     strict: bool = False,
 ) -> AF3Config:
@@ -46,7 +42,6 @@ def to_alphafold3(
 
     Args:
         config: UniAF3Config pydantic object.
-        msa_dir: Directory to save MSA files.
         name: Job name for the AF3 config.
         strict: If True, raise errors when encountering unsupported features.
             If False, skip unsupported features with warnings.
@@ -208,19 +203,17 @@ def to_alphafold3(
     )
 
 
-def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
+def from_alphafold3(config: AF3Config) -> UniAF3Config:
     """Convert an AlphaFold3 config to a UniAF3Config.
 
     Args:
         config: AF3Config pydantic object.
-        msa_dir: Directory to save MSA files.
 
     Returns:
         A UniAF3Config.
 
     """
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
-    msa_dir_path = Path(msa_dir) / "a3ms"
     if config.name:
         warn_lossy_conversion(
             f"AF3Config.name ('{config.name}') is not represented in UniAF3Config."
@@ -241,18 +234,6 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
                 if p.modifications
                 else None
             )
-            # Determine MSA dir from MSA paths
-            for i, f in enumerate((p.unpairedMsaPath, p.pairedMsaPath)):
-                if f is not None:
-                    msa_dir_path.mkdir(parents=True, exist_ok=True)
-                    seq_hash = hash_sequence(p.sequence)
-                    msa_type = "single" if i == 0 else "pair"
-
-                    msa_path = msa_dir_path / f"{seq_hash}.{msa_type}.a3m"
-                    if not msa_path.exists():
-                        import shutil
-
-                        shutil.copyfile(f, msa_path)
             if p.unpairedMsa is not None or p.pairedMsa is not None:
                 warn_lossy_conversion(
                     "AF3Config.sequences[*].protein.{unpairedMsa,pairedMsa} are not imported; UniAF3 maps only file-based MSA paths."
@@ -281,7 +262,8 @@ def from_alphafold3(config: AF3Config, msa_dir: str | Path) -> UniAF3Config:
                 sequence=p.sequence,
                 modifications=mods,
                 description=p.description,
-                msa_dir=str(msa_dir_path.parent),
+                unpaired_msa=p.unpairedMsaPath,
+                paired_msa=p.pairedMsaPath,
                 templates=templates,
             )
             sequences.append(seq)

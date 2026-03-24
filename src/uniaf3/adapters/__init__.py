@@ -64,7 +64,7 @@ def to_uniaf3(
     if isinstance(conf, AF3ServerConfig):
         return from_alphafold3_server(conf)
     if isinstance(conf, AF3Config):
-        return from_alphafold3(conf, msa_dir=msa_dir)
+        return from_alphafold3(conf)
     if isinstance(conf, BoltzConfig):
         return from_boltz(conf, msa_dir=msa_dir)
     if isinstance(conf, ChaiConfig):
@@ -88,7 +88,7 @@ def from_uniaf3(
         conf: The UniAF3Config to convert.
         target: The target config class.
         name: Job name for models that require one (AF3, Protenix).
-        msa_dir: Directory to save MSA CSV files (used by Boltz).
+        msa_dir: Directory to save MSA CSV files (used by Boltz and Chai).
         strict: If True, raise errors for unsupported features.
 
     Returns:
@@ -102,11 +102,8 @@ def from_uniaf3(
         return conf
     if target is AF3Config:
         if isinstance(conf, list):
-            return [
-                to_alphafold3(c, msa_dir=msa_dir, name=name, strict=strict)
-                for c in conf
-            ]
-        return to_alphafold3(conf, msa_dir=msa_dir, name=name, strict=strict)
+            return [to_alphafold3(c, name=name, strict=strict) for c in conf]
+        return to_alphafold3(conf, name=name, strict=strict)
     if target is AF3ServerConfig:
         return to_alphafold3_server(
             conf if isinstance(conf, list) else [conf], name=name, strict=strict

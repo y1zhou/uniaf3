@@ -88,7 +88,7 @@ def _to_alphafold3_server(
                 or seq.templates is not None
             ):
                 warn_lossy_conversion(
-                    "UniAF3 ProteinSeq fields {msa_dir,unpaired_msa,paired_msa,templates} are not represented in AF3ServerSequenceEntry.proteinChain."
+                    "UniAF3 ProteinSeq fields {unpaired_msa,paired_msa,templates} are not represented in AF3ServerSequenceEntry.proteinChain."
                 )
             protein = AF3ServerProtein(
                 sequence=seq.sequence,
