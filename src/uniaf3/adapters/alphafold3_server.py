@@ -81,7 +81,6 @@ def _to_alphafold3_server(
                     for m in seq.modifications
                 ]
 
-            # TODO: map structural templates
             if isinstance(seq, ProteinSeq) and (
                 seq.unpaired_msa is not None
                 or seq.paired_msa is not None
@@ -172,10 +171,9 @@ def _to_alphafold3_server(
                             f"Unsupported ligand CCD code for AF3 Server: {ccd_code}",
                         )
             elif seq.smiles:
-                # NOTE: AF3 Server only accepts CCD ligands, not SMILES.
                 err_unsupported_feature(
                     strict,
-                    f"AF3 Server does not support SMILES ligands: {seq}",
+                    f"AF3 Server only accepts CCD ligands, not SMILES: {seq}",
                 )
 
     for field in (
@@ -221,7 +219,7 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
     """Convert a single AF3ServerJob to UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
 
-    # NOTE: AF3 Server uses count-based copies, not chain IDs.
+    # AF3 Server uses count-based copies, not chain IDs.
     # We generate chain IDs based on entity order (A, B, C, ...).
     chain_counter = 0
 
@@ -314,7 +312,7 @@ def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:
             lig = Ligand(id=chain_ids, ccd=[io.ion])
             sequences.append(lig)
 
-    # NOTE: AF3 Server config does not include seeds; default to [42].
+    # AF3 Server config does not include seeds; default to [42].
     if not job.modelSeeds:
         warn_lossy_conversion(
             "AF3ServerJob.modelSeeds is empty; UniAF3Config.aux.seeds defaults to [42]."

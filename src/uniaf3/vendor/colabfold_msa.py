@@ -178,7 +178,6 @@ def run_mmseqs2(
 
     # deduplicate and keep track of order
     # seqs_unique = []
-    # # TODO this might be slow for large sets
     # [seqs_unique.append(x) for x in seqs if x not in seqs_unique]
     seqs_unique = list(dict.fromkeys(seqs))  # >=Python 3.7
     Ms = [N + seqs_unique.index(seq) for seq in seqs]

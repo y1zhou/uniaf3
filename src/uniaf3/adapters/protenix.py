@@ -54,9 +54,10 @@ def _to_protenix(
     # Build a chain-id -> (entity, copy) mapping
     chain_to_entity: dict[str, tuple[int, int]] = {}
     for entity_idx, seq in enumerate(config.sequences, start=1):
-        # NOTE: Protenix does not support assigning chain IDs to input
-        # entities. The entity number is determined by the order in the
-        # sequences list, and copies are controlled by the count field.
+        # TODO: Protenix added support for assigning chain IDs to input
+        # entities in v1.0.6. Prior to that, the entity number is determined
+        # by the order in the sequences list, and copies are controlled by the
+        # count field.
         ids = ensure_list(seq.id)
         for copy_idx, chain_id in enumerate(ids, start=1):
             chain_to_entity[chain_id] = (entity_idx, copy_idx)
@@ -87,8 +88,9 @@ def _to_protenix(
                             warn_lossy_conversion(
                                 "ProtenixProteinChain.templatesPath accepts one path; only the first UniAF3 ProteinSeq.templates entry is kept."
                             )
-                        # NOTE: Protenix uses a single templatesPath for
-                        # template .a3m/.hhr files; we use the first template.
+                        # TODO: Protenix uses a single templatesPath for
+                        # template .a3m/.hhr files; we should convert all templates into
+                        # a single .a3m file with correct query-template mappings.
                         tmpl = seq.templates[0]
                         pc.templatesPath = tmpl.path
                         if (

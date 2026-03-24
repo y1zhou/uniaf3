@@ -50,7 +50,7 @@ def to_alphafold3(
     sequences: list[AF3SequenceEntry] = []
     for seq in config.sequences:
         if isinstance(seq, Glycan):
-            # NOTE: AF3 does not have a native glycan type. Glycans must be
+            # TODO: AF3 does not have a native glycan type. Glycans must be
             # represented as multi-CCD ligands. This requires knowing the
             # component CCD codes, which the chai_str notation may not directly
             # map to.

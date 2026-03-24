@@ -1,8 +1,7 @@
 """Adapters to convert between UniAF3Config and model-specific configs.
 
 Each model has a ``to_*`` and ``from_*`` function pair in its own module under
-``uniaf3.adapters``.  Items that cannot be mapped are annotated with
-``# NOTE: `` comments for future attention.
+``uniaf3.adapters``.
 """
 
 from __future__ import annotations
