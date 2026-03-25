@@ -188,6 +188,14 @@ def convert_config(
     """Convert an input config file from one format to another."""
     from uniaf3.adapters import from_uniaf3, to_uniaf3
 
+    if from_format.value == "chai":
+        console.print(
+            "[bold yellow]Warning:[/bold yellow] "
+            "Converting from raw Chai inputs may be lossy from the command line. "
+            "This CLI is primarily designed for converting between full config objects. "
+            "If possible, use `from_chai_files()` in `ChaiConfig` to load all Chai files."
+        )
+
     try:
         src_conf = _load_config(input_config_file, from_format.value)
         uni_conf = to_uniaf3(src_conf, msa_dir=output_dir / "msa")

@@ -178,14 +178,20 @@ class ChaiConfig(UniAF3BaseConfig):
         """Load a ChaiConfig from a YAML file."""
         return super().from_file(conf_file)
 
-    # TODO: from_file should use the conf_file dumped by UniAF3
-    # For the current implementation, put it under from_chai_files() and have
-    # higher-level functions call it explicitly
     @classmethod
-    def from_file(
-        cls, fasta_file: str | Path, restraints_file: str | Path | None = None, **kwargs
+    def from_chai_files(
+        cls,
+        fasta_file: str | Path,
+        restraints_file: str | Path | None = None,
+        msa_directory: str | Path | None = None,
+        template_hits_path: str | Path | None = None,
+        **kwargs,
     ) -> ChaiConfig:
-        """Load a ChaiConfig from a FASTA file and optional restraints CSV."""
+        """Load a ChaiConfig from a FASTA file and optional restraints CSV.
+
+        Note that ``self.from_file()`` uses the conf_file dumped by UniAF3.
+        This method is for loading directly from Chai input files.
+        """
         from uniaf3.vendor.chai1_fasta import read_fasta
 
         entries = read_fasta(fasta_file)
@@ -200,14 +206,30 @@ class ChaiConfig(UniAF3BaseConfig):
                 )
             )
         restraints: list[ChaiRestraint] | None = None
+        constraint_path: str | None = None
         if restraints_file is not None:
             restraints_df = pl.read_csv(restraints_file)
             restraints = [
                 ChaiRestraint.model_validate(r)
                 for r in restraints_df.iter_rows(named=True)
             ]
+            constraint_path = str(restraints_file)
 
-        return cls(entities=entities, restraints=restraints, **kwargs)
+        if msa_directory is not None:
+            msa_directory = str(msa_directory)
+        if template_hits_path is not None:
+            if Path(template_hits_path).suffix != ".m8":
+                raise ValueError("Template hits file must be in .m8 format")
+            template_hits_path = str(template_hits_path)
+
+        return cls(
+            entities=entities,
+            restraints=restraints,
+            constraint_path=constraint_path,
+            msa_directory=msa_directory,
+            template_hits_path=template_hits_path,
+            **kwargs,
+        )
 
     def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
         """Dump the config to a YAML file in the specified output directory."""
@@ -221,7 +243,7 @@ class ChaiConfig(UniAF3BaseConfig):
         with open(fasta_path, "w") as f:
             f.write(self.entities_to_fasta())
         if (restraints := self.restraints) is not None:
-            restraints_path = output_path.with_suffix(".csv")
+            restraints_path = output_path.with_suffix(".restraints")
             pl.DataFrame(restraints).write_csv(restraints_path)
 
 
