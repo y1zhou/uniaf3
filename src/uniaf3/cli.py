@@ -85,36 +85,11 @@ def _load_config(path: Path, fmt: str) -> AnyConfig:
         raise ValueError(f"Unknown format: {fmt}")
 
     # Special treatment for Chai since it uses FASTA and optional restraints CSV
-    if parser is ChaiConfig:
-        if path.suffix in {".yaml", ".yml"}:
-            return parser.from_yaml(path)
-
+    if parser is ChaiConfig and path.suffix not in {".yaml", ".yml"}:
         console.print(
             "[bold yellow]Warning:[/bold yellow] "
             "Converting from raw Chai inputs may be lossy from the command line. "
             "If possible, use `from_chai_files()` in `ChaiConfig` to load all Chai files."
-        )
-
-        restraints_file: Path | None = None
-        for suffix in (".restraints", ".csv"):
-            restraints_path = path.with_suffix(suffix)
-            if restraints_path.exists():
-                restraints_file = restraints_path
-                break
-
-        msa_directory: Path | None = None
-        for suffix in ("msa", "msas"):
-            if (msa_dir := (path.parent / suffix)).exists():
-                msa_directory = msa_dir
-                break
-        template_hits_path: Path | None = None
-        if (
-            msa_directory
-            and (tmpl_file := (msa_directory / "all_chain_templates.m8")).exists()
-        ):
-            template_hits_path = tmpl_file
-        return parser.from_chai_files(
-            path, restraints_file, msa_directory, template_hits_path
         )
 
     return parser.from_file(path)

@@ -246,6 +246,43 @@ class ChaiConfig(UniAF3BaseConfig):
             restraints_path = output_path.with_suffix(".restraints")
             pl.DataFrame(restraints).write_csv(restraints_path)
 
+    @classmethod
+    def from_file(cls, conf_file: str | Path) -> ChaiConfig:
+        """Load Chai config from a UniAF3-style file or inferred Chai files."""
+        conf_path = Path(conf_file)
+        if conf_path.suffix in {".yaml", ".yml"}:
+            return cls.from_yaml(conf_file)
+
+        if conf_path.suffix not in {".fasta", ".fa", ".faa"}:
+            raise ValueError(
+                f"Unsupported config file format: {conf_path.suffix}. "
+                "Expected .fasta, .fa, or .faa"
+            )
+
+        # If input is a FASTA, look for expected Chai input files
+        restraints_file: Path | None = None
+        for suffix in (".restraints", ".csv"):
+            restraints_path = conf_path.with_suffix(suffix)
+            if restraints_path.exists():
+                restraints_file = restraints_path
+                break
+
+        msa_directory: Path | None = None
+        for suffix in ("msa", "msas"):
+            if (msa_dir := (conf_path.parent / suffix)).exists():
+                msa_directory = msa_dir
+                break
+        template_hits_path: Path | None = None
+        if (
+            msa_directory
+            and (tmpl_file := (msa_directory / "all_chain_templates.m8")).exists()
+        ):
+            template_hits_path = tmpl_file
+
+        return cls.from_chai_files(
+            conf_path, restraints_file, msa_directory, template_hits_path
+        )
+
 
 def _ensure_valid_restraint(
     connection: ChaiRestraintType,
