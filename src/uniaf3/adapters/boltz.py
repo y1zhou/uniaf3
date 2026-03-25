@@ -426,11 +426,11 @@ def to_boltz(
     )
 
 
-def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
+def from_boltz(config: BoltzConfig, msa_dir: str | Path | None = None) -> UniAF3Config:
     """Convert a Boltz config to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
     polymer_chains: set[str] = set()
-    msa_dir_path = Path(msa_dir).expanduser().resolve()
+    msa_dir_path = Path(msa_dir).expanduser().resolve() if msa_dir is not None else None
     for entry in config.sequences:
         if entry.protein is not None:
             p = entry.protein
@@ -443,6 +443,10 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                 else None
             )
             if p.msa and p.msa != "empty":
+                if msa_dir_path is None:
+                    raise ValueError(
+                        f"Boltz config contains MSA file {p.msa} but no msa_dir was provided to from_boltz."
+                    )
                 msa_dir_path.mkdir(parents=True, exist_ok=True)
                 input_msa_filetype = Path(p.msa).suffix
                 if input_msa_filetype == ".csv":

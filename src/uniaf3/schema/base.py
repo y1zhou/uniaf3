@@ -7,7 +7,6 @@ from typing import TypeVar
 
 import orjson
 import yaml
-from platformdirs import PlatformDirs
 from polars.dataframe.frame import DataFrame
 from pydantic import (
     BaseModel,
@@ -531,14 +530,9 @@ class UniAF3Config(UniAF3BaseConfig):
         ]
 
         # Generate MSAs using ColabFold API
-        if msa_cache_dir is None:
-            msa_cache_dir = PlatformDirs("uniaf3").user_cache_path / "colabfold_msas"
-
-        out_path = Path(msa_cache_dir).expanduser().resolve()
-        out_path.mkdir(parents=True, exist_ok=True)
         msa_data = query_colabfold(
             protein_seqs,
-            msa_cache_dir=out_path,
+            msa_cache_dir=msa_cache_dir,
             search_templates=search_templates,
             download_num_templates_per_seq=num_templates_per_seq,
             template_cache_dir=template_cache_dir,
