@@ -125,32 +125,32 @@ def query_colabfold(
     query_indices = [101 + seqs_unique.index(seq.upper()) for seq in seqs]
 
     seqs_hash = hash_sequence("|".join(seqs_unique))
-    msa_dir = Path(msa_cache_dir).expanduser() / seqs_hash[:2] / seqs_hash
-    msa_dir.mkdir(parents=True, exist_ok=True)
-    msa_dir = msa_dir.resolve()
+    msa_cache_root = Path(msa_cache_dir).expanduser()
+    paired_msa_dir = msa_cache_root / "paired" / seqs_hash[:2] / seqs_hash
+    paired_msa_dir.mkdir(parents=True, exist_ok=True)
+    paired_msa_dir = paired_msa_dir.resolve()
 
     # Expected output files to be cached
     seq_hashes = [hash_sequence(s.upper()) for s in seqs_unique]
     num_seqs = len(seqs_unique)
 
     # Single MSAs go to per-sequence directories for cross-query reuse
-    msa_cache_root = Path(msa_cache_dir).expanduser()
     single_a3m_files = []
     for seq_hash in seq_hashes:
-        single_dir = msa_cache_root / seq_hash[:2] / seq_hash
+        single_dir = msa_cache_root / "single" / seq_hash[:2] / seq_hash
         single_dir.mkdir(parents=True, exist_ok=True)
         single_a3m_files.append((single_dir / f"{seq_hash}.single.a3m").resolve())
 
     # Paired MSAs stay in the per-query directory
     if num_seqs > 1:
-        a3ms_dir = msa_dir / "a3ms"
+        a3ms_dir = paired_msa_dir / "a3ms"
         a3ms_dir.mkdir(exist_ok=True)
     paired_a3m_files = (
         [a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes]
         if num_seqs > 1
         else []
     )
-    expected_tmpl_m8_file = msa_dir / "pdb70.m8"
+    expected_tmpl_m8_file = paired_msa_dir / "pdb70.m8"
 
     # Query ColabFold API if cached results do not exist
     with tempfile.TemporaryDirectory() as tmp_dir_path:
@@ -262,14 +262,15 @@ def query_colabfold(
                 progress_bar_desc="Downloading templates from RCSB",
             )
         )
-        # TODO: extract gzipped files?
+        # Template files are gzipped, but all except Protenix can handle them directly.
+        # TODO: If needed, we can add logic to unzip files after the downloads.
         templates_df = all_templates.join(
             template_pdb_ids, on="subject_pdb_id", maintain_order="left"
         )
 
     return ColabFoldResponse(
         query_key=seqs_hash,
-        msa_dir=msa_dir,
+        msa_dir=paired_msa_dir,
         protein_seqs=seqs_unique,
         seq_hashes=seq_hashes,
         query_ids=query_indices,
