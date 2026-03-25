@@ -9,7 +9,6 @@ import polars as pl
 from uniaf3.adapters._helpers import (
     ensure_list,
     err_unsupported_feature,
-    warn_conversion,
     warn_lossy_conversion,
 )
 from uniaf3.schema.base import (
@@ -564,7 +563,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path) -> UniAF3Config:
                         prot.templates.append(structural_tmpl)
                         matched = True
             if not matched and tmpl_chain_ids:
-                warn_conversion(
+                warn_lossy_conversion(
                     f"BoltzConfig.templates[*].chain_id references unknown UniAF3 protein chain(s) {tmpl_chain_ids}: {tmpl_path}"
                 )
             elif not tmpl_chain_ids:

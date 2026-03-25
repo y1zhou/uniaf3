@@ -10,14 +10,9 @@ def ensure_list(val: str | list[str]) -> list[str]:
     return val if isinstance(val, list) else [val]
 
 
-def warn_conversion(msg: str):
-    """Emit a warning for lossy or incompatible conversion behavior."""
-    warnings.warn(msg, UserWarning, stacklevel=3)
-
-
 def warn_lossy_conversion(msg: str):
     """Emit a warning for lossy conversion behavior."""
-    warn_conversion(f"Lossy conversion: {msg}")
+    warnings.warn(f"Lossy conversion: {msg}", UserWarning, stacklevel=3)
 
 
 def err_unsupported_feature(strict: bool, msg: str):
@@ -25,4 +20,4 @@ def err_unsupported_feature(strict: bool, msg: str):
     if strict:
         raise ValueError(msg)
     else:
-        warn_conversion(f"Skipping unsupported feature: {msg}")
+        warnings.warn(f"Skipping unsupported feature: {msg}", UserWarning, stacklevel=3)
