@@ -467,29 +467,22 @@ def _parse_chai_polymer_modifications(
     return "".join(canonical_seq), modifications or None
 
 
-def from_chai(config: ChaiConfig) -> UniAF3Config:
+def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Config:
     """Convert a Chai-1 config to a UniAF3Config."""
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
-    if config.msa_directory is not None:
-        # TODO: It is possible to reverse Chai's .aligned.pqt back to A3M
-        # if the schema is known (columns: sequence, source_database,
-        # pairing_key, comment). Implement this reversal in a future change.
-        warn_lossy_conversion(
-            "ChaiConfig.msa_directory (.aligned.pqt files) cannot be "
-            "reverse-converted to A3M format; MSA information is dropped."
-        )
+    prot_seq_hashes: dict[str, int] = {}
     for i, entity in enumerate(config.entities, start=1):
         if entity.entity_type == ChaiEntityType.Protein:
             seq, mods = _parse_chai_polymer_modifications(entity.sequence)
-            sequences.append(
-                ProteinSeq(
-                    polymer_type=PolymerType.Protein,
-                    id=int_to_letters(i),
-                    description=entity.entity_name,
-                    sequence=seq,
-                    modifications=mods,
-                )
+            prot_seq = ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id=int_to_letters(i),
+                description=entity.entity_name,
+                sequence=seq,
+                modifications=mods,
             )
+            sequences.append(prot_seq)
+            prot_seq_hashes[prot_seq.seq_hash] = len(sequences) - 1
         elif entity.entity_type == ChaiEntityType.DNA:
             seq, mods = _parse_chai_polymer_modifications(entity.sequence)
             sequences.append(
@@ -572,6 +565,89 @@ def from_chai(config: ChaiConfig) -> UniAF3Config:
 
             else:
                 continue
+
+    if config.msa_directory is not None:
+        # Dump Chai parquet MSAs back to ColabFold A3M files
+        # Note that the query sequence only appears once at the top of the parquet,
+        # so the final #records in the single and paired A3Ms should be #pqt+1.
+        msa_path = Path(config.msa_directory)
+        if not msa_path.exists():
+            raise ValueError(f"Chai MSA directory does not exist: {msa_path}")
+        if msa_dir is None:
+            raise ValueError(
+                "ChaiConfig.msa_directory is provided but no msa_dir specified."
+            )
+        msa_out_path = Path(msa_dir).expanduser().resolve()
+        msa_out_path.mkdir(parents=True, exist_ok=True)
+        for prot_seq_hash, seq_idx in prot_seq_hashes.items():
+            prot_seq = sequences[seq_idx]
+            if not isinstance(prot_seq, ProteinSeq):
+                raise ValueError(
+                    f"Expected ProteinSeq for hash {prot_seq_hash}, got {type(prot_seq)}"
+                )
+
+            seq_msa_file = msa_path / f"{prot_seq_hash}.aligned.pqt"
+            if not seq_msa_file.exists():
+                raise ValueError(
+                    f"Expected MSA for {prot_seq} not found at {seq_msa_file}"
+                )
+
+            # Reverse the Chai parquet MSA back to single/paired A3M files
+            seq_msa_df = pl.scan_parquet(seq_msa_file)
+
+            query_entry = (
+                seq_msa_df.filter(pl.col("source_database") == pl.lit("query"))
+                .select("comment", "sequence")
+                .collect()
+            )
+            if query_entry.height > 1:
+                raise ValueError(
+                    f"Multiple query entries found in {seq_msa_file}: {query_entry}"
+                )
+            q = query_entry.to_dicts()[0]
+            q_str = f">{q['comment']}\n{q['sequence']}\n"
+
+            single_msa_df = (
+                seq_msa_df.filter(
+                    (pl.col("pairing_key") == pl.lit(""))
+                    & (pl.col("source_database") != pl.lit("query"))
+                )
+                .select("comment", "sequence")
+                .collect()
+            )
+            if single_msa_df.height > 0:
+                single_a3m_path = msa_out_path / f"{prot_seq_hash}.single.a3m"
+                with single_a3m_path.open("w") as f:
+                    f.write(q_str)
+                    f.writelines(
+                        f">{r['comment']}\n{r['sequence']}\n"
+                        for r in single_msa_df.iter_rows(named=True)
+                    )
+                prot_seq.unpaired_msa = str(single_a3m_path)
+
+            paired_msa_df = (
+                seq_msa_df.filter(
+                    (pl.col("pairing_key") != pl.lit(""))
+                    & (pl.col("source_database") != pl.lit("query"))
+                )
+                .select("comment", "sequence")
+                .collect()
+            )
+            if paired_msa_df.height > 0:
+                paired_a3m_path = msa_out_path / f"{prot_seq_hash}.pair.a3m"
+                with paired_a3m_path.open("w") as f:
+                    f.write(q_str)
+                    f.writelines(
+                        f">{r['comment']}\n{r['sequence']}\n"
+                        for r in paired_msa_df.iter_rows(named=True)
+                    )
+                prot_seq.paired_msa = str(paired_a3m_path)
+
+    if config.template_hits_path is not None:
+        warn_lossy_conversion(
+            "Chai template hits in m8 format are not fully parsed into UniAF3Config; original scoring fields are not preserved."
+        )
+        # TODO: Parse the m8 file and populate UniAF3Config StructuralTemplate objects
 
     aux = AuxiliaryParams(
         seeds=[config.seed] if config.seed is not None else [42],

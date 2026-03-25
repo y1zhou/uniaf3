@@ -68,7 +68,7 @@ def to_uniaf3(
     if isinstance(conf, BoltzConfig):
         return from_boltz(conf, msa_dir=msa_dir)
     if isinstance(conf, ChaiConfig):
-        return from_chai(conf)
+        return from_chai(conf, msa_dir=msa_dir)
     if isinstance(conf, ProtenixConfig):
         return from_protenix(conf)
     raise TypeError(f"Unsupported config type: {type(conf)}")

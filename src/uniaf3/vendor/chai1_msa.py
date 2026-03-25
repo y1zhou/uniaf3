@@ -152,13 +152,14 @@ def a3m_to_aligned_pqt(
     single_null_pair_keys = [""] * len(single_msa_seqs)
 
     # Best-effort source database synthesis from headers
+    all_headers = list(paired_headers) + single_headers
     source_databases = ["query"] + [
         (
             MSADataSource.UNIREF90.value
             if h.startswith("UniRef")
             else MSADataSource.BFD_UNICLUST.value
         )
-        for h in (list(paired_headers) + single_headers)[1:]
+        for h in all_headers[1:]
     ]
 
     all_sequences = list(paired_msa_seqs) + single_msa_seqs
@@ -173,8 +174,9 @@ def a3m_to_aligned_pqt(
             sequence=all_sequences,
             source_database=source_databases,
             pairing_key=all_pairing_keys,
+            comment=all_headers,
         ),
-    ).with_columns(pl.lit("").alias("comment"))
+    )
     aligned_df.write_parquet(msa_path)
     return msa_path
 
