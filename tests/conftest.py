@@ -43,7 +43,7 @@ def protenix_confs():
 @pytest.fixture(scope="session")
 def chai_conf():
     """Load the Chai example."""
-    return ChaiConfig.from_file(
+    return ChaiConfig.from_chai_files(
         FIXTURES / "chai_example.fasta", FIXTURES / "chai_example.restraints"
     )
 

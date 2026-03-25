@@ -89,10 +89,33 @@ def _load_config(path: Path, fmt: str) -> AnyConfig:
         if path.suffix in {".yaml", ".yml"}:
             return parser.from_yaml(path)
 
+        console.print(
+            "[bold yellow]Warning:[/bold yellow] "
+            "Converting from raw Chai inputs may be lossy from the command line. "
+            "If possible, use `from_chai_files()` in `ChaiConfig` to load all Chai files."
+        )
+
+        restraints_file: Path | None = None
         for suffix in (".restraints", ".csv"):
             restraints_path = path.with_suffix(suffix)
             if restraints_path.exists():
-                return parser.from_file(path, restraints_path)
+                restraints_file = restraints_path
+                break
+
+        msa_directory: Path | None = None
+        for suffix in ("msa", "msas"):
+            if (msa_dir := (path.parent / suffix)).exists():
+                msa_directory = msa_dir
+                break
+        template_hits_path: Path | None = None
+        if (
+            msa_directory
+            and (tmpl_file := (msa_directory / "all_chain_templates.m8")).exists()
+        ):
+            template_hits_path = tmpl_file
+        return parser.from_chai_files(
+            path, restraints_file, msa_directory, template_hits_path
+        )
 
     return parser.from_file(path)
 
@@ -187,14 +210,6 @@ def convert_config(
 ):
     """Convert an input config file from one format to another."""
     from uniaf3.adapters import from_uniaf3, to_uniaf3
-
-    if from_format.value == "chai":
-        console.print(
-            "[bold yellow]Warning:[/bold yellow] "
-            "Converting from raw Chai inputs may be lossy from the command line. "
-            "This CLI is primarily designed for converting between full config objects. "
-            "If possible, use `from_chai_files()` in `ChaiConfig` to load all Chai files."
-        )
 
     try:
         src_conf = _load_config(input_config_file, from_format.value)
