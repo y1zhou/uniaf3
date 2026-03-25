@@ -195,6 +195,7 @@ def test_roundtrip_protein_templates(boltz_rt: BoltzConfig, boltz_conf: BoltzCon
 
     assert len(prot) == len(src) == 1
     # Template paths are resolved to absolute during roundtrip
+    assert prot[0].cif is not None and src[0].cif is not None
     assert Path(prot[0].cif).name == Path(src[0].cif).name
     assert prot[0].force == src[0].force
     assert prot[0].threshold == src[0].threshold

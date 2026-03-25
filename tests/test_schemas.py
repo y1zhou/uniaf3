@@ -14,6 +14,7 @@ from uniaf3.schema import (
     ProtenixConfig,
     UniAF3Config,
 )
+from uniaf3.schema.chai import ChaiEntityType
 
 
 # ruff: noqa: S101
@@ -278,10 +279,14 @@ class TestChaiSchema:
             ChaiConfig(
                 entities=[
                     ChaiEntity(
-                        entity_type="protein", entity_name="dup", sequence="MVLS"
+                        entity_type=ChaiEntityType.Protein,
+                        entity_name="dup",
+                        sequence="MVLS",
                     ),
                     ChaiEntity(
-                        entity_type="protein", entity_name="dup", sequence="MVLS"
+                        entity_type=ChaiEntityType.Protein,
+                        entity_name="dup",
+                        sequence="MVLS",
                     ),
                 ]
             )

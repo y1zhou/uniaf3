@@ -66,6 +66,7 @@ def test_ccd_ligand_fields(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     assert isinstance(src, Ligand)
     assert lig is not None
     # NOTE: Protenix does not support multiple CCD codes per ligand
+    assert src.ccd is not None
     assert lig.ligand == f"CCD_{src.ccd[0]}"
 
 
