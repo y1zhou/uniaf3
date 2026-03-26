@@ -203,8 +203,10 @@ def test_glycan_with_bonds_warns(tmp_path):
             Glycan(id="B", chai_str="NAG(1-4 NAG)"),
         ]
     )
-    with pytest.warns(UserWarning, match="Glycan with bonds not supported"):
+    with pytest.warns(UserWarning) as records:
         result = to_protenix([config], strict=False)
+
+    assert any("Glycan with bonds not supported" in str(w.message) for w in records)
 
 
 def test_multiple_pocket_constraints_warns(tmp_path):
@@ -281,7 +283,8 @@ def test_from_protenix_rna_sequence():
             )
         ],
     )
-    result = from_protenix([job])
+    with pytest.warns(UserWarning):
+        result = from_protenix([job])
     assert len(result) == 1
     assert isinstance(result[0].sequences[0], Polymer)
     from uniaf3.schema.base import PolymerType

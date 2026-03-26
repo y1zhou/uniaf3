@@ -41,7 +41,8 @@ def test_to_uniaf3_from_af3(af3_conf):
     """to_uniaf3 should dispatch AF3Config to from_alphafold3."""
     from uniaf3.adapters import to_uniaf3
 
-    result = to_uniaf3(af3_conf)
+    with pytest.warns(UserWarning):
+        result = to_uniaf3(af3_conf)
     assert isinstance(result, UniAF3Config)
 
 
@@ -49,7 +50,8 @@ def test_to_uniaf3_from_af3_server(af3_server_confs):
     """to_uniaf3 should dispatch AF3ServerConfig to from_alphafold3_server."""
     from uniaf3.adapters import to_uniaf3
 
-    result = to_uniaf3(af3_server_confs)
+    with pytest.warns(UserWarning):
+        result = to_uniaf3(af3_server_confs)
     assert isinstance(result, (UniAF3Config, list))
 
 
@@ -57,7 +59,8 @@ def test_to_uniaf3_from_protenix(protenix_confs):
     """to_uniaf3 should dispatch ProtenixConfig to from_protenix."""
     from uniaf3.adapters import to_uniaf3
 
-    result = to_uniaf3(protenix_confs)
+    with pytest.warns(UserWarning):
+        result = to_uniaf3(protenix_confs)
     assert isinstance(result, (UniAF3Config, list))
 
 
@@ -138,7 +141,8 @@ def test_from_uniaf3_to_af3server(simple_uniaf3):
     """from_uniaf3 with AF3ServerConfig target should use to_alphafold3_server."""
     from uniaf3.adapters import from_uniaf3
 
-    result = from_uniaf3(simple_uniaf3, AF3ServerConfig)
+    with pytest.warns(UserWarning):
+        result = from_uniaf3(simple_uniaf3, AF3ServerConfig)
     assert isinstance(result, AF3ServerConfig)
 
 
@@ -146,7 +150,8 @@ def test_from_uniaf3_to_protenix(simple_uniaf3):
     """from_uniaf3 with ProtenixConfig target should use to_protenix."""
     from uniaf3.adapters import from_uniaf3
 
-    result = from_uniaf3(simple_uniaf3, ProtenixConfig)
+    with pytest.warns(UserWarning):
+        result = from_uniaf3(simple_uniaf3, ProtenixConfig)
     assert isinstance(result, ProtenixConfig)
 
 
