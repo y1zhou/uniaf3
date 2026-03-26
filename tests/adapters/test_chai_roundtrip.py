@@ -510,3 +510,57 @@ def test_from_chai_template_with_valid_m8(tmp_path):
     assert prot.templates is not None
     assert len(prot.templates) == 1
     assert "1ABC" in prot.templates[0].path
+
+
+def test_from_chai_template_unknown_query_hash_raises(tmp_path):
+    """from_chai should raise if template hit has an unknown query hash."""
+    from unittest.mock import patch
+
+    from uniaf3.adapters import from_chai
+    from uniaf3.schema.chai import ChaiEntity, ChaiEntityType
+
+    seq_str = "MVLSPADKTNVK"
+
+    # Create an m8 file with an unknown query hash
+    m8_file = tmp_path / "templates.m8"
+    m8_file.write_text(
+        "unknownhash\t1abc_A\t95.0\t12\t0\t0\t1\t12\t1\t12\t1e-5\t50.0\t12M\n"
+    )
+
+    conf = ChaiConfig(
+        entities=[
+            ChaiEntity(
+                entity_type=ChaiEntityType.Protein,
+                entity_name="A",
+                sequence=seq_str,
+            )
+        ],
+        seed=1,
+        template_hits_path=str(m8_file),
+    )
+
+    with pytest.raises(ValueError, match="query_id.*not found among protein sequences"):
+        from_chai(conf, msa_dir=tmp_path / "out")
+
+
+def test_from_chai_msa_no_msa_dir_raises(tmp_path):
+    """from_chai with msa_directory but no msa_dir parameter should raise."""
+    from uniaf3.adapters import from_chai
+    from uniaf3.schema.chai import ChaiEntity, ChaiEntityType
+
+    msa_dir = tmp_path / "msa"
+    msa_dir.mkdir()
+
+    conf = ChaiConfig(
+        entities=[
+            ChaiEntity(
+                entity_type=ChaiEntityType.Protein,
+                entity_name="A",
+                sequence="MVLSPADKTNVK",
+            )
+        ],
+        seed=1,
+        msa_directory=str(msa_dir),
+    )
+    with pytest.raises(ValueError, match="no msa_dir specified"):
+        from_chai(conf, msa_dir=None)

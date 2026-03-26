@@ -231,6 +231,7 @@ def to_chai(
                         strict,
                         f"CCD ligand {lig_ccd} not found in CCD library.",
                     )
+                    continue
                 else:
                     lig_seq = lig_smiles.item()
                     warn_lossy_conversion(

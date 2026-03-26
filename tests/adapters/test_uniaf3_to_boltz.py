@@ -376,3 +376,94 @@ def test_msa_with_unpaired_only(tmp_path):
     boltz = to_boltz(config, msa_dir=tmp_path / "msa")
     assert boltz.sequences[0].protein is not None
     assert boltz.sequences[0].protein.msa != "empty"
+
+
+def test_contact_restraint_ligand_no_atom_name_raises(tmp_path):
+    """Contact restraint on ligand with no atom_name should raise ValueError."""
+    from uniaf3.adapters import to_boltz
+
+    # residue_idx=1 (non-zero) allows atom_name=None to pass schema validation
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+            ),
+            Ligand(id="B", smiles="CCO"),
+        ],
+        contact_restraints=[
+            ContactRestraint(
+                token1=Atom(
+                    chain_id="A",
+                    residue_idx=5,
+                    atom_name=None,
+                    residue_name="P",
+                ),
+                # Ligand token with non-zero residue_idx and no atom_name
+                token2=Atom(
+                    chain_id="B",
+                    residue_idx=1,  # non-zero to pass schema validation
+                    atom_name=None,
+                    residue_name=None,
+                ),
+                max_distance=6.0,
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match="Atom name must be specified for contact restraints on ligands"):
+        to_boltz(config, msa_dir=tmp_path)
+
+
+def test_pocket_restraint_ligand_no_atom_name_raises(tmp_path):
+    """Pocket restraint with ligand contact and no atom_name should raise ValueError."""
+    from uniaf3.adapters import to_boltz
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+            ),
+            Ligand(id="B", smiles="CCO"),
+        ],
+        pocket_restraints=[
+            PocketRestraint(
+                binder_chain="A",
+                contact_tokens=[
+                    # Ligand token with non-zero residue_idx and no atom_name
+                    Atom(
+                        chain_id="B",
+                        residue_idx=1,  # non-zero passes schema validation
+                        atom_name=None,
+                        residue_name=None,
+                    )
+                ],
+                max_distance=8.0,
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match="Atom name must be specified for pocket restraints on ligands"):
+        to_boltz(config, msa_dir=tmp_path)
+
+
+def test_multi_ccd_glycan_warns_in_non_strict(tmp_path):
+    """Glycan with multiple CCDs should emit warning in non-strict mode."""
+    from uniaf3.adapters import to_boltz
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+            ),
+            Glycan(id="B", chai_str="NAG NAG"),  # Two separate CCDs
+        ]
+    )
+    with pytest.warns(UserWarning, match="Multi-CCD ligands are not supported"):
+        boltz = to_boltz(config, msa_dir=tmp_path, strict=False)
+
+    # Multi-CCD glycan should be skipped (only protein entity)
+    assert len(boltz.sequences) == 1
