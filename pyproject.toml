@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Yi Zhou", email = "me@y1zhou.com" }]
 dependencies = [
+    "aiofiles>=25.1.0",
     "gemmi>=0.7.4",
     "niquests[speedups]>=3.18.2",
     "orjson>=3.11.7",

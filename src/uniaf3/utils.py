@@ -3,6 +3,7 @@
 import hashlib
 from pathlib import Path
 
+import aiofiles
 import niquests
 from tqdm.asyncio import tqdm_asyncio
 
@@ -40,18 +41,17 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
-async def download_file(
-    session: niquests.AsyncSession, url: str, local_path: Path, chunk_size: int = 8192
-):
+async def download_file(session: niquests.AsyncSession, url: str, local_path: Path):
     """Download a file asynchronously using aiohttp."""
     try:
         response = await session.get(url, stream=True)
         response.raise_for_status()
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        if not local_path.exists():
-            with open(local_path, "wb") as f:
-                async for chunk in await response.iter_content(chunk_size):
-                    f.write(chunk)
+        if not local_path.exists() or (
+            int(response.headers["content-length"]) != local_path.stat().st_size
+        ):
+            async with aiofiles.open(local_path, "wb") as f:
+                async for chunk in await response.iter_content():
+                    await f.write(chunk)
     except Exception as e:
         raise RuntimeError(f"Download for {url} to {local_path} failed.") from e
 
@@ -59,7 +59,8 @@ async def download_file(
 async def download_files(
     urls: dict[str, str | Path],
     force: bool = False,
-    max_connections: int = 10,
+    max_connected_hosts: int = 10,
+    max_connections: int = 20,
     num_retries: int = 1,
     progress_bar_desc: str | None = None,
 ):
@@ -68,7 +69,8 @@ async def download_files(
     Args:
         urls: Keys are URLs, and values are local file paths.
         force: Whether to overwrite existing files.
-        max_connections: Limit concurrent downloads to be civil.
+        max_connected_hosts: Concurrent hosts to be kept alive by a session.
+        max_connections: Limit concurrent downloads per host to be civil.
         num_retries: Number of times to retry failed downloads.
         progress_bar_desc: Optional description for the progress bar.
 
@@ -84,12 +86,13 @@ async def download_files(
     async with niquests.AsyncSession(
         headers=headers,
         retries=num_retries,
-        pool_connections=max_connections,
+        pool_connections=max_connected_hosts,
         pool_maxsize=max_connections,
     ) as session:
         tasks = []
         for url, local_file in urls.items():
             local_path = Path(local_file)
+            local_path.parent.mkdir(parents=True, exist_ok=True)
             if force or not local_path.exists():
                 tasks.append(download_file(session, url, local_path))
 

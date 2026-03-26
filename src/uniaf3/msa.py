@@ -257,7 +257,6 @@ def query_colabfold(
                     for r in template_pdb_ids.iter_rows(named=True)
                 },
                 force=force,
-                max_connections=10,
                 num_retries=3,
                 progress_bar_desc="Downloading templates from RCSB",
             )
