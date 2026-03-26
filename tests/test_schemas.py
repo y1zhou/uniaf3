@@ -368,3 +368,116 @@ class TestUniAF3Schema:
         h = uniaf3_conf.hash
         assert isinstance(h, str)
         assert len(h) == 64  # sha256 hex digest
+
+
+# ============================================================
+# ChaiConfig schema - to_files, from_file, from_yaml, validations
+# ============================================================
+class TestChaiSchemaIO:
+    """Test ChaiConfig file I/O methods."""
+
+    def test_from_yaml(self, tmp_path):
+        """ChaiConfig.from_yaml should load from a YAML file."""
+        from uniaf3.schema.chai import ChaiEntity, ChaiEntityType
+
+        config = ChaiConfig(
+            entities=[
+                ChaiEntity(
+                    entity_type=ChaiEntityType.Protein,
+                    entity_name="A",
+                    sequence="MVLSPADKTNVK",
+                )
+            ],
+            seed=42,
+        )
+        yaml_file = tmp_path / "chai.yaml"
+        yaml_file.write_text(config.to_yaml())
+        loaded = ChaiConfig.from_yaml(yaml_file)
+        assert len(loaded.entities) == 1
+        assert loaded.seed == 42
+
+    def test_to_files(self, chai_conf: ChaiConfig, tmp_path):
+        """ChaiConfig.to_files should write YAML and FASTA files."""
+        chai_conf.to_files(tmp_path, "test_chai")
+        yaml_path = tmp_path / "test_chai.yaml"
+        fasta_path = tmp_path / "test_chai.fasta"
+        restraints_path = tmp_path / "test_chai.restraints"
+        assert yaml_path.exists()
+        assert fasta_path.exists()
+        assert restraints_path.exists()
+
+    def test_from_file_yaml(self, tmp_path):
+        """ChaiConfig.from_file should load from YAML."""
+        from uniaf3.schema.chai import ChaiEntity, ChaiEntityType
+
+        config = ChaiConfig(
+            entities=[
+                ChaiEntity(
+                    entity_type=ChaiEntityType.Protein,
+                    entity_name="A",
+                    sequence="MVLSPADKTNVK",
+                )
+            ],
+            seed=1,
+        )
+        yaml_file = tmp_path / "chai.yaml"
+        yaml_file.write_text(config.to_yaml())
+        loaded = ChaiConfig.from_file(yaml_file)
+        assert len(loaded.entities) == 1
+
+    def test_from_file_fasta(self, tmp_path):
+        """ChaiConfig.from_file should load from FASTA file."""
+        fasta_content = ">protein|A\nMVLSPADKTNVK\n>ligand|B\nCCO\n"
+        fasta_file = tmp_path / "test.fasta"
+        fasta_file.write_text(fasta_content)
+        loaded = ChaiConfig.from_file(fasta_file)
+        assert len(loaded.entities) == 2
+
+    def test_from_file_fasta_with_msa_dir(self, tmp_path):
+        """ChaiConfig.from_file should discover msa directory when present."""
+        fasta_content = ">protein|A\nMVLSPADKTNVK\n"
+        fasta_file = tmp_path / "test.fasta"
+        fasta_file.write_text(fasta_content)
+        msa_dir = tmp_path / "msa"
+        msa_dir.mkdir()
+        loaded = ChaiConfig.from_file(fasta_file)
+        assert loaded.msa_directory == str(msa_dir)
+
+    def test_from_file_fasta_with_template(self, tmp_path):
+        """ChaiConfig.from_file should discover template m8 file when present."""
+        fasta_content = ">protein|A\nMVLSPADKTNVK\n"
+        fasta_file = tmp_path / "test.fasta"
+        fasta_file.write_text(fasta_content)
+        msa_dir = tmp_path / "msa"
+        msa_dir.mkdir()
+        m8_file = msa_dir / "all_chain_templates.m8"
+        m8_file.write_text("hash\t1abc_A\t95.0\t12\t0\t0\t1\t12\t1\t12\t1e-5\t50.0\t12M\n")
+        loaded = ChaiConfig.from_file(fasta_file)
+        assert loaded.template_hits_path == str(m8_file)
+
+    def test_from_file_unsupported_extension_raises(self, tmp_path):
+        """ChaiConfig.from_file should raise for unsupported extensions."""
+        bad_file = tmp_path / "test.json"
+        bad_file.write_text("{}")
+        with pytest.raises(ValueError, match="Unsupported config file format"):
+            ChaiConfig.from_file(bad_file)
+
+    def test_from_chai_files_with_msa_dir(self, tmp_path):
+        """ChaiConfig.from_chai_files should accept msa_directory parameter."""
+        fasta_content = ">protein|A\nMVLSPADKTNVK\n"
+        fasta_file = tmp_path / "test.fasta"
+        fasta_file.write_text(fasta_content)
+        msa_dir = tmp_path / "msa"
+        msa_dir.mkdir()
+        loaded = ChaiConfig.from_chai_files(fasta_file, msa_directory=msa_dir)
+        assert loaded.msa_directory == str(msa_dir)
+
+    def test_from_chai_files_template_wrong_extension_raises(self, tmp_path):
+        """from_chai_files should raise if template_hits_path has wrong extension."""
+        fasta_content = ">protein|A\nMVLSPADKTNVK\n"
+        fasta_file = tmp_path / "test.fasta"
+        fasta_file.write_text(fasta_content)
+        with pytest.raises(ValueError, match="must be in .m8 format"):
+            ChaiConfig.from_chai_files(
+                fasta_file, template_hits_path=tmp_path / "templates.txt"
+            )
