@@ -50,7 +50,7 @@ def to_uniaf3(
 
     Args:
         conf: A config object from any supported model format.
-        msa_dir: Directory to save MSA files (used by Boltz).
+        msa_dir: Directory to save MSA files (used by Boltz and Chai).
 
     Returns:
         The equivalent UniAF3Config.

@@ -44,8 +44,8 @@ class ChaiEntity(BaseModel):
     The sequence field holds the amino acid / nucleotide sequence or a SMILES
     string (for ligands) / Chai glycan notation (for glycans).
 
-    NOTE: UniAF3 MSAs (A3M) are converted to Chai's .aligned.pqt format
-    # by the to_chai() adapter. MSA data is not embedded in the FASTA.
+    NOTE: UniAF3 MSAs (A3M) are converted to Chai's ``.aligned.pqt`` format
+    by the ``to_chai()`` adapter.  MSA data is not embedded in the FASTA.
     """
 
     entity_type: ChaiEntityType
@@ -290,7 +290,7 @@ def _ensure_valid_restraint(
     res_idx: str | None,
     seq: list[str],
 ):
-    """Validate that covalent bonds refer to valid entities and atoms."""
+    """Validate that a restraint refers to valid entities and residue positions."""
     polymer_type = {ChaiEntityType.Protein, ChaiEntityType.DNA, ChaiEntityType.RNA}
     if connection == ChaiRestraintType.Covalent:
         # N436@N for residues, @C1 for ligands and glycans
