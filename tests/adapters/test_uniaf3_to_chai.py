@@ -619,8 +619,8 @@ def test_ccd_ligand_not_in_library_warns(tmp_path):
     assert len(chai.entities) == 1
 
 
-def test_multiple_seeds_warns(tmp_path):
-    """Multiple seeds in UniAF3Config should emit warning in to_chai."""
+def test_multiple_seeds_warns_aux_field():
+    """Multiple seeds in UniAF3Config.aux.seeds should emit warning in to_chai."""
     from uniaf3.adapters import to_chai
     from uniaf3.schema.base import AuxiliaryParams
 
