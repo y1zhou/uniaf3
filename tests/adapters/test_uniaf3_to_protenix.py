@@ -135,7 +135,7 @@ def test_pocket_constraint(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     assert pocket.binder_chain.copy_idx == 1
 
 
-def test_multiple_templates_warns(tmp_path):
+def test_multiple_templates_warns():
     """Multiple templates should warn about lossy conversion."""
     from uniaf3.adapters import to_protenix
     from uniaf3.schema.base import PolymerType, ProteinSeq, StructuralTemplate
@@ -161,7 +161,7 @@ def test_multiple_templates_warns(tmp_path):
     assert result[0].sequences[0].proteinChain.templatesPath == "/some/path/1abc.cif"
 
 
-def test_template_with_boltz_fields_warns(tmp_path):
+def test_template_with_boltz_fields_warns():
     """Template with boltz-specific fields should emit warning."""
     from uniaf3.adapters import to_protenix
     from uniaf3.schema.base import PolymerType, ProteinSeq, StructuralTemplate
@@ -188,7 +188,7 @@ def test_template_with_boltz_fields_warns(tmp_path):
     assert any("boltz_enable_force" in str(w.message) for w in records)
 
 
-def test_glycan_with_bonds_warns(tmp_path):
+def test_glycan_with_bonds_warns():
     """Glycan with bonds should emit warning in non-strict mode."""
     from uniaf3.adapters import to_protenix
     from uniaf3.schema.base import Glycan, PolymerType, ProteinSeq
@@ -209,7 +209,7 @@ def test_glycan_with_bonds_warns(tmp_path):
     assert any("Glycan with bonds not supported" in str(w.message) for w in records)
 
 
-def test_multiple_pocket_constraints_warns(tmp_path):
+def test_multiple_pocket_constraints_warns():
     """Multiple pocket constraints should warn about single pocket support."""
     from uniaf3.adapters import to_protenix
     from uniaf3.schema.base import Atom, PolymerType, ProteinSeq, PocketRestraint

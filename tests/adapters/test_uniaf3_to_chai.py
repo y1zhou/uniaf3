@@ -306,7 +306,7 @@ def test_template_warns_on_boltz_fields(tmp_path):
     assert any("boltz_enable_force" in str(w.message) for w in records)
 
 
-def test_template_warns_when_no_msa_dir(tmp_path):
+def test_template_warns_when_no_msa_dir():
     """Templates without msa_dir should emit a lossy warning."""
     from uniaf3.adapters import to_chai
 
@@ -327,7 +327,7 @@ def test_template_warns_when_no_msa_dir(tmp_path):
     assert chai.template_hits_path is None
 
 
-def test_multi_ccd_ligand_warns(tmp_path):
+def test_multi_ccd_ligand_warns():
     """Multi-CCD ligands should emit warning in non-strict mode and be skipped."""
     from uniaf3.adapters import to_chai
 
@@ -348,7 +348,7 @@ def test_multi_ccd_ligand_warns(tmp_path):
     assert len(chai.entities) == 1
 
 
-def test_multi_ccd_ligand_strict_raises(tmp_path):
+def test_multi_ccd_ligand_strict_raises():
     """Multi-CCD ligands in strict mode should raise ValueError."""
     from uniaf3.adapters import to_chai
 
@@ -366,7 +366,7 @@ def test_multi_ccd_ligand_strict_raises(tmp_path):
         to_chai(config, strict=True)
 
 
-def test_rna_entity(tmp_path):
+def test_rna_entity():
     """RNA sequences should be converted to ChaiEntity with RNA type."""
     from uniaf3.adapters import to_chai
     from uniaf3.schema.chai import ChaiEntityType
@@ -386,7 +386,7 @@ def test_rna_entity(tmp_path):
     assert chai.entities[0].sequence == "ACGU"
 
 
-def test_multiple_seeds_warns(tmp_path):
+def test_multiple_seeds_warns():
     """Multiple seeds in UniAF3Config should emit a warning."""
     from uniaf3.adapters import to_chai
 
@@ -536,7 +536,7 @@ def test_template_skips_missing_file_when_no_indices(tmp_path):
     assert chai.template_hits_path is None
 
 
-def test_unsupported_polymer_type_raises(tmp_path):
+def test_unsupported_polymer_type_raises():
     """Unsupported polymer types (not DNA/RNA/Protein) should raise in to_chai."""
     from uniaf3.adapters import to_chai
 
@@ -561,7 +561,7 @@ def test_unsupported_polymer_type_raises(tmp_path):
     assert chai.entities[0].entity_type == ChaiEntityType.DNA
 
 
-def test_contact_restraint_on_ligand_raises_in_to_chai(tmp_path):
+def test_contact_restraint_on_ligand_raises_in_to_chai():
     """Contact restraint between a protein and ligand should raise in to_chai."""
     from uniaf3.adapters import to_chai
     from uniaf3.schema.base import Atom, ContactRestraint
@@ -598,7 +598,7 @@ def test_contact_restraint_on_ligand_raises_in_to_chai(tmp_path):
         to_chai(config, strict=False)
 
 
-def test_ccd_ligand_not_in_library_warns(tmp_path):
+def test_ccd_ligand_not_in_library_warns():
     """CCD ligand not found in CCD library should emit warning in non-strict mode."""
     from uniaf3.adapters import to_chai
 
@@ -640,7 +640,7 @@ def test_multiple_seeds_warns_aux_field():
     assert chai.seed == 42  # first seed used
 
 
-def test_covalent_bond_missing_residue_name_raises(tmp_path):
+def test_covalent_bond_missing_residue_name_raises():
     """Covalent bond on polymer without residue_name should raise in to_chai."""
     from uniaf3.adapters import to_chai
     from uniaf3.schema.base import Atom, CovalentBond
@@ -665,7 +665,7 @@ def test_covalent_bond_missing_residue_name_raises(tmp_path):
         to_chai(config)
 
 
-def test_pocket_restraint_missing_residue_name_raises(tmp_path):
+def test_pocket_restraint_missing_residue_name_raises():
     """Pocket restraint token without residue_name should raise in to_chai."""
     from uniaf3.adapters import to_chai
     from uniaf3.schema.base import Atom, PocketRestraint

@@ -260,7 +260,7 @@ def test_max_templates_truncation_warns(tmp_path):
     assert len(boltz.templates) == 4
 
 
-def test_covalent_bond_strict_raises_on_missing_atom_name(tmp_path):
+def test_covalent_bond_strict_raises_on_missing_atom_name():
     """Covalent bonds without atom names should raise in strict mode."""
     from uniaf3.adapters import to_boltz
     from uniaf3.schema.boltz import BoltzBondConstraint, BoltzConstraintEntry, BoltzConfig, BoltzProtein, BoltzSequenceEntry
