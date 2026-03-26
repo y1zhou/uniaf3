@@ -9,7 +9,7 @@ import tarfile
 import time
 from pathlib import Path
 
-import requests
+import niquests
 from tqdm import tqdm
 
 from uniaf3 import __version__
@@ -56,93 +56,99 @@ def run_mmseqs2(
             query += f">{n}\n{seq}\n"
             n += 1
 
-        while True:
-            error_count = 0
-            try:
-                # https://requests.readthedocs.io/en/latest/user/advanced/#advanced
-                # "good practice to set connect timeouts to slightly larger than a multiple of 3"
-                res = requests.post(
-                    f"{host_url}/{submission_endpoint}",
-                    data={"q": query, "mode": mode},
-                    timeout=6.02,
-                    headers=headers,
-                )
-            except requests.exceptions.Timeout:
-                logger.warning("Timeout while submitting to MSA server. Retrying...")
-                continue
-            except Exception as e:
-                error_count += 1
-                logger.warning(
-                    f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
-                )
-                logger.warning(f"Error: {e}")
-                time.sleep(5)
-                if error_count > 5:
-                    raise
-                continue
-            break
+        with niquests.Session(
+            base_url=host_url, timeout=6.02, headers=headers
+        ) as session:
+            while True:
+                error_count = 0
+                try:
+                    # https://requests.readthedocs.io/en/latest/user/advanced/#advanced
+                    # "good practice to set connect timeouts to slightly larger than a multiple of 3"
+                    res = session.post(
+                        f"/{submission_endpoint}", data={"q": query, "mode": mode}
+                    )
+                except niquests.exceptions.Timeout:
+                    logger.warning(
+                        "Timeout while submitting to MSA server. Retrying..."
+                    )
+                    continue
+                except Exception as e:
+                    error_count += 1
+                    logger.warning(
+                        f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
+                    )
+                    logger.warning(f"Error: {e}")
+                    time.sleep(5)
+                    if error_count > 5:
+                        raise
+                    continue
+                break
 
-        try:
-            out = res.json()
-        except ValueError:
-            logger.error(f"Server didn't reply with json: {res.text}")
-            out = {"status": "ERROR"}
-        return out
+            try:
+                out = res.json()
+            except ValueError:
+                logger.error(f"Server didn't reply with json: {res.text}")
+                out = {"status": "ERROR"}
+            return out
 
     def status(ID: str) -> dict[str, str]:
-        while True:
-            error_count = 0
+        with niquests.Session(
+            base_url=host_url, timeout=6.02, headers=headers
+        ) as session:
+            while True:
+                error_count = 0
+                try:
+                    res = session.get(f"/ticket/{ID}")
+                except niquests.exceptions.Timeout:
+                    logger.warning(
+                        "Timeout while fetching status from MSA server. Retrying..."
+                    )
+                    continue
+                except Exception as e:
+                    error_count += 1
+                    logger.warning(
+                        f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
+                    )
+                    logger.warning(f"Error: {e}")
+                    time.sleep(5)
+                    if error_count > 5:
+                        raise
+                    continue
+                break
             try:
-                res = requests.get(
-                    f"{host_url}/ticket/{ID}", timeout=6.02, headers=headers
-                )
-            except requests.exceptions.Timeout:
-                logger.warning(
-                    "Timeout while fetching status from MSA server. Retrying..."
-                )
-                continue
-            except Exception as e:
-                error_count += 1
-                logger.warning(
-                    f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
-                )
-                logger.warning(f"Error: {e}")
-                time.sleep(5)
-                if error_count > 5:
-                    raise
-                continue
-            break
-        try:
-            out = res.json()
-        except ValueError:
-            logger.error(f"Server didn't reply with json: {res.text}")
-            out = {"status": "ERROR"}
-        return out
+                out = res.json()
+            except ValueError:
+                logger.error(f"Server didn't reply with json: {res.text}")
+                out = {"status": "ERROR"}
+            return out
 
     def download(ID: str, path: Path):
         error_count = 0
-        while True:
-            try:
-                res = requests.get(
-                    f"{host_url}/result/download/{ID}", timeout=6.02, headers=headers
-                )
-            except requests.exceptions.Timeout:
-                logger.warning(
-                    "Timeout while fetching result from MSA server. Retrying..."
-                )
-                continue
-            except Exception as e:
-                error_count += 1
-                logger.warning(
-                    f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
-                )
-                logger.warning(f"Error: {e}")
-                time.sleep(5)
-                if error_count > 5:
-                    raise
-                continue
-            break
-        path.write_bytes(res.content)
+        with niquests.Session(
+            base_url=host_url, timeout=6.02, headers=headers
+        ) as session:
+            while True:
+                try:
+                    res = session.get(f"/result/download/{ID}", stream=True)
+                    with path.open("wb") as f:
+                        for chunk in res.iter_content():
+                            f.write(chunk)
+                except niquests.exceptions.Timeout:
+                    logger.warning(
+                        "Timeout while fetching result from MSA server. Retrying..."
+                    )
+                    continue
+                except Exception as e:
+                    error_count += 1
+                    logger.warning(
+                        f"Error while fetching result from MSA server. Retrying... ({error_count}/5)"
+                    )
+                    logger.warning(f"Error: {e}")
+                    time.sleep(5)
+                    if error_count > 5:
+                        raise
+                    continue
+                break
 
     # process input x
     seqs = [x] if isinstance(x, str) else x

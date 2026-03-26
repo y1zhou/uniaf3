@@ -3,7 +3,7 @@
 import hashlib
 from pathlib import Path
 
-import aiohttp
+import niquests
 from tqdm.asyncio import tqdm_asyncio
 
 
@@ -41,25 +41,25 @@ def chunks(lst, n):
 
 
 async def download_file(
-    session: aiohttp.ClientSession, url: str, local_path: Path, chunk_size: int = 8192
+    session: niquests.AsyncSession, url: str, local_path: Path, chunk_size: int = 8192
 ):
     """Download a file asynchronously using aiohttp."""
-    async with session.get(url) as response:
+    try:
+        response = await session.get(url, stream=True)
         response.raise_for_status()
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        if (
-            not local_path.exists()
-            or response.content_length != local_path.stat().st_size
-        ):
+        if not local_path.exists():
             with open(local_path, "wb") as f:
-                while chunk := await response.content.read(chunk_size):
+                async for chunk in await response.iter_content(chunk_size):
                     f.write(chunk)
+    except Exception as e:
+        raise RuntimeError(f"Download for {url} to {local_path} failed.") from e
 
 
 async def download_files(
     urls: dict[str, str | Path],
     force: bool = False,
-    max_connections: int = 50,
+    max_connections: int = 10,
     num_retries: int = 1,
     progress_bar_desc: str | None = None,
 ):
@@ -80,23 +80,18 @@ async def download_files(
     }
 
     # launch downloads concurrently
-    connector = aiohttp.TCPConnector(limit=max_connections)
-    for attempt in range(num_retries):
-        try:
-            async with aiohttp.ClientSession(
-                headers=headers, connector=connector
-            ) as session:
-                tasks = []
-                for url, local_file in urls.items():
-                    local_path = Path(local_file)
-                    if force or not local_path.exists():
-                        tasks.append(download_file(session, url, local_path))
+    # https://niquests.readthedocs.io/en/latest/user/quickstart.html#scale-your-session-pool
+    async with niquests.AsyncSession(
+        headers=headers,
+        retries=num_retries,
+        pool_connections=max_connections,
+        pool_maxsize=max_connections,
+    ) as session:
+        tasks = []
+        for url, local_file in urls.items():
+            local_path = Path(local_file)
+            if force or not local_path.exists():
+                tasks.append(download_file(session, url, local_path))
 
-                # run all of the downloads and await their completion
-                await tqdm_asyncio.gather(*tasks, desc=progress_bar_desc)
-        except Exception as e:
-            print(f"Download attempt failed with error: {e}")
-            if attempt == num_retries - 1:
-                raise RuntimeError("All download attempts failed.") from e
-            else:
-                print(f"Retrying downloads (attempt {attempt + 2}/{num_retries})...")
+        # run all of the downloads and await their completion
+        await tqdm_asyncio.gather(*tasks, desc=progress_bar_desc)
