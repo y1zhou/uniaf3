@@ -1,9 +1,10 @@
 """Query MSA and templates for protein sequences."""
 
-import asyncio
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
+import gemmi
 import polars as pl
 from platformdirs import PlatformDirs
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -250,17 +251,16 @@ def query_colabfold(
                 ).alias("template_cif_path"),
             )
         )
-        asyncio.run(
-            download_files(
-                {
-                    r["template_cif_url"]: Path(r["template_cif_path"])
-                    for r in template_pdb_ids.iter_rows(named=True)
-                },
-                force=force,
-                num_retries=3,
-                progress_bar_desc="Downloading templates from RCSB",
-            )
+        download_files(
+            {
+                r["template_cif_url"]: Path(r["template_cif_path"])
+                for r in template_pdb_ids.iter_rows(named=True)
+            },
+            force=force,
+            num_retries=3,
+            progress_bar_desc="Downloading templates from RCSB",
         )
+
         # Template files are gzipped, but all except Protenix can handle them directly.
         # TODO: If needed, we can add logic to unzip files after the downloads.
         templates_df = all_templates.join(
@@ -307,8 +307,8 @@ def parse_m8_file(fname: str | Path) -> pl.DataFrame:
             ],
         )
         .sort(
-            ["query_id", "evalue", "pident", "subject_id"],
-            descending=[False, False, True, False],
+            ["query_id", "bitscore", "evalue", "pident", "subject_id"],
+            descending=[False, True, False, True, False],
         )
         .with_columns(
             pl.col(c).cast(pl.Int64)
@@ -357,3 +357,69 @@ def cigar_to_indices(
             f"CIGAR parsing error: number of query indices ({len(query_indices)}) does not match number of subject indices ({len(subject_indices)})."
         )
     return query_indices, subject_indices
+
+
+@dataclass
+class GemmiAlignmentResult:
+    """A wrapper for gemmi.AlignmentResult extended with sequences."""
+
+    raw: gemmi.AlignmentResult
+    struct_chain_id: str
+    # 1-based indices for sequences (not residue index in the structure!)
+    query_idx: list[int]
+    struct_idx: list[int]
+
+
+def align_seq_to_structure(
+    seq: str, struct_path: str | Path, chain_id: str | None = None, model_id: int = 0
+) -> GemmiAlignmentResult:
+    """Align a sequence to a structure and return the aligned sequence with gaps.
+
+    <https://gemmi.readthedocs.io/en/stable/analysis.html#sequence-alignment>
+
+    If ``chain_id`` is not given, the query sequence is aligned to all chains
+    in the structure, and the chain with the best alignment is returned.
+    """
+    st = gemmi.read_structure(str(struct_path), format=gemmi.CoorFormat.Detect)
+    st.setup_entities()
+    st.assign_label_seq_id()
+
+    query_seq = gemmi.expand_one_letter_sequence(seq, gemmi.ResidueKind.AA)
+    model = st[model_id]
+    blosum62 = gemmi.AlignmentScoring("b")
+
+    best_score = float("-inf")
+    best_aln: gemmi.AlignmentResult | None = None
+    best_chain_id: str = ""
+    for chain in model:
+        if chain_id is not None and chain.name != chain_id:
+            continue
+        chain_aln = gemmi.align_sequence_to_polymer(
+            query_seq, chain.get_polymer(), gemmi.PolymerType.PeptideL, blosum62
+        )
+        if chain_aln.score > best_score:
+            best_score = chain_aln.score
+            best_aln = chain_aln
+            # best_seq = [
+            #     gemmi.find_tabulated_residue(r.name).one_letter_code.upper()
+            #     for r in chain
+            #     if r.entity_type is gemmi.EntityType.Polymer
+            # ]
+            best_chain_id = chain.name
+
+            # Find the start and end indices of the aligned region
+            query_idx, template_idx = cigar_to_indices(
+                query_start=1,
+                subject_start=1,
+                cigar=best_aln.cigar_str(),
+                index_offset=0,
+            )
+
+    if best_aln is None:
+        raise ValueError("No valid alignment found.")
+    return GemmiAlignmentResult(
+        raw=best_aln,
+        struct_chain_id=best_chain_id,
+        query_idx=query_idx,
+        struct_idx=template_idx,
+    )

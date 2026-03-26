@@ -11,6 +11,7 @@ from uniaf3.adapters._helpers import (
     err_unsupported_feature,
     warn_lossy_conversion,
 )
+from uniaf3.msa import align_seq_to_structure, cigar_to_indices, parse_m8_file
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -23,6 +24,7 @@ from uniaf3.schema.base import (
     PolymerType,
     ProteinSeq,
     SequenceModification,
+    StructuralTemplate,
     UniAF3Config,
 )
 from uniaf3.schema.chai import (
@@ -32,13 +34,12 @@ from uniaf3.schema.chai import (
     ChaiRestraint,
     ChaiRestraintType,
 )
-from uniaf3.utils import hash_sequence, int_to_letters
+from uniaf3.utils import download_files, hash_sequence, int_to_letters
 from uniaf3.vendor.chai1_fasta import constituents_of_modified_fasta
 
 
 def _find_or_reconstruct_m8(
-    protein_seqs: list[ProteinSeq],
-    output_dir: Path,
+    protein_seqs: list[ProteinSeq], output_dir: Path
 ) -> str | None:
     """Find the original pdb70.m8 template hits file or reconstruct one.
 
@@ -53,20 +54,18 @@ def _find_or_reconstruct_m8(
         Path to the remapped/reconstructed m8 file, or None if not possible.
 
     """
-    out_path = output_dir / "template_hits.m8"
+    out_path = output_dir / "all_chain_templates.m8"
 
     # Strategy 1: Find original m8 file from any protein's MSA path
     m8_path: Path | None = None
     for seq in protein_seqs:
-        if seq.unpaired_msa is not None:
-            candidate = Path(seq.unpaired_msa).parent.parent / "pdb70.m8"
+        if seq.paired_msa is not None:
+            candidate = Path(seq.paired_msa).parent.parent / "pdb70.m8"
             if candidate.exists():
                 m8_path = candidate
                 break
 
     if m8_path is not None:
-        from uniaf3.msa import parse_m8_file
-
         all_templates = parse_m8_file(m8_path)
         # Remap integer query IDs (101, 102, ...) to sequence hashes
         unique_seqs = list(dict.fromkeys(seq.sequence for seq in protein_seqs))
@@ -74,46 +73,45 @@ def _find_or_reconstruct_m8(
             str(101 + i): hash_sequence(seq) for i, seq in enumerate(unique_seqs)
         }
         all_templates = all_templates.with_columns(
-            pl.col("query_id").replace_strict(query_map, default=pl.col("query_id"))
+            pl.col("query_id").cast(pl.Utf8).replace_strict(query_map)
         )
         all_templates.write_csv(out_path, include_header=False, separator="\t")
         return str(out_path)
 
     # Strategy 2: Reconstruct from StructuralTemplate objects
+    # Note that this alignment differs from the MMSeqs2 algorithm, so scores
+    # will not be exact
     rows: list[dict] = []
     for seq in protein_seqs:
         if not seq.templates:
             continue
-        seq_hash = hash_sequence(seq.sequence)
         for tmpl in seq.templates:
             # Extract PDB ID and chain from the template path
             tmpl_filename = Path(tmpl.path).name
             # Handle .cif.gz, .pdb.gz, .cif, .pdb
             pdb_id = tmpl_filename.split(".")[0].lower()
-            tmpl_chain = tmpl.template_chains[0] if tmpl.template_chains else "A"
-            subject_id = f"{pdb_id}_{tmpl_chain}"
+            tmpl_chain = (
+                tmpl.template_chains[0] if tmpl.template_chains is not None else None
+            )
+            tmpl_alignment = align_seq_to_structure(seq.sequence, tmpl.path, tmpl_chain)
+            subject_id = f"{pdb_id}_{tmpl_alignment.struct_chain_id}"
 
-            query_start = (tmpl.query_idx[0] + 1) if tmpl.query_idx else 1
-            query_end = (tmpl.query_idx[-1] + 1) if tmpl.query_idx else 1
-            subject_start = (tmpl.template_idx[0] + 1) if tmpl.template_idx else 1
-            subject_end = (tmpl.template_idx[-1] + 1) if tmpl.template_idx else 1
-            length = max(query_end - query_start + 1, 1)
-
+            q_start, q_end = tmpl_alignment.query_idx[0], tmpl_alignment.query_idx[-1]
             rows.append(
                 {
-                    "query_id": seq_hash,
+                    "query_id": seq.seq_hash,
                     "subject_id": subject_id,
-                    "pident": 0.0,
-                    "length": length,
-                    "mismatch": 0,
-                    "gapopen": 0,
-                    "query_start": query_start,
-                    "query_end": query_end,
-                    "subject_start": subject_start,
-                    "subject_end": subject_end,
-                    "evalue": 999.0,
-                    "bitscore": 0.0,
-                    "comment": "reconstructed_by_uniaf3",
+                    "pident": tmpl_alignment.raw.calculate_identity(),
+                    "length": q_end - q_start + 1,
+                    "mismatch": tmpl_alignment.raw.match_string.count("."),
+                    "gapopen": 0,  # not important
+                    "query_start": q_start,
+                    "query_end": q_end,
+                    "subject_start": tmpl_alignment.struct_idx[0],
+                    "subject_end": tmpl_alignment.struct_idx[-1],
+                    "evalue": 1.0 / tmpl_alignment.raw.score,  # approx.
+                    "bitscore": tmpl_alignment.raw.score,  # approx.
+                    "comment": tmpl_alignment.raw.cigar_str(),
                 }
             )
 
@@ -644,10 +642,84 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
                 prot_seq.paired_msa = str(paired_a3m_path)
 
     if config.template_hits_path is not None:
-        warn_lossy_conversion(
-            "Chai template hits in m8 format are not fully parsed into UniAF3Config; original scoring fields are not preserved."
+        template_hits_path = Path(config.template_hits_path)
+        if not template_hits_path.exists():
+            raise ValueError(
+                f"Chai template hits file does not exist: {template_hits_path}"
+            )
+        if template_hits_path.suffix != ".m8":
+            raise ValueError(
+                f"Chai template hits file must be in .m8 format: {template_hits_path}"
+            )
+
+        if msa_dir is None:
+            raise ValueError(
+                "ChaiConfig.template_hits_path is provided but no msa_dir specified."
+            )
+        tmpl_files_dir = Path(msa_dir) / "templates"
+        tmpl_files_dir.mkdir(parents=True, exist_ok=True)
+
+        # Parse the m8 file and populate UniAF3Config StructuralTemplate objects
+        # Note that Chai parses the top 4 templates per chain, so there's
+        # no need to download more than that
+        m8_df = (
+            parse_m8_file(template_hits_path)
+            .group_by("query_id", maintain_order=True)
+            .head(4)
+            .with_columns(pl.col("subject_id").str.split("_"))
+            .with_columns(
+                pl.col("subject_id")
+                .list.first()
+                .str.to_uppercase()
+                .alias("subject_pdb_id"),
+                pl.col("subject_id").list.last().alias("subject_chain_id"),
+            )
         )
-        # TODO: Parse the m8 file and populate UniAF3Config StructuralTemplate objects
+        fetch_template_tasks: dict[str, Path] = {}
+        for r in m8_df.iter_rows(named=True):
+            query_hash = r["query_id"]
+            if query_hash not in prot_seq_hashes:
+                raise ValueError(
+                    f"Template hit query_id {query_hash} not found among protein sequences."
+                )
+            seq_idx = prot_seq_hashes[query_hash]
+            prot_seq = sequences[seq_idx]
+            if not isinstance(prot_seq, ProteinSeq):
+                raise ValueError(
+                    f"Expected ProteinSeq for template hit with query_id {query_hash}, got {type(prot_seq)}"
+                )
+
+            tmpl: list[StructuralTemplate] = prot_seq.templates or []
+            q_idx, tmpl_idx = cigar_to_indices(
+                r["query_start"], r["subject_start"], r["cigar"]
+            )
+            tmpl_pdb_id = r["subject_pdb_id"]
+            tmpl_path = tmpl_files_dir / f"{tmpl_pdb_id}.cif.gz"
+            tmpl.append(
+                StructuralTemplate(
+                    path=str(tmpl_path),
+                    query_idx=q_idx,
+                    template_idx=tmpl_idx,
+                    query_chains=ensure_list(prot_seq.id),
+                    template_chains=[r["subject_chain_id"]],
+                )
+            )
+            prot_seq.templates = tmpl
+            fetch_template_tasks[
+                f"https://files.rcsb.org/download/{tmpl_pdb_id}.cif.gz"
+            ] = tmpl_path
+        if fetch_template_tasks:
+            warn_lossy_conversion(
+                "Chai template hits are represented as StructuralTemplate objects "
+                "with path pointing to downloaded CIF files; original template metadata "
+                "(e.g. alignment scores) is not preserved."
+            )
+            download_files(
+                fetch_template_tasks,
+                force=False,
+                num_retries=3,
+                progress_bar_desc="Template CIFs for Chai",
+            )
 
     aux = AuxiliaryParams(
         seeds=[config.seed] if config.seed is not None else [42],

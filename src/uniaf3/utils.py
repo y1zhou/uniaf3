@@ -41,7 +41,7 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
-async def download_file(session: niquests.AsyncSession, url: str, local_path: Path):
+async def _download_file(session: niquests.AsyncSession, url: str, local_path: Path):
     """Download a file asynchronously using aiohttp."""
     try:
         response = await session.get(url, stream=True)
@@ -56,7 +56,7 @@ async def download_file(session: niquests.AsyncSession, url: str, local_path: Pa
         raise RuntimeError(f"Download for {url} to {local_path} failed.") from e
 
 
-async def download_files(
+async def _download_files(
     urls: dict[str, str | Path],
     force: bool = False,
     max_connected_hosts: int = 10,
@@ -94,7 +94,30 @@ async def download_files(
             local_path = Path(local_file)
             local_path.parent.mkdir(parents=True, exist_ok=True)
             if force or not local_path.exists():
-                tasks.append(download_file(session, url, local_path))
+                tasks.append(_download_file(session, url, local_path))
 
         # run all of the downloads and await their completion
         await tqdm_asyncio.gather(*tasks, desc=progress_bar_desc)
+
+
+def download_files(
+    urls: dict[str, str | Path],
+    force: bool = False,
+    max_connected_hosts: int = 10,
+    max_connections: int = 20,
+    num_retries: int = 1,
+    progress_bar_desc: str | None = None,
+):
+    """Download files synchronously via _download_files."""
+    import asyncio
+
+    asyncio.run(
+        _download_files(
+            urls=urls,
+            force=force,
+            max_connected_hosts=max_connected_hosts,
+            max_connections=max_connections,
+            num_retries=num_retries,
+            progress_bar_desc=progress_bar_desc,
+        )
+    )
