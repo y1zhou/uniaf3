@@ -176,7 +176,7 @@ class ProtenixCovalentBond(BaseModel):
 
     The copy index must be both specified or both None. When both are empty, bonds will
     be created between all pairs of copies for the two entities, e.g. for two entities
-    with two coplies, two bonds will be created between copy1=1 and copy2=1, and between
+    with two copies, two bonds will be created between copy1=1 and copy2=1, and between
     copy1=2 and copy2=2. In this case the two entities must have the same number of
     copies.
 
