@@ -683,7 +683,7 @@ class TestBaseSchemaValidators:
             pass
 
         config = ConcreteConfig()
-        with pytest.raises(NotImplementedError, match="to_file method"):
+        with pytest.raises(NotImplementedError, match="to_files method"):
             config.to_files(tmp_path, "test")
 
     def test_from_file_not_found_raises(self, tmp_path):

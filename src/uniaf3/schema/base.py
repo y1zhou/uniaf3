@@ -89,7 +89,7 @@ class UniAF3BaseConfig(BaseModel):
                 writing method.
 
         """
-        raise NotImplementedError("to_file method must be implemented by subclasses.")
+        raise NotImplementedError("to_files method must be implemented by subclasses.")
 
     @classmethod
     def from_file(cls: type[T], conf_file: str | Path) -> T:
@@ -283,7 +283,7 @@ class ContactRestraint(BaseModel):
     """Schema for distance restraints between two atoms from different entities.
 
     Note that AF3 and AF3-server do not support non-covalent restraints.
-    The `min_distance` field is only used by Protenix.
+    The ``min_distance`` field is used by Protenix and Chai.
 
     Boltz: [chain, res_idx/atom_name] res_idx for polymers, atom_name for ligands.
     Chai-1: chain, {res_name}{res_idx}; only polymers supported. The chain ID is
@@ -327,7 +327,7 @@ class PocketRestraint(BaseModel):
     chains that define a binding pocket for a designated ``binder_chain``.
 
     Note that AF3 and AF3-server do not support non-covalent restraints.
-    The ``min_distance`` field is only used by Protenix.
+    The ``min_distance`` field is used by Protenix and Chai.
 
     Boltz: [[chain, res_idx/atom_name]] res_idx for polymers, atom_name for ligands.
     Chai-1: [chain, {res_name}{res_idx}]; only polymers supported. The chain ID is

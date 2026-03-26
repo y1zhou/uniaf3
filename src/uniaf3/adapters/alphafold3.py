@@ -327,7 +327,7 @@ def from_alphafold3(config: AF3Config) -> UniAF3Config:
             )
             sequences.append(lig)
 
-    # Bonded atom pairs → covalent restraints
+    # Bonded atom pairs → covalent bonds
     covalent_bonds: list[CovalentBond] = []
     if config.bondedAtomPairs:
         for a1, a2 in config.bondedAtomPairs:
