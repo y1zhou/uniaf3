@@ -126,9 +126,9 @@ def query_colabfold(
     query_indices = [101 + seqs_unique.index(seq.upper()) for seq in seqs]
 
     seqs_hash = hash_sequence("|".join(seqs_unique))
-    paired_msa_dir = msa_cache_root / "paired" / seqs_hash[:2] / seqs_hash
-    paired_msa_dir.mkdir(parents=True, exist_ok=True)
-    paired_msa_dir = paired_msa_dir.resolve()
+    paired_msa_dir = normalize_out_dir(
+        msa_cache_root / "paired" / seqs_hash[:2] / seqs_hash
+    )
 
     # Expected output files to be cached
     seq_hashes = [hash_sequence(s.upper()) for s in seqs_unique]
@@ -137,14 +137,14 @@ def query_colabfold(
     # Single MSAs go to per-sequence directories for cross-query reuse
     single_a3m_files = []
     for seq_hash in seq_hashes:
-        single_dir = msa_cache_root / "single" / seq_hash[:2] / seq_hash
-        single_dir.mkdir(parents=True, exist_ok=True)
+        single_dir = normalize_out_dir(
+            msa_cache_root / "single" / seq_hash[:2] / seq_hash
+        )
         single_a3m_files.append((single_dir / f"{seq_hash}.single.a3m").resolve())
 
     # Paired MSAs stay in the per-query directory
     if num_seqs > 1:
-        a3ms_dir = paired_msa_dir / "a3ms"
-        a3ms_dir.mkdir(exist_ok=True)
+        a3ms_dir = normalize_out_dir(paired_msa_dir, "a3ms")
     paired_a3m_files = (
         [a3ms_dir / f"{seq_hash}.pair.a3m" for seq_hash in seq_hashes]
         if num_seqs > 1
@@ -153,13 +153,10 @@ def query_colabfold(
     expected_tmpl_m8_file = paired_msa_dir / "pdb70.m8"
 
     # Query ColabFold API if cached results do not exist
-    with tempfile.TemporaryDirectory() as tmp_dir_path:
-        tmp_dir = Path(tmp_dir_path)
-        mmseqs_paired_dir = tmp_dir / "mmseqs2_paired"
-        mmseqs_paired_dir.mkdir()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        mmseqs_paired_dir = normalize_out_dir(tmp_dir, "mmseqs2_paired")
 
-        mmseqs_dir = tmp_dir / "mmseqs2"
-        mmseqs_dir.mkdir()
+        mmseqs_dir = normalize_out_dir(tmp_dir, "mmseqs2")
 
         # Run paired MSA search
         # In paired mode, mmseqs2 returns paired a3ms where all a3ms have the same number of rows

@@ -42,7 +42,7 @@ from uniaf3.schema.boltz import (
     BoltzSequenceEntry,
     BoltzTemplate,
 )
-from uniaf3.utils import hash_sequence
+from uniaf3.utils import hash_sequence, normalize_out_dir
 from uniaf3.vendor.chai1_fasta import read_fasta
 from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
 
@@ -68,8 +68,7 @@ def merge_colabfold_msa_to_csv(
         Path to the output CSV file containing the merged MSA.
 
     """
-    out_dir_path = Path(out_dir).expanduser().resolve()
-    out_dir_path.mkdir(parents=True, exist_ok=True)
+    out_dir_path = normalize_out_dir(out_dir)
     out_file = out_dir_path / f"{msa_id}.csv"
 
     # fast fail if unpaired MSA file does not exist
@@ -137,8 +136,7 @@ def split_boltz_csv_to_a3m(
         Paths to the unpaired and paired MSA A3M files.
 
     """
-    out_dir_path = Path(out_dir).expanduser().resolve()
-    out_dir_path.mkdir(parents=True, exist_ok=True)
+    out_dir_path = normalize_out_dir(out_dir)
 
     headers_df = pl.read_parquet(Path(csv_file).with_suffix(".parquet"))
     msa_df = (
@@ -210,8 +208,7 @@ def to_boltz(
             If False, skip unsupported features with warnings.
 
     """
-    msa_dir_path = Path(msa_dir).expanduser().resolve()
-    msa_dir_path.mkdir(parents=True, exist_ok=True)
+    msa_dir_path = normalize_out_dir(msa_dir)
 
     sequences: list[BoltzSequenceEntry] = []
     templates: list[BoltzTemplate] = []
@@ -446,7 +443,7 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path | None = None) -> UniAF3
                     raise ValueError(
                         f"Boltz config contains MSA file {p.msa} but no msa_dir was provided to from_boltz."
                     )
-                msa_dir_path.mkdir(parents=True, exist_ok=True)
+                msa_dir_path = normalize_out_dir(msa_dir_path)
                 input_msa_filetype = Path(p.msa).suffix
                 if input_msa_filetype == ".csv":
                     unpaired_path, paired_path = split_boltz_csv_to_a3m(
@@ -455,9 +452,10 @@ def from_boltz(config: BoltzConfig, msa_dir: str | Path | None = None) -> UniAF3
                 elif input_msa_filetype == ".a3m":
                     import shutil
 
-                    (msa_dir_path / "a3ms").mkdir(parents=True, exist_ok=True)
+                    a3m_dir_path = normalize_out_dir(msa_dir_path, "a3ms")
+
                     prefix = hash_sequence(p.sequence)
-                    unpaired_path = msa_dir_path / "a3ms" / f"{prefix}.single.a3m"
+                    unpaired_path = a3m_dir_path / f"{prefix}.single.a3m"
                     shutil.copyfile(p.msa, unpaired_path)
                     paired_path = None
                 else:

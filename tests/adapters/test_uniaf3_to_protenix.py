@@ -292,7 +292,7 @@ def test_from_protenix_rna_sequence():
         ],
     )
     with pytest.warns(UserWarning):
-        result = from_protenix([job])
+        result = from_protenix(ProtenixConfig([job]))
     assert len(result) == 1
     assert isinstance(result[0].sequences[0], Polymer)
     from uniaf3.schema.base import PolymerType

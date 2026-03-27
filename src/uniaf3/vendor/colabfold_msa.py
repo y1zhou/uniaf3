@@ -13,6 +13,7 @@ import niquests
 from tqdm import tqdm
 
 from uniaf3 import __version__
+from uniaf3.utils import normalize_out_dir
 
 logger = logging.getLogger(__name__)
 
@@ -175,8 +176,7 @@ def run_mmseqs2(
             mode = mode + "-env"
 
     # define path
-    path = Path(f"{prefix}_{mode}")
-    path.mkdir(parents=True, exist_ok=True)
+    path = normalize_out_dir(f"{prefix}_{mode}")
 
     # call mmseqs2 api
     tar_gz_file = path / "out.tar.gz"

@@ -22,7 +22,7 @@ import polars as pl
 from pydantic import BaseModel, NonNegativeFloat, model_validator
 
 from uniaf3.schema.base import UniAF3BaseConfig
-from uniaf3.utils import int_to_letters
+from uniaf3.utils import int_to_letters, normalize_out_dir
 
 
 class ChaiEntityType(StrEnum):
@@ -233,8 +233,8 @@ class ChaiConfig(UniAF3BaseConfig):
 
     def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
         """Dump the config to a YAML file in the specified output directory."""
-        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.yaml"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_dir = normalize_out_dir(output_dir)
+        output_path = output_dir / f"{prefix}.yaml"
         with open(output_path, "w") as f:
             f.write(self.to_yaml(**kwargs))
 

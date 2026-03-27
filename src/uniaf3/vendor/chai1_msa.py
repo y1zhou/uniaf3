@@ -20,7 +20,7 @@ from pathlib import Path
 import polars as pl
 
 from uniaf3.msa import parse_m8_file
-from uniaf3.utils import hash_sequence
+from uniaf3.utils import hash_sequence, normalize_out_dir
 from uniaf3.vendor.chai1_fasta import Fasta, read_fasta
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
 
@@ -109,8 +109,7 @@ def a3m_to_aligned_pqt(
         Path to the written .aligned.pqt file.
 
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = normalize_out_dir(output_dir)
     msa_path = output_dir / expected_basename(query_sequence)
     if msa_path.exists():
         # Homomer dedup: same sequence produces the same file
@@ -210,17 +209,13 @@ def generate_colabfold_msas(
         logger.warning("No protein sequences for MSA generation; this is a no-op.")
         return {}
 
-    with tempfile.TemporaryDirectory() as tmp_dir_path:
-        tmp_dir = Path(tmp_dir_path)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        mmseqs_paired_dir = normalize_out_dir(tmp_dir, "mmseqs_paired")
+        mmseqs_dir = normalize_out_dir(tmp_dir, "mmseqs")
 
-        mmseqs_paired_dir = tmp_dir / "mmseqs_paired"
-        mmseqs_paired_dir.mkdir()
-
-        mmseqs_dir = tmp_dir / "mmseqs"
-        mmseqs_dir.mkdir()
-
-        a3ms_dir = (tmp_dir if not write_a3m_to_msa_dir else msa_dir) / "a3ms"
-        a3ms_dir.mkdir()
+        a3ms_dir = normalize_out_dir(
+            tmp_dir if not write_a3m_to_msa_dir else msa_dir, "a3ms"
+        )
 
         # Generate MSAs for each protein chain
         logger.info(f"Running MSA generation for {len(protein_seqs)} protein sequences")

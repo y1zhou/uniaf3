@@ -15,6 +15,7 @@ from uniaf3.schema import (
     UniAF3Config,
 )
 from uniaf3.schema.chai import ChaiEntityType
+from uniaf3.utils import normalize_out_dir
 
 
 # ruff: noqa: S101
@@ -438,8 +439,7 @@ class TestChaiSchemaIO:
         fasta_content = ">protein|A\nMVLSPADKTNVK\n"
         fasta_file = tmp_path / "test.fasta"
         fasta_file.write_text(fasta_content)
-        msa_dir = tmp_path / "msa"
-        msa_dir.mkdir()
+        msa_dir = normalize_out_dir(tmp_path, "msa")
         loaded = ChaiConfig.from_file(fasta_file)
         assert loaded.msa_directory == str(msa_dir)
 
@@ -448,8 +448,7 @@ class TestChaiSchemaIO:
         fasta_content = ">protein|A\nMVLSPADKTNVK\n"
         fasta_file = tmp_path / "test.fasta"
         fasta_file.write_text(fasta_content)
-        msa_dir = tmp_path / "msa"
-        msa_dir.mkdir()
+        msa_dir = normalize_out_dir(tmp_path, "msa")
         m8_file = msa_dir / "all_chain_templates.m8"
         m8_file.write_text(
             "hash\t1abc_A\t95.0\t12\t0\t0\t1\t12\t1\t12\t1e-5\t50.0\t12M\n"
@@ -469,8 +468,7 @@ class TestChaiSchemaIO:
         fasta_content = ">protein|A\nMVLSPADKTNVK\n"
         fasta_file = tmp_path / "test.fasta"
         fasta_file.write_text(fasta_content)
-        msa_dir = tmp_path / "msa"
-        msa_dir.mkdir()
+        msa_dir = normalize_out_dir(tmp_path, "msa")
         loaded = ChaiConfig.from_chai_files(fasta_file, msa_directory=msa_dir)
         assert loaded.msa_directory == str(msa_dir)
 

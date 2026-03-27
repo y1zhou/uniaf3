@@ -35,7 +35,12 @@ from uniaf3.schema.chai import (
     ChaiRestraint,
     ChaiRestraintType,
 )
-from uniaf3.utils import download_files, hash_sequence, int_to_letters
+from uniaf3.utils import (
+    download_files,
+    hash_sequence,
+    int_to_letters,
+    normalize_out_dir,
+)
 from uniaf3.vendor.chai1_fasta import constituents_of_modified_fasta
 
 
@@ -340,8 +345,7 @@ def to_chai(
         if msa_dir is not None:
             from uniaf3.vendor.chai1_msa import a3m_to_aligned_pqt
 
-            msa_dir_path = Path(msa_dir).expanduser().resolve()
-            msa_dir_path.mkdir(parents=True, exist_ok=True)
+            msa_dir_path = normalize_out_dir(msa_dir)
 
             a3m_to_aligned_pqt(
                 single_a3m_path=seq.unpaired_msa,
@@ -365,8 +369,7 @@ def to_chai(
     ]
     if protein_seqs_with_templates:
         if msa_dir is not None:
-            msa_dir_path = Path(msa_dir).expanduser().resolve()
-            msa_dir_path.mkdir(parents=True, exist_ok=True)
+            msa_dir_path = normalize_out_dir(msa_dir)
 
             # Warn about Boltz-specific fields that are not representable
             has_boltz_fields = any(
@@ -586,8 +589,7 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
             raise ValueError(
                 "ChaiConfig.msa_directory is provided but no msa_dir specified."
             )
-        msa_out_path = Path(msa_dir).expanduser().resolve()
-        msa_out_path.mkdir(parents=True, exist_ok=True)
+        msa_out_path = normalize_out_dir(msa_dir)
         for prot_seq_hash, seq_idx in prot_seq_hashes.items():
             prot_seq = sequences[seq_idx]
             if not isinstance(prot_seq, ProteinSeq):
@@ -667,8 +669,7 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
             raise ValueError(
                 "ChaiConfig.template_hits_path is provided but no msa_dir specified."
             )
-        tmpl_files_dir = Path(msa_dir) / "templates"
-        tmpl_files_dir.mkdir(parents=True, exist_ok=True)
+        tmpl_files_dir = normalize_out_dir(msa_dir, "templates")
 
         # Parse the m8 file and populate UniAF3Config StructuralTemplate objects
         # Note that Chai parses the top 4 templates per chain, so there's

@@ -5,6 +5,7 @@ import pytest
 from uniaf3.schema import ChaiConfig, UniAF3Config
 from uniaf3.schema.base import Glycan, Ligand, Polymer, PolymerType, ProteinSeq
 from uniaf3.schema.chai import ChaiEntityType
+from uniaf3.utils import normalize_out_dir
 
 
 @pytest.fixture(scope="module")
@@ -265,8 +266,7 @@ def test_from_chai_msa_directory_no_msa_dir_raises(tmp_path):
     from uniaf3.schema.chai import ChaiEntity, ChaiEntityType
 
     # Create a fake MSA directory
-    msa_dir = tmp_path / "fake_msa"
-    msa_dir.mkdir()
+    msa_dir = normalize_out_dir(tmp_path, "fake_msa")
 
     conf = ChaiConfig(
         entities=[
@@ -361,8 +361,7 @@ def test_from_chai_with_msa_parquet(tmp_path):
 
     seq_str = "MVLSPADKTNVK"
     seq_hash = hash_sequence(seq_str)
-    a3ms_dir = tmp_path / "a3ms"
-    a3ms_dir.mkdir()
+    a3ms_dir = normalize_out_dir(tmp_path, "a3ms")
 
     single_path = a3ms_dir / f"{seq_hash}.single.a3m"
     single_path.write_text(f">query\n{seq_str}\n>hit1\n{seq_str[:-1]}-\n")
@@ -405,8 +404,7 @@ def test_from_chai_msa_missing_parquet_raises(tmp_path):
     from uniaf3.schema.chai import ChaiEntity, ChaiEntityType
 
     # Create a fake MSA directory without the expected parquet
-    msa_dir = tmp_path / "msa"
-    msa_dir.mkdir()
+    msa_dir = normalize_out_dir(tmp_path, "msa")
 
     conf = ChaiConfig(
         entities=[
@@ -498,8 +496,7 @@ def test_from_chai_template_with_valid_m8(tmp_path):
     # Mock download_files to avoid actual network calls
     with patch("uniaf3.adapters.chai.download_files") as mock_dl:
         # Create the CIF file that would be downloaded
-        tmpl_dir = tmp_path / "out" / "templates"
-        tmpl_dir.mkdir(parents=True)
+        tmpl_dir = normalize_out_dir(tmp_path / "out" / "templates")
         (tmpl_dir / "1ABC.cif.gz").write_bytes(b"")
 
         with pytest.warns(UserWarning) as records:
@@ -550,8 +547,7 @@ def test_from_chai_msa_no_msa_dir_raises(tmp_path):
     from uniaf3.adapters import from_chai
     from uniaf3.schema.chai import ChaiEntity, ChaiEntityType
 
-    msa_dir = tmp_path / "msa"
-    msa_dir.mkdir()
+    msa_dir = normalize_out_dir(tmp_path, "msa")
 
     conf = ChaiConfig(
         entities=[

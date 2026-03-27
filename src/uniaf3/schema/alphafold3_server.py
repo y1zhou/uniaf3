@@ -13,6 +13,7 @@ from typing import Literal
 from pydantic import BaseModel, PositiveInt, RootModel, model_validator
 
 from uniaf3.schema.base import UniAF3BaseConfig
+from uniaf3.utils import normalize_out_dir
 
 
 class AF3ServerGlycan(BaseModel):
@@ -258,7 +259,7 @@ class AF3ServerConfig(RootModel, UniAF3BaseConfig):
 
     def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
         """Dump the config to a JSON file in the specified output directory."""
-        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_dir = normalize_out_dir(output_dir)
+        output_path = output_dir / f"{prefix}.json"
         with open(output_path, "w") as f:
             f.write(self.to_json(**kwargs))

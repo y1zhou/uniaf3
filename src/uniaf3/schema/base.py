@@ -20,7 +20,7 @@ from pydantic import (
 from yaml import representer
 
 from uniaf3.msa import cigar_to_indices, query_colabfold
-from uniaf3.utils import hash_sequence
+from uniaf3.utils import hash_sequence, normalize_out_dir
 
 T = TypeVar("T", bound="UniAF3BaseConfig")
 
@@ -405,13 +405,18 @@ class UniAF3Config(UniAF3BaseConfig):
     def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""
         return self.to_yaml(
-            include={"sequences", "covalent_bonds", "contact_restraints", "pocket_restraints"}
+            include={
+                "sequences",
+                "covalent_bonds",
+                "contact_restraints",
+                "pocket_restraints",
+            }
         )
 
     def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
         """Dump the config to a YAML file in the specified output directory."""
-        output_path = Path(output_dir).expanduser().resolve() / f"{prefix}.yaml"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_dir = normalize_out_dir(output_dir)
+        output_path = output_dir / f"{prefix}.yaml"
         with open(output_path, "w") as f:
             f.write(self.to_yaml(**kwargs))
 

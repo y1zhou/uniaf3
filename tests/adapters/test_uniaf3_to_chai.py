@@ -13,6 +13,7 @@ from uniaf3.schema.base import (
     StructuralTemplate,
 )
 from uniaf3.schema.chai import ChaiEntityType
+from uniaf3.utils import normalize_out_dir
 
 
 @pytest.fixture(scope="module")
@@ -168,8 +169,7 @@ def msa_config_with_files(tmp_path):
     seq_hash = hash_sequence(seq_str)
 
     # Create MSA directory structure
-    a3ms_dir = tmp_path / "msas" / "a3ms"
-    a3ms_dir.mkdir(parents=True)
+    a3ms_dir = normalize_out_dir(tmp_path / "msas" / "a3ms")
 
     single_path = a3ms_dir / f"{seq_hash}.single.a3m"
     single_path.write_text(_make_a3m_content(seq_str))
@@ -494,9 +494,8 @@ def test_template_uses_existing_pdb70_m8(tmp_path):
     seq_hash = hash_sequence(seq_str)
 
     # Create MSA directory structure like ColabFold output
-    msa_dir = tmp_path / "msas"
-    a3ms_dir = msa_dir / "a3ms"
-    a3ms_dir.mkdir(parents=True)
+    msa_dir = normalize_out_dir(tmp_path, "msas")
+    a3ms_dir = normalize_out_dir(msa_dir, "a3ms")
 
     # Create paired A3M file
     paired_path = a3ms_dir / f"{seq_hash}.pair.a3m"
