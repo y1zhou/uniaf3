@@ -431,18 +431,23 @@ class UniAF3Config(UniAF3BaseConfig):
         """Load UniAF3 config from a file."""
         conf = super().from_file(conf_file)
 
+        conf_dir = normalize_out_dir(Path(conf_file).parent)
         for i, seq in enumerate(conf.sequences):
             if isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein:
                 conf.sequences[i] = ProteinSeq(**seq.model_dump())
-                prot = conf.sequences[i]
+                prot: ProteinSeq = conf.sequences[i]
                 for field in ("unpaired_msa", "paired_msa"):
                     path = getattr(prot, field)
                     if path is not None:
                         if not Path(path).is_absolute():
-                            true_path = (Path(conf_file).parent / path).resolve()
+                            true_path = conf_dir / path
                         else:
                             true_path = Path(path)
-                        setattr(prot, field, str(true_path))
+                        setattr(prot, field, str(true_path.resolve()))
+                if prot.templates is not None:
+                    for template in prot.templates:
+                        if not Path(template.path).is_absolute():
+                            template.path = str((conf_dir / template.path).resolve())
 
         return conf
 

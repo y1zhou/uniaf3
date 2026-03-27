@@ -176,7 +176,15 @@ class ChaiConfig(UniAF3BaseConfig):
     @classmethod
     def from_yaml(cls, conf_file: str | Path) -> ChaiConfig:
         """Load a ChaiConfig from a YAML file."""
-        return super().from_file(conf_file)
+        conf = super().from_file(conf_file)
+        conf_dir = normalize_out_dir(Path(conf_file).parent)
+
+        for attr in ("msa_directory", "constraint_path", "template_hits_path"):
+            path = getattr(conf, attr)
+            if path is not None and not Path(path).is_absolute():
+                setattr(conf, attr, str((conf_dir / path).resolve()))
+
+        return conf
 
     @classmethod
     def from_chai_files(

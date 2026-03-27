@@ -387,3 +387,5 @@ class ProtenixConfig(RootModel, UniAF3BaseConfig):
         output_path = output_dir / f"{prefix}.json"
         with open(output_path, "w") as f:
             f.write(self.to_str(**kwargs))
+
+    # TODO: implement from_file and from_proteinx_files

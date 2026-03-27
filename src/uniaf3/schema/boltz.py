@@ -387,6 +387,7 @@ class BoltzConfig(UniAF3BaseConfig):
     def from_file(cls, conf_file: str | Path) -> BoltzConfig:
         """Load Boltz config from a file."""
         conf = super().from_file(conf_file)
+        conf_dir = normalize_out_dir(Path(conf_file).parent)
 
         for seq in conf.sequences:
             if (
@@ -394,8 +395,13 @@ class BoltzConfig(UniAF3BaseConfig):
                 and seq.protein.msa is not None
                 and seq.protein.msa != "empty"
             ):
-                seq.protein.msa = str(
-                    (Path(conf_file).parent / seq.protein.msa).resolve()
-                )
+                seq.protein.msa = str((conf_dir / seq.protein.msa).resolve())
+
+        if conf.templates is not None:
+            for template in conf.templates:
+                if template.cif is not None:
+                    template.cif = str((conf_dir / template.cif).resolve())
+                elif template.pdb is not None:
+                    template.pdb = str((conf_dir / template.pdb).resolve())
 
         return conf

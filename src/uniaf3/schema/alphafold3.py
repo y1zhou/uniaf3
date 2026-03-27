@@ -199,6 +199,12 @@ class AF3Config(UniAF3BaseConfig):
                     seq.protein.unpairedMsaPath = str(
                         (Path(conf_file).parent / seq.protein.unpairedMsaPath).resolve()
                     )
+                if seq.protein.templates is not None:
+                    for template in seq.protein.templates:
+                        if template.mmcifPath is not None:
+                            template.mmcifPath = str(
+                                (Path(conf_file).parent / template.mmcifPath).resolve()
+                            )
 
         return conf
 
