@@ -94,57 +94,35 @@ def _find_or_reconstruct_m8(
                 tmpl.template_chains[0] if tmpl.template_chains is not None else None
             )
 
-            # Use pre-existing indices if available; otherwise align to structure
-            if tmpl.query_idx is not None and tmpl.template_idx is not None:
-                chain_id = tmpl_chain or "A"
-                subject_id = f"{pdb_id}_{chain_id}"
-                q_start, q_end = tmpl.query_idx[0], tmpl.query_idx[-1]
-                rows.append(
-                    {
-                        "query_id": seq.seq_hash,
-                        "subject_id": subject_id,
-                        "pident": 100.0,  # placeholder
-                        "length": q_end - q_start + 1,
-                        "mismatch": 0,  # placeholder
-                        "gapopen": 0,  # placeholder
-                        "query_start": q_start,
-                        "query_end": q_end,
-                        "subject_start": tmpl.template_idx[0],
-                        "subject_end": tmpl.template_idx[-1],
-                        "evalue": 1e-10,  # placeholder
-                        "bitscore": 100.0,  # placeholder
-                        "comment": "reconstructed_by_uniaf3",
-                    }
+            try:
+                tmpl_alignment = align_seq_to_structure(
+                    seq.sequence, tmpl.path, tmpl_chain
                 )
-            else:
-                try:
-                    tmpl_alignment = align_seq_to_structure(
-                        seq.sequence, tmpl.path, tmpl_chain
-                    )
-                except (FileNotFoundError, OSError):
-                    continue
-                subject_id = f"{pdb_id}_{tmpl_alignment.struct_chain_id}"
-                q_start, q_end = (
-                    tmpl_alignment.query_idx[0],
-                    tmpl_alignment.query_idx[-1],
+            except (FileNotFoundError, OSError) as e:
+                warn_lossy_conversion(
+                    f"Failed to align sequence to template {tmpl.path}; "
+                    f"error: {e}. Skipping this template in m8 reconstruction."
                 )
-                rows.append(
-                    {
-                        "query_id": seq.seq_hash,
-                        "subject_id": subject_id,
-                        "pident": tmpl_alignment.raw.calculate_identity(),
-                        "length": q_end - q_start + 1,
-                        "mismatch": tmpl_alignment.raw.match_string.count("."),
-                        "gapopen": 0,  # not important
-                        "query_start": q_start,
-                        "query_end": q_end,
-                        "subject_start": tmpl_alignment.struct_idx[0],
-                        "subject_end": tmpl_alignment.struct_idx[-1],
-                        "evalue": 1.0 / tmpl_alignment.raw.score,  # approx.
-                        "bitscore": tmpl_alignment.raw.score,  # approx.
-                        "comment": tmpl_alignment.raw.cigar_str(),
-                    }
-                )
+                continue
+            subject_id = f"{pdb_id}_{tmpl_alignment.struct_chain_id}"
+            q_start, q_end = tmpl_alignment.query_idx[0], tmpl_alignment.query_idx[-1]
+            rows.append(
+                {
+                    "query_id": seq.seq_hash,
+                    "subject_id": subject_id,
+                    "pident": tmpl_alignment.raw.calculate_identity(),
+                    "length": q_end - q_start + 1,
+                    "mismatch": tmpl_alignment.raw.match_string.count("."),
+                    "gapopen": 0,  # not important
+                    "query_start": q_start,
+                    "query_end": q_end,
+                    "subject_start": tmpl_alignment.struct_idx[0],
+                    "subject_end": tmpl_alignment.struct_idx[-1],
+                    "evalue": 1.0 / tmpl_alignment.raw.score,  # approx.
+                    "bitscore": tmpl_alignment.raw.score,  # approx.
+                    "comment": tmpl_alignment.raw.cigar_str(),
+                }
+            )
 
     if not rows:
         return None
