@@ -12,7 +12,6 @@ from uniaf3.schema import (
 )
 from uniaf3.schema.base import PolymerType, ProteinSeq
 
-
 # ruff: noqa: S101
 
 

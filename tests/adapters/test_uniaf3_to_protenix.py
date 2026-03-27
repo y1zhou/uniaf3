@@ -212,7 +212,7 @@ def test_glycan_with_bonds_warns():
 def test_multiple_pocket_constraints_warns():
     """Multiple pocket constraints should warn about single pocket support."""
     from uniaf3.adapters import to_protenix
-    from uniaf3.schema.base import Atom, PolymerType, ProteinSeq, PocketRestraint
+    from uniaf3.schema.base import Atom, PocketRestraint, PolymerType, ProteinSeq
 
     config = UniAF3Config(
         sequences=[
@@ -230,12 +230,16 @@ def test_multiple_pocket_constraints_warns():
         pocket_restraints=[
             PocketRestraint(
                 binder_chain="A",
-                contact_tokens=[Atom(chain_id="B", residue_idx=1, atom_name=None, residue_name="G")],
+                contact_tokens=[
+                    Atom(chain_id="B", residue_idx=1, atom_name=None, residue_name="G")
+                ],
                 max_distance=8.0,
             ),
             PocketRestraint(
                 binder_chain="B",
-                contact_tokens=[Atom(chain_id="A", residue_idx=1, atom_name=None, residue_name="M")],
+                contact_tokens=[
+                    Atom(chain_id="A", residue_idx=1, atom_name=None, residue_name="M")
+                ],
                 max_distance=8.0,
             ),
         ],
@@ -273,7 +277,11 @@ def test_rna_with_modifications():
 def test_from_protenix_rna_sequence():
     """from_protenix should handle RNA sequences."""
     from uniaf3.adapters import from_protenix
-    from uniaf3.schema.protenix import ProtenixJob, ProtenixRNASequence, ProtenixSequenceEntry
+    from uniaf3.schema.protenix import (
+        ProtenixJob,
+        ProtenixRNASequence,
+        ProtenixSequenceEntry,
+    )
 
     job = ProtenixJob(
         name="test",
@@ -288,4 +296,5 @@ def test_from_protenix_rna_sequence():
     assert len(result) == 1
     assert isinstance(result[0].sequences[0], Polymer)
     from uniaf3.schema.base import PolymerType
+
     assert result[0].sequences[0].polymer_type == PolymerType.RNA

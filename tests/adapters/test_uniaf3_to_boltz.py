@@ -6,7 +6,6 @@ from uniaf3.schema import BoltzConfig, UniAF3Config
 from uniaf3.schema.base import (
     Atom,
     ContactRestraint,
-    CovalentBond,
     Glycan,
     Ligand,
     PocketRestraint,
@@ -262,15 +261,16 @@ def test_max_templates_truncation_warns(tmp_path):
 
 def test_covalent_bond_strict_raises_on_missing_atom_name():
     """Covalent bonds without atom names should raise in strict mode."""
-    from uniaf3.adapters import to_boltz
-    from uniaf3.schema.boltz import BoltzBondConstraint, BoltzConstraintEntry, BoltzConfig, BoltzProtein, BoltzSequenceEntry
+    from uniaf3.schema.boltz import (
+        BoltzConfig,
+        BoltzProtein,
+        BoltzSequenceEntry,
+    )
 
     # Build the config directly without going through to_boltz validation
     config = BoltzConfig(
         sequences=[
-            BoltzSequenceEntry(
-                protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK")
-            ),
+            BoltzSequenceEntry(protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK")),
         ],
     )
     # from_boltz doesn't hit this path; skip this test scenario
@@ -411,7 +411,10 @@ def test_contact_restraint_ligand_no_atom_name_raises(tmp_path):
             )
         ],
     )
-    with pytest.raises(ValueError, match="Atom name must be specified for contact restraints on ligands"):
+    with pytest.raises(
+        ValueError,
+        match="Atom name must be specified for contact restraints on ligands",
+    ):
         to_boltz(config, msa_dir=tmp_path)
 
 
@@ -444,7 +447,9 @@ def test_pocket_restraint_ligand_no_atom_name_raises(tmp_path):
             )
         ],
     )
-    with pytest.raises(ValueError, match="Atom name must be specified for pocket restraints on ligands"):
+    with pytest.raises(
+        ValueError, match="Atom name must be specified for pocket restraints on ligands"
+    ):
         to_boltz(config, msa_dir=tmp_path)
 
 

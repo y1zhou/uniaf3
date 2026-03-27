@@ -310,7 +310,9 @@ def test_from_chai_template_hits_path_no_msa_dir_raises(tmp_path):
 
     # Create a fake m8 file
     m8_file = tmp_path / "templates.m8"
-    m8_file.write_text("hash\t1abc_A\t100.0\t10\t0\t0\t1\t10\t1\t10\t1e-10\t100.0\t1M\n")
+    m8_file.write_text(
+        "hash\t1abc_A\t100.0\t10\t0\t0\t1\t10\t1\t10\t1e-10\t100.0\t1M\n"
+    )
 
     conf = ChaiConfig(
         entities=[
@@ -393,6 +395,7 @@ def test_from_chai_with_msa_parquet(tmp_path):
     assert isinstance(prot, ProteinSeq)
     assert prot.unpaired_msa is not None
     from pathlib import Path as _Path
+
     assert _Path(prot.unpaired_msa).exists()
 
 
@@ -514,7 +517,6 @@ def test_from_chai_template_with_valid_m8(tmp_path):
 
 def test_from_chai_template_unknown_query_hash_raises(tmp_path):
     """from_chai should raise if template hit has an unknown query hash."""
-    from unittest.mock import patch
 
     from uniaf3.adapters import from_chai
     from uniaf3.schema.chai import ChaiEntity, ChaiEntityType

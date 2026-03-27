@@ -291,16 +291,16 @@ def test_from_boltz_template_unknown_chain_warns(tmp_path_factory):
 
     config = BoltzConfig(
         sequences=[
-            BoltzSequenceEntry(
-                protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK")
-            )
+            BoltzSequenceEntry(protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK"))
         ],
         templates=[BoltzTemplate(cif="/some/path/1abc.cif.gz", chain_id=["Z"])],
     )
     with pytest.warns(UserWarning) as records:
         result = from_boltz(config)
 
-    assert any("references unknown UniAF3 protein chain" in str(w.message) for w in records)
+    assert any(
+        "references unknown UniAF3 protein chain" in str(w.message) for w in records
+    )
     # Template should not be attached since chain Z doesn't exist
     prot = result.sequences[0]
     assert isinstance(prot, ProteinSeq)
@@ -319,18 +319,14 @@ def test_from_boltz_template_no_chain_id_warns(tmp_path_factory):
 
     config = BoltzConfig(
         sequences=[
-            BoltzSequenceEntry(
-                protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK")
-            )
+            BoltzSequenceEntry(protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK"))
         ],
         templates=[BoltzTemplate(cif="/some/path/1abc.cif.gz")],
     )
     with pytest.warns(UserWarning) as records:
         result = from_boltz(config)
 
-    assert any(
-        "chain_id is missing" in str(w.message) for w in records
-    )
+    assert any("chain_id is missing" in str(w.message) for w in records)
     prot = result.sequences[0]
     assert isinstance(prot, ProteinSeq)
     assert prot.templates is None
@@ -342,20 +338,16 @@ def test_from_boltz_affinity_property(tmp_path_factory):
     from uniaf3.schema.boltz import (
         BoltzAffinityProperty,
         BoltzConfig,
-        BoltzProtein,
         BoltzPropertyEntry,
+        BoltzProtein,
         BoltzSequenceEntry,
     )
 
     config = BoltzConfig(
         sequences=[
-            BoltzSequenceEntry(
-                protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK")
-            )
+            BoltzSequenceEntry(protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK"))
         ],
-        properties=[
-            BoltzPropertyEntry(affinity=BoltzAffinityProperty(binder="A"))
-        ],
+        properties=[BoltzPropertyEntry(affinity=BoltzAffinityProperty(binder="A"))],
     )
     with pytest.warns(UserWarning):
         result = from_boltz(config)
@@ -366,6 +358,7 @@ def test_from_boltz_affinity_property(tmp_path_factory):
 ##########################################
 # Direct function tests for boltz helpers
 ##########################################
+
 
 def test_merge_colabfold_msa_no_unpaired_raises(tmp_path):
     """merge_colabfold_msa_to_csv should raise if unpaired MSA is None."""
@@ -528,9 +521,7 @@ def test_from_boltz_template_with_pdb_path(tmp_path_factory):
 
     config = BoltzConfig(
         sequences=[
-            BoltzSequenceEntry(
-                protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK")
-            )
+            BoltzSequenceEntry(protein=BoltzProtein(id="A", sequence="MVLSPADKTNVK"))
         ],
         templates=[BoltzTemplate(pdb="/some/path/template.pdb", chain_id=["A"])],
     )
@@ -588,6 +579,7 @@ def test_from_boltz_csv_msa(tmp_path_factory):
     assert isinstance(prot, ProteinSeq)
     assert prot.unpaired_msa is not None
     from pathlib import Path as _Path
+
     assert _Path(prot.unpaired_msa).exists()
     assert prot.paired_msa is not None
     assert _Path(prot.paired_msa).exists()
