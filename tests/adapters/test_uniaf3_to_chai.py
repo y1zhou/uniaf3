@@ -2,6 +2,7 @@
 
 import pytest
 
+from uniaf3.constant import PDB_SERVER_URL
 from uniaf3.schema import ChaiConfig, UniAF3Config
 from uniaf3.schema.base import (
     Glycan,
@@ -280,7 +281,7 @@ def test_template_reconstruction_from_files(tmp_path):
     cache_dir = PlatformDirs("uniaf3").user_cache_path / "rcsb"
     tmpl_path = cache_dir / "1BZ1.cif.gz"
     if not tmpl_path.exists():
-        download_files({"https://files.rcsb.org/download/1BZ1.cif.gz": tmpl_path})
+        download_files({f"{PDB_SERVER_URL}/1BZ1.cif.gz": tmpl_path})
 
     config = UniAF3Config(
         sequences=[

@@ -9,6 +9,7 @@ import polars as pl
 from platformdirs import PlatformDirs
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from uniaf3.constant import PDB_SERVER_URL
 from uniaf3.utils import download_files, hash_sequence
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
 
@@ -238,7 +239,7 @@ def query_colabfold(
             .unique()
             .with_columns(
                 pl.concat_str(
-                    pl.lit("https://files.rcsb.org/download/"),
+                    pl.lit(f"{PDB_SERVER_URL}/"),
                     pl.col("subject_pdb_id"),
                     pl.lit(".cif.gz"),  # -assembly1.cif.gz for biological assembly
                 ).alias("template_cif_url"),

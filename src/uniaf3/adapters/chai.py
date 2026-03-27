@@ -11,6 +11,7 @@ from uniaf3.adapters._helpers import (
     err_unsupported_feature,
     warn_lossy_conversion,
 )
+from uniaf3.constant import PDB_SERVER_URL
 from uniaf3.msa import align_seq_to_structure, cigar_to_indices, parse_m8_file
 from uniaf3.schema.base import (
     Atom,
@@ -715,9 +716,7 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
                 )
             )
             prot_seq.templates = tmpl
-            fetch_template_tasks[
-                f"https://files.rcsb.org/download/{tmpl_pdb_id}.cif.gz"
-            ] = tmpl_path
+            fetch_template_tasks[f"{PDB_SERVER_URL}/{tmpl_pdb_id}.cif.gz"] = tmpl_path
         if fetch_template_tasks:
             warn_lossy_conversion(
                 "Chai template hits are represented as StructuralTemplate objects "

@@ -124,3 +124,6 @@ RESIDUE_ATOMS: dict[str, frozenset[str]] = {
     ),
     "V": frozenset({*BACKBONE_ATOMS, "CB", "CG1", "CG2"}),
 }
+
+# Docs: https://www.wwpdb.org/ftp/pdb-ftp-sites
+PDB_SERVER_URL = "https://files.rcsb.org/download"
