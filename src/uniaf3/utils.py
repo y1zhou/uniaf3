@@ -121,3 +121,21 @@ def download_files(
             progress_bar_desc=progress_bar_desc,
         )
     )
+
+
+def normalize_out_dir(
+    out_dir: str | Path | None, subdir_name: str | None = None
+) -> Path:
+    """Return standardized output directory absolute path."""
+    if out_dir is None:
+        from platformdirs import PlatformDirs
+
+        out_path = PlatformDirs("uniaf3").user_cache_path
+    else:
+        out_path = Path(out_dir).expanduser().resolve()
+
+    if subdir_name is not None:
+        out_path = out_path / subdir_name
+
+    out_path.mkdir(parents=True, exist_ok=True)
+    return out_path

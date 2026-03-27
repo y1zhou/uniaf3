@@ -13,7 +13,6 @@ from uniaf3.schema.base import (
     StructuralTemplate,
 )
 from uniaf3.schema.chai import ChaiEntityType
-from uniaf3.utils import download_files
 
 
 @pytest.fixture(scope="module")
@@ -274,11 +273,11 @@ def test_invalid_template_reconstruction(tmp_path):
 
 def test_template_reconstruction_from_files(tmp_path):
     """StructuralTemplate objects should be reconstructed into an m8 file."""
-    from platformdirs import PlatformDirs
 
     from uniaf3.adapters import to_chai
+    from uniaf3.utils import download_files, normalize_out_dir
 
-    cache_dir = PlatformDirs("uniaf3").user_cache_path / "rcsb"
+    cache_dir = normalize_out_dir(None, "rcsb")
     tmpl_path = cache_dir / "1BZ1.cif.gz"
     if not tmpl_path.exists():
         download_files({f"{PDB_SERVER_URL}/1BZ1.cif.gz": tmpl_path})

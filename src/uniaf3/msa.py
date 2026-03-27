@@ -6,11 +6,10 @@ from pathlib import Path
 
 import gemmi
 import polars as pl
-from platformdirs import PlatformDirs
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from uniaf3.constant import PDB_SERVER_URL
-from uniaf3.utils import download_files, hash_sequence
+from uniaf3.utils import download_files, hash_sequence, normalize_out_dir
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
 
 
@@ -120,14 +119,13 @@ def query_colabfold(
     # Setup output directories
     if not seqs:
         raise ValueError("No protein sequences for MSA generation; this is a no-op.")
-    if msa_cache_dir is None:
-        msa_cache_dir = PlatformDirs("uniaf3").user_cache_path / "colabfold_msas"
+
+    msa_cache_root = normalize_out_dir(msa_cache_dir, "colabfold_msas")
 
     seqs_unique = list(dict.fromkeys(x.upper() for x in seqs))  # >=Python 3.7
     query_indices = [101 + seqs_unique.index(seq.upper()) for seq in seqs]
 
     seqs_hash = hash_sequence("|".join(seqs_unique))
-    msa_cache_root = Path(msa_cache_dir).expanduser()
     paired_msa_dir = msa_cache_root / "paired" / seqs_hash[:2] / seqs_hash
     paired_msa_dir.mkdir(parents=True, exist_ok=True)
     paired_msa_dir = paired_msa_dir.resolve()
@@ -210,9 +208,7 @@ def query_colabfold(
     # miss chains that are present in the m8 file.
     templates_df = None
     if download_num_templates_per_seq != 0:
-        if template_cache_dir is None:
-            template_cache_dir = PlatformDirs("uniaf3").user_cache_path / "rcsb"
-        template_cache_dir = Path(template_cache_dir).expanduser().resolve()
+        template_cache_dir = normalize_out_dir(template_cache_dir, "rcsb")
 
         if not expected_tmpl_m8_file.exists():
             raise FileNotFoundError(
