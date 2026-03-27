@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from uniaf3.adapters._helpers import (
     ensure_list,
     err_unsupported_feature,
     warn_lossy_conversion,
 )
+from uniaf3.constant import PDB_SERVER_URL
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -39,11 +42,98 @@ from uniaf3.schema.protenix import (
     ProtenixRNASequence,
     ProtenixSequenceEntry,
 )
+from uniaf3.utils import normalize_out_dir
 from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
+from uniaf3.vendor.protenix_template import HHRParser, HmmsearchA3MParser, TemplateHit
+
+
+def _template_hits_to_structural_templates(
+    hits: list[TemplateHit], chain_ids: list[str], output_dir: Path | None
+) -> tuple[list[StructuralTemplate], dict[str, Path]]:
+    """Convert Protenix TemplateHit objects to StructuralTemplate objects."""
+    templates: list[StructuralTemplate] = []
+    download_tasks: dict[str, Path] = {}
+
+    tmpl_dir = normalize_out_dir(output_dir, "rcsb")
+
+    for hit in hits:
+        # HHR names may include descriptions: "4V5D_BG some desc"
+        identifier = hit.name.split(maxsplit=1)[0]
+        pdb_id, chain = identifier.split("_", 1)
+        pdb_id = pdb_id.upper()
+
+        mapping = hit.query_to_hit_mapping
+        if not mapping:
+            continue
+        query_idx = sorted(mapping.keys())
+        template_idx = [mapping[q] for q in query_idx]
+
+        cif_path = tmpl_dir / pdb_id[-3:-1] / f"{pdb_id}.cif.gz"
+        download_tasks[f"{PDB_SERVER_URL}/{pdb_id}.cif.gz"] = cif_path
+
+        templates.append(
+            StructuralTemplate(
+                path=str(cif_path),
+                query_idx=query_idx,
+                template_idx=template_idx,
+                query_chains=chain_ids,
+                template_chains=list(chain),
+            )
+        )
+
+    return templates, download_tasks
+
+
+def _read_chain_sequence(struct_path: str | Path, chain_id: str) -> tuple[str, int]:
+    """Read the polymer sequence and length from a structure file."""
+    import gemmi
+
+    st = gemmi.read_structure(str(struct_path), format=gemmi.CoorFormat.Detect)
+    st.setup_entities()
+    chain = st[0].find_chain(chain_id)
+    if chain is not None:
+        seq = "".join(
+            gemmi.find_tabulated_residue(r.name).one_letter_code.upper()
+            for r in chain
+            if r.entity_type is gemmi.EntityType.Polymer
+        )
+        return seq, len(seq)
+    raise ValueError(f"Chain {chain_id} not found in {struct_path}")
+
+
+def _build_a3m_gapped_seq(
+    query_seq_len: int, template_seq: str, query_idx: list[int], template_idx: list[int]
+) -> str:
+    """Build an A3M-format aligned template sequence."""
+    q_to_t = dict(zip(query_idx, template_idx, strict=True))
+    result: list[str] = []
+    prev_t_pos: int | None = None
+
+    for q_pos in range(query_seq_len):
+        if q_pos in q_to_t:
+            t_pos = q_to_t[q_pos]
+            # Insert intervening template residues as lowercase (insertions)
+            if prev_t_pos is not None:
+                for ins_pos in range(prev_t_pos + 1, t_pos):
+                    if ins_pos < len(template_seq):
+                        result.append(template_seq[ins_pos].lower())
+            # Uppercase aligned residue
+            if t_pos < len(template_seq):
+                result.append(template_seq[t_pos].upper())
+            else:
+                result.append("-")
+            prev_t_pos = t_pos
+        else:
+            result.append("-")
+
+    return "".join(result)
 
 
 def _to_protenix(
-    config: UniAF3Config, name: str = "uniaf3_job", strict: bool = True
+    config: UniAF3Config,
+    name: str = "uniaf3_job",
+    strict: bool = True,
+    output_dir: Path | None = None,
 ) -> ProtenixJob:
     """Convert a UniAF3Config to a Protenix job."""
     warn_lossy_conversion(
@@ -67,6 +157,7 @@ def _to_protenix(
             if isinstance(seq, ProteinSeq) or (
                 isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein
             ):
+                seq = ProteinSeq(**seq.model_dump())
                 mods = None
                 if seq.modifications:
                     mods = [
@@ -79,20 +170,68 @@ def _to_protenix(
                     sequence=seq.sequence,
                     count=count,
                     modifications=mods,
+                    unpairedMsaPath=seq.unpaired_msa,
+                    pairedMsaPath=seq.paired_msa,
                 )
-                if isinstance(seq, ProteinSeq):
-                    pc.unpairedMsaPath = seq.unpaired_msa
-                    pc.pairedMsaPath = seq.paired_msa
-                    if seq.templates:
-                        if len(seq.templates) > 1:
-                            warn_lossy_conversion(
-                                "ProtenixProteinChain.templatesPath accepts one path; only the first UniAF3 ProteinSeq.templates entry is kept."
+                if seq.templates:
+                    if output_dir is None:
+                        raise ValueError(
+                            "Output directory must be specified to use templates in Protenix."
+                        )
+                    output_path = normalize_out_dir(output_dir)
+                    a3m_lines = [f">query\n{seq.sequence}\n"]
+                    for tmpl in seq.templates:
+                        if (
+                            tmpl.query_idx is not None
+                            and tmpl.template_idx is not None
+                            and tmpl.template_chains is not None
+                        ):
+                            q_idx = tmpl.query_idx
+                            t_idx = tmpl.template_idx
+                            t_chain = tmpl.template_chains[0]
+                        else:
+                            from uniaf3.msa import align_seq_to_structure
+
+                            aln = align_seq_to_structure(
+                                seq.sequence,
+                                tmpl.path,
+                                (
+                                    tmpl.template_chains[0]
+                                    if tmpl.template_chains
+                                    else None
+                                ),
                             )
-                        # TODO: Protenix uses a single templatesPath for
-                        # template .a3m/.hhr files; we should convert all templates into
-                        # a single .a3m file with correct query-template mappings.
-                        tmpl = seq.templates[0]
-                        pc.templatesPath = tmpl.path
+                            q_idx = [x - 1 for x in aln.query_idx]
+                            t_idx = [x - 1 for x in aln.struct_idx]
+                            t_chain = aln.struct_chain_id
+
+                        try:
+                            t_seq, t_len = _read_chain_sequence(tmpl.path, t_chain)
+                        except (ValueError, RuntimeError, FileNotFoundError) as e:
+                            warn_lossy_conversion(
+                                f"Cannot read template structure {tmpl.path}: {e}; skipping."
+                            )
+                            continue
+
+                        pdb_id = Path(tmpl.path).name.split(".")[0].lower()
+                        start = min(t_idx) + 1
+                        end = max(t_idx) + 1
+                        aligned_seq = _build_a3m_gapped_seq(
+                            len(seq.sequence), t_seq, q_idx, t_idx
+                        )
+                        a3m_lines.append(
+                            f">{pdb_id}_{t_chain}/{start}-{end}"
+                            f" [subseq from] mol:protein"
+                            f" length:{t_len}  \n"
+                            f"{aligned_seq}\n"
+                        )
+
+                    if len(a3m_lines) > 1:
+                        a3m_path = output_path / f"entity{entity_idx}_templates.a3m"
+                        a3m_path.write_text("".join(a3m_lines))
+                        pc.templatesPath = str(a3m_path)
+
+                    for tmpl in seq.templates:
                         if (
                             tmpl.boltz_enable_force
                             or tmpl.boltz_template_threshold is not None
@@ -100,6 +239,7 @@ def _to_protenix(
                             warn_lossy_conversion(
                                 "UniAF3Config.sequences[*].templates.{boltz_enable_force,boltz_template_threshold} are not represented by ProtenixProteinChain.templatesPath."
                             )
+                            break
                 sequences.append(ProtenixSequenceEntry(proteinChain=pc))
             elif seq.polymer_type == PolymerType.DNA:
                 mods = None
@@ -271,22 +411,27 @@ def to_protenix(
     config: UniAF3Config | list[UniAF3Config],
     name: str = "uniaf3_job",
     strict: bool = False,
+    output_dir: str | Path | None = None,
 ) -> ProtenixConfig:
     """Convert a list of UniAF3Config to a Protenix config."""
     if isinstance(config, UniAF3Config):
         # Allow passing a single UniAF3Config for convenience
         config = [config]
 
+    resolved_dir = Path(output_dir) if output_dir is not None else None
     if len(config) == 1:
         names = [name]
     else:
         names = [f"{name}_{i}" for i in range(1, len(config) + 1)]
     return ProtenixConfig(
-        [_to_protenix(c, name=names[i], strict=strict) for i, c in enumerate(config)]
+        [
+            _to_protenix(c, name=names[i], strict=strict, output_dir=resolved_dir)
+            for i, c in enumerate(config)
+        ]
     )
 
 
-def _from_protenix(job: ProtenixJob) -> UniAF3Config:
+def _from_protenix(job: ProtenixJob, output_dir: Path | None = None) -> UniAF3Config:
     """Convert a Protenix job to a UniAF3Config."""
     from uniaf3.utils import int_to_letters
 
@@ -320,10 +465,45 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
                 paired_msa=pc.pairedMsaPath,
             )
             if pc.templatesPath:
-                # TODO: Protenix templates use a3m/hhr format files, which need
-                # conversion to m8 to be correctly parsed by other models.
-                # Implement this format conversion in a future change.
-                seq.templates = [StructuralTemplate(path=pc.templatesPath)]
+                tmpl_path = Path(pc.templatesPath)
+                hits = []
+
+                # A3M from hmmsearch
+                if tmpl_path.suffix == ".a3m" and tmpl_path.exists():
+                    hits = HmmsearchA3MParser.parse(pc.sequence, tmpl_path.read_text())
+
+                # HHR from HHSearch
+                elif tmpl_path.suffix == ".hhr" and tmpl_path.exists():
+                    hits = HHRParser.parse(tmpl_path.read_text())
+
+                elif tmpl_path.suffix not in (".a3m", ".hhr"):
+                    err_unsupported_feature(
+                        False,
+                        f"Template in Protenix entry needs to be a3m or hhr: {pc.templatesPath}",
+                    )
+                else:
+                    raise FileNotFoundError(f"Template file not found: {tmpl_path}")
+
+                if hits:
+                    if output_dir is None:
+                        raise ValueError(
+                            "Output directory must be specified to use templates from Protenix."
+                        )
+                    templates, download_tasks = _template_hits_to_structural_templates(
+                        hits, chain_ids, output_dir
+                    )
+                    if download_tasks:
+                        from uniaf3.utils import download_files
+
+                        download_files(
+                            download_tasks,
+                            force=False,
+                            num_retries=3,
+                            progress_bar_desc="Template CIFs for Protenix",
+                        )
+                    seq.templates = templates or None
+                else:
+                    seq.templates = [StructuralTemplate(path=pc.templatesPath)]
             sequences.append(seq)
         elif entry.dnaSequence is not None:
             ds = entry.dnaSequence
@@ -513,9 +693,12 @@ def _from_protenix(job: ProtenixJob) -> UniAF3Config:
     )
 
 
-def from_protenix(config: ProtenixConfig) -> list[UniAF3Config]:
+def from_protenix(
+    config: ProtenixConfig, output_dir: str | Path | None = None
+) -> list[UniAF3Config]:
     """Convert a Protenix config to a list of UniAF3Config."""
     if len(config) == 0:
         raise ValueError("ProtenixConfig must have at least one job.")
 
-    return [_from_protenix(job) for job in config]  # ty:ignore[not-iterable]
+    resolved_dir = Path(output_dir) if output_dir is not None else None
+    return [_from_protenix(job, output_dir=resolved_dir) for job in config]  # ty:ignore[not-iterable]

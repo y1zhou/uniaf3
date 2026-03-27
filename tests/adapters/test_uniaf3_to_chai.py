@@ -278,7 +278,7 @@ def test_template_reconstruction_from_files(tmp_path):
     from uniaf3.utils import download_files, normalize_out_dir
 
     cache_dir = normalize_out_dir(None, "rcsb")
-    tmpl_path = cache_dir / "1BZ1.cif.gz"
+    tmpl_path = cache_dir / "BZ" / "1BZ1.cif.gz"
     if not tmpl_path.exists():
         download_files({f"{PDB_SERVER_URL}/1BZ1.cif.gz": tmpl_path})
 

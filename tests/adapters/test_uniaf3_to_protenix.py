@@ -4,6 +4,7 @@ import pytest
 
 from uniaf3.schema import ProtenixConfig, UniAF3Config
 from uniaf3.schema.base import Ligand, Polymer, ProteinSeq
+from uniaf3.utils import normalize_out_dir
 
 
 @pytest.fixture(scope="module")
@@ -135,55 +136,40 @@ def test_pocket_constraint(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
     assert pocket.binder_chain.copy_idx == 1
 
 
-def test_multiple_templates_warns():
-    """Multiple templates should warn about lossy conversion."""
-    from uniaf3.adapters import to_protenix
-    from uniaf3.schema.base import PolymerType, ProteinSeq, StructuralTemplate
-
-    config = UniAF3Config(
-        sequences=[
-            ProteinSeq(
-                polymer_type=PolymerType.Protein,
-                id="A",
-                sequence="MVLSPADKTNVK",
-                templates=[
-                    StructuralTemplate(path="/some/path/1abc.cif"),
-                    StructuralTemplate(path="/some/path/2xyz.cif"),
-                ],
-            )
-        ]
-    )
-    with pytest.warns(UserWarning) as records:
-        result = to_protenix([config], strict=False)
-
-    assert any("only the first" in str(w.message) for w in records)
-    assert result[0].sequences[0].proteinChain is not None
-    assert result[0].sequences[0].proteinChain.templatesPath == "/some/path/1abc.cif"
-
-
 def test_template_with_boltz_fields_warns():
     """Template with boltz-specific fields should emit warning."""
+    from tempfile import TemporaryDirectory
+
     from uniaf3.adapters import to_protenix
+    from uniaf3.constant import PDB_SERVER_URL
     from uniaf3.schema.base import PolymerType, ProteinSeq, StructuralTemplate
+    from uniaf3.utils import download_files
+
+    cache_dir = normalize_out_dir(None, "rcsb")
+    tmpl_path = cache_dir / "BZ" / "1BZ1.cif.gz"
+    if not tmpl_path.exists():
+        download_files({f"{PDB_SERVER_URL}/1BZ1.cif.gz": tmpl_path})
 
     config = UniAF3Config(
         sequences=[
             ProteinSeq(
                 polymer_type=PolymerType.Protein,
                 id="A",
-                sequence="MVLSPADKTNVK",
+                sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS",
                 templates=[
                     StructuralTemplate(
-                        path="/some/path/1abc.cif",
+                        path=str(tmpl_path),
+                        query_idx=list(range(36)),
+                        template_idx=list(range(36)),
+                        template_chains=["A"],
                         boltz_enable_force=True,
-                        boltz_template_threshold=0.5,
                     )
                 ],
             )
         ]
     )
-    with pytest.warns(UserWarning) as records:
-        result = to_protenix([config], strict=False)
+    with TemporaryDirectory() as tmpdir, pytest.warns(UserWarning) as records:
+        result = to_protenix([config], strict=False, output_dir=tmpdir)
 
     assert any("boltz_enable_force" in str(w.message) for w in records)
 
