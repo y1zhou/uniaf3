@@ -12,6 +12,7 @@ from uniaf3.schema.base import (
     StructuralTemplate,
 )
 from uniaf3.schema.chai import ChaiEntityType
+from uniaf3.utils import download_files
 
 
 @pytest.fixture(scope="module")
@@ -241,8 +242,8 @@ def test_warns_when_msa_present_but_no_msa_dir_param(msa_config_with_files):
     assert chai.msa_directory is None
 
 
-def test_template_reconstruction_without_m8(tmp_path):
-    """StructuralTemplate objects should be reconstructed into an m8 file."""
+def test_invalid_template_reconstruction(tmp_path):
+    """Invalid StructuralTemplate objects should be dropped."""
     from uniaf3.adapters import to_chai
 
     config = UniAF3Config(
@@ -264,7 +265,45 @@ def test_template_reconstruction_without_m8(tmp_path):
     )
 
     out_dir = tmp_path / "chai_out"
-    with pytest.warns(UserWarning, match="placeholder scoring"):
+    with pytest.warns(UserWarning, match="No such file or directory"):
+        chai = to_chai(config, msa_dir=out_dir)
+
+    assert chai.template_hits_path is None  # because path is fake
+
+
+def test_template_reconstruction_from_files(tmp_path):
+    """StructuralTemplate objects should be reconstructed into an m8 file."""
+    from platformdirs import PlatformDirs
+
+    from uniaf3.adapters import to_chai
+
+    cache_dir = PlatformDirs("uniaf3").user_cache_path / "rcsb"
+    tmpl_path = cache_dir / "1BZ1.cif.gz"
+    if not tmpl_path.exists():
+        download_files({"https://files.rcsb.org/download/1BZ1.cif.gz": tmpl_path})
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLS",
+                templates=[
+                    StructuralTemplate(
+                        path=str(tmpl_path),
+                        query_idx=list(range(36)),
+                        template_idx=list(range(36)),
+                        template_chains=["A"],
+                    )
+                ],
+            )
+        ]
+    )
+
+    out_dir = tmp_path / "chai_out"
+    with pytest.warns(
+        UserWarning, match="UniAF3 StructuralTemplate objects were reconstructed"
+    ):
         chai = to_chai(config, msa_dir=out_dir)
 
     assert chai.template_hits_path is not None
@@ -274,8 +313,8 @@ def test_template_reconstruction_without_m8(tmp_path):
     assert m8_path.exists()
 
     content = m8_path.read_text()
-    assert "1abc_B" in content
-    assert "reconstructed_by_uniaf3" in content
+    assert "1bz1_A" in content
+    assert "36M106D" in content
 
 
 def test_template_warns_on_boltz_fields(tmp_path):
@@ -469,9 +508,7 @@ def test_template_uses_existing_pdb70_m8(tmp_path):
 
     # Create pdb70.m8 file at msas/pdb70.m8 (parent.parent / pdb70.m8)
     pdb70_m8 = msa_dir / "pdb70.m8"
-    pdb70_m8.write_text(
-        f"101\t1abc_A\t95.0\t12\t0\t0\t1\t12\t1\t12\t1e-5\t50.0\t12M\n"
-    )
+    pdb70_m8.write_text("101\t1abc_A\t95.0\t12\t0\t0\t1\t12\t1\t12\t1e-5\t50.0\t12M\n")
 
     config = UniAF3Config(
         sequences=[
@@ -558,6 +595,7 @@ def test_unsupported_polymer_type_raises():
     # Let's just verify DNA goes through fine
     chai = to_chai(config)
     from uniaf3.schema.chai import ChaiEntityType
+
     assert chai.entities[0].entity_type == ChaiEntityType.DNA
 
 
@@ -594,7 +632,10 @@ def test_contact_restraint_on_ligand_raises_in_to_chai():
             )
         ],
     )
-    with pytest.raises(ValueError, match="Contact restraints are only supported between protein/DNA/RNA"):
+    with pytest.raises(
+        ValueError,
+        match="Contact restraints are only supported between protein/DNA/RNA",
+    ):
         to_chai(config, strict=False)
 
 
@@ -656,8 +697,12 @@ def test_covalent_bond_missing_residue_name_raises():
         ],
         covalent_bonds=[
             CovalentBond(
-                atom1=Atom(chain_id="A", residue_idx=5, atom_name="SG", residue_name=None),
-                atom2=Atom(chain_id="A", residue_idx=3, atom_name="CA", residue_name=None),
+                atom1=Atom(
+                    chain_id="A", residue_idx=5, atom_name="SG", residue_name=None
+                ),
+                atom2=Atom(
+                    chain_id="A", residue_idx=3, atom_name="CA", residue_name=None
+                ),
             )
         ],
     )
@@ -682,19 +727,22 @@ def test_pocket_restraint_missing_residue_name_raises():
         pocket_restraints=[
             PocketRestraint(
                 binder_chain="B",
-                contact_tokens=[Atom(chain_id="A", residue_idx=5, atom_name=None, residue_name=None)],
+                contact_tokens=[
+                    Atom(chain_id="A", residue_idx=5, atom_name=None, residue_name=None)
+                ],
                 max_distance=8.0,
             )
         ],
     )
-    with pytest.raises(ValueError, match="Missing residue name for pocket restraint token"):
+    with pytest.raises(
+        ValueError, match="Missing residue name for pocket restraint token"
+    ):
         to_chai(config)
 
 
 def test_msa_without_msa_dir_warns():
     """ProteinSeq with MSA but no msa_dir should emit warning in to_chai."""
     from uniaf3.adapters import to_chai
-    from uniaf3.utils import hash_sequence
 
     seq_str = "MVLSPADKTNVK"
     config = UniAF3Config(
