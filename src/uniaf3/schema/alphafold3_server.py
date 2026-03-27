@@ -95,7 +95,7 @@ class AF3ServerRNAModification(BaseModel):
 
         if self.modificationType not in KNOWN_RNA_MODIFICATION_CCD_CODES:
             raise ValueError(
-                f"Unsupported DNA modificationType: {self.modificationType}"
+                f"Unsupported RNA modificationType: {self.modificationType}"
             )
         return self
 
@@ -220,7 +220,7 @@ class AF3ServerSequenceEntry(BaseModel):
 class AF3ServerJob(BaseModel):
     """AlphaFold3 Server input JSON config.
 
-    The server variant is simpler: no seeds, no MSA, no templates, no userCCD.
+    The server variant is simpler: no MSA, no templates, no userCCD.
     It also supports an explicit ion type.
     """
 
@@ -232,9 +232,9 @@ class AF3ServerJob(BaseModel):
 
 
 class AF3ServerConfig(RootModel, UniAF3BaseConfig):
-    """AlphaFold3 Server input JSON config.
+    """AlphaFold3 Server input JSON config (list of jobs).
 
-    The server variant is simpler: no seeds, no MSA, no templates, no userCCD.
+    The server variant is simpler: no MSA, no templates, no userCCD.
     It also supports an explicit ion type.
     """
 

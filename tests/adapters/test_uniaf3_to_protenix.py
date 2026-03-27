@@ -133,3 +133,168 @@ def test_pocket_constraint(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
 
     assert pocket.binder_chain.entity == 3
     assert pocket.binder_chain.copy_idx == 1
+
+
+def test_multiple_templates_warns():
+    """Multiple templates should warn about lossy conversion."""
+    from uniaf3.adapters import to_protenix
+    from uniaf3.schema.base import PolymerType, ProteinSeq, StructuralTemplate
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+                templates=[
+                    StructuralTemplate(path="/some/path/1abc.cif"),
+                    StructuralTemplate(path="/some/path/2xyz.cif"),
+                ],
+            )
+        ]
+    )
+    with pytest.warns(UserWarning) as records:
+        result = to_protenix([config], strict=False)
+
+    assert any("only the first" in str(w.message) for w in records)
+    assert result[0].sequences[0].proteinChain is not None
+    assert result[0].sequences[0].proteinChain.templatesPath == "/some/path/1abc.cif"
+
+
+def test_template_with_boltz_fields_warns():
+    """Template with boltz-specific fields should emit warning."""
+    from uniaf3.adapters import to_protenix
+    from uniaf3.schema.base import PolymerType, ProteinSeq, StructuralTemplate
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+                templates=[
+                    StructuralTemplate(
+                        path="/some/path/1abc.cif",
+                        boltz_enable_force=True,
+                        boltz_template_threshold=0.5,
+                    )
+                ],
+            )
+        ]
+    )
+    with pytest.warns(UserWarning) as records:
+        result = to_protenix([config], strict=False)
+
+    assert any("boltz_enable_force" in str(w.message) for w in records)
+
+
+def test_glycan_with_bonds_warns():
+    """Glycan with bonds should emit warning in non-strict mode."""
+    from uniaf3.adapters import to_protenix
+    from uniaf3.schema.base import Glycan, PolymerType, ProteinSeq
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+            ),
+            Glycan(id="B", chai_str="NAG(1-4 NAG)"),
+        ]
+    )
+    with pytest.warns(UserWarning) as records:
+        result = to_protenix([config], strict=False)
+
+    assert any("Glycan with bonds not supported" in str(w.message) for w in records)
+
+
+def test_multiple_pocket_constraints_warns():
+    """Multiple pocket constraints should warn about single pocket support."""
+    from uniaf3.adapters import to_protenix
+    from uniaf3.schema.base import Atom, PocketRestraint, PolymerType, ProteinSeq
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="A",
+                sequence="MVLSPADKTNVK",
+            ),
+            ProteinSeq(
+                polymer_type=PolymerType.Protein,
+                id="B",
+                sequence="GKVGAHAG",
+            ),
+        ],
+        pocket_restraints=[
+            PocketRestraint(
+                binder_chain="A",
+                contact_tokens=[
+                    Atom(chain_id="B", residue_idx=1, atom_name=None, residue_name="G")
+                ],
+                max_distance=8.0,
+            ),
+            PocketRestraint(
+                binder_chain="B",
+                contact_tokens=[
+                    Atom(chain_id="A", residue_idx=1, atom_name=None, residue_name="M")
+                ],
+                max_distance=8.0,
+            ),
+        ],
+    )
+    with pytest.warns(UserWarning) as records:
+        result = to_protenix([config], strict=False)
+
+    assert any("single pocket constraint" in str(w.message) for w in records)
+
+
+def test_rna_with_modifications():
+    """RNA sequence with modifications should be handled in to_protenix."""
+    from uniaf3.adapters import to_protenix
+    from uniaf3.schema.base import PolymerType, SequenceModification
+
+    config = UniAF3Config(
+        sequences=[
+            Polymer(
+                polymer_type=PolymerType.RNA,
+                id="A",
+                sequence="ACGU",
+                modifications=[SequenceModification(ccd="HY3", position=2)],
+            )
+        ]
+    )
+    with pytest.warns(UserWarning):
+        result = to_protenix([config], strict=False)
+
+    assert result[0].sequences[0].rnaSequence is not None
+    rna_entry = result[0].sequences[0].rnaSequence
+    assert rna_entry.modifications is not None
+    assert len(rna_entry.modifications) == 1
+
+
+def test_from_protenix_rna_sequence():
+    """from_protenix should handle RNA sequences."""
+    from uniaf3.adapters import from_protenix
+    from uniaf3.schema.protenix import (
+        ProtenixJob,
+        ProtenixRNASequence,
+        ProtenixSequenceEntry,
+    )
+
+    job = ProtenixJob(
+        name="test",
+        sequences=[
+            ProtenixSequenceEntry(
+                rnaSequence=ProtenixRNASequence(sequence="ACGU", count=1)
+            )
+        ],
+    )
+    with pytest.warns(UserWarning):
+        result = from_protenix([job])
+    assert len(result) == 1
+    assert isinstance(result[0].sequences[0], Polymer)
+    from uniaf3.schema.base import PolymerType
+
+    assert result[0].sequences[0].polymer_type == PolymerType.RNA

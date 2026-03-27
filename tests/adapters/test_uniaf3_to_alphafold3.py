@@ -37,7 +37,7 @@ def test_unsupported_glycan_strict(
         )
 
 
-def test_warns_on_unsupported_restraints(uniaf3_conf: UniAF3Config, tmp_path):
+def test_warns_on_unsupported_restraints(uniaf3_conf: UniAF3Config):
     from uniaf3.adapters import to_alphafold3
 
     with pytest.warns(UserWarning) as records:

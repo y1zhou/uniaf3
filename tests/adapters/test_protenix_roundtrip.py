@@ -234,3 +234,11 @@ def test_roundtrip_restraints(ptx_rt: ProtenixConfig, protenix_confs: ProtenixCo
         if src_conf.constraint is None:
             assert rt_conf.constraint.pocket == rt_conf.constraint.pocket
             assert rt_conf.constraint.contact == rt_conf.constraint.contact
+
+
+def test_from_protenix_empty_raises():
+    """from_protenix with empty config should raise ValueError."""
+    from uniaf3.adapters import from_protenix
+
+    with pytest.raises(ValueError, match="at least one job"):
+        from_protenix([])

@@ -129,10 +129,9 @@ def split_boltz_csv_to_a3m(
 
     Args:
         csv_file: Path to Boltz MSA CSV file.
-        msa_id: Output file name.
-        out_dir: Directory to save the output MSA files. Files `{hash}.single.a3m` and
-        `{hash}.pair.a3m` should be created, where `hash` is the SHA256 hash of the
-        query sequence.
+        out_dir: Directory to save the output MSA files. Files ``{hash}.single.a3m`` and
+            ``{hash}.pair.a3m`` are created, where *hash* is the SHA-256 hash of the
+            query sequence.
 
     Returns:
         Paths to the unpaired and paired MSA A3M files.

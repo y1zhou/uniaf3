@@ -93,9 +93,18 @@ def _find_or_reconstruct_m8(
             tmpl_chain = (
                 tmpl.template_chains[0] if tmpl.template_chains is not None else None
             )
-            tmpl_alignment = align_seq_to_structure(seq.sequence, tmpl.path, tmpl_chain)
-            subject_id = f"{pdb_id}_{tmpl_alignment.struct_chain_id}"
 
+            try:
+                tmpl_alignment = align_seq_to_structure(
+                    seq.sequence, tmpl.path, tmpl_chain
+                )
+            except (FileNotFoundError, OSError) as e:
+                warn_lossy_conversion(
+                    f"Failed to align sequence to template {tmpl.path}; "
+                    f"error: {e}. Skipping this template in m8 reconstruction."
+                )
+                continue
+            subject_id = f"{pdb_id}_{tmpl_alignment.struct_chain_id}"
             q_start, q_end = tmpl_alignment.query_idx[0], tmpl_alignment.query_idx[-1]
             rows.append(
                 {
@@ -200,6 +209,7 @@ def to_chai(
                         strict,
                         f"CCD ligand {lig_ccd} not found in CCD library.",
                     )
+                    continue
                 else:
                     lig_seq = lig_smiles.item()
                     warn_lossy_conversion(

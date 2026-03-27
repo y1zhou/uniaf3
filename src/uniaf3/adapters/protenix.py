@@ -206,7 +206,7 @@ def _to_protenix(
             entity2, copy2 = chain_to_entity[r.token2.chain_id]
         except KeyError as e:
             raise KeyError(
-                f"Chain ID corresponding to entity not found for covalent bond: {r}"
+                f"Chain ID corresponding to entity not found for contact restraint: {r}"
             ) from e
 
         contacts.append(
@@ -240,7 +240,7 @@ def _to_protenix(
             ]
         except KeyError as e:
             raise KeyError(
-                f"Chain ID corresponding to entity not found for covalent bond: {r}"
+                f"Chain ID corresponding to entity not found for pocket restraint: {r}"
             ) from e
 
         binder_entity, binder_copy = chain_to_entity[r.binder_chain]

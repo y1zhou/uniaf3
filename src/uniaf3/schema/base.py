@@ -89,7 +89,7 @@ class UniAF3BaseConfig(BaseModel):
                 writing method.
 
         """
-        raise NotImplementedError("to_file method must be implemented by subclasses.")
+        raise NotImplementedError("to_files method must be implemented by subclasses.")
 
     @classmethod
     def from_file(cls: type[T], conf_file: str | Path) -> T:
@@ -269,9 +269,9 @@ class CovalentBond(BaseModel):
     @model_validator(mode="after")
     def check_atom_names(self):
         """Ensure that atom names are provided."""
-        for atom in (self.atom1, self.atom2):
+        for field_name, atom in (("atom1", self.atom1), ("atom2", self.atom2)):
             if atom.atom_name is None:
-                raise ValueError("Atom name must be provided for atom1.")
+                raise ValueError(f"Atom name must be provided for {field_name}.")
             # TODO: only Chai does not need residue information
             # when the atom is part of a ligand
             # if atom.residue_idx == 0:
@@ -283,7 +283,7 @@ class ContactRestraint(BaseModel):
     """Schema for distance restraints between two atoms from different entities.
 
     Note that AF3 and AF3-server do not support non-covalent restraints.
-    The `min_distance` field is only used by Protenix.
+    The ``min_distance`` field is used by Protenix and Chai.
 
     Boltz: [chain, res_idx/atom_name] res_idx for polymers, atom_name for ligands.
     Chai-1: chain, {res_name}{res_idx}; only polymers supported. The chain ID is
@@ -321,10 +321,13 @@ class ContactRestraint(BaseModel):
 
 
 class PocketRestraint(BaseModel):
-    """Schema for distance restraints.
+    """Schema for pocket distance restraints.
+
+    A pocket restraint specifies a set of contact tokens on one or more
+    chains that define a binding pocket for a designated ``binder_chain``.
 
     Note that AF3 and AF3-server do not support non-covalent restraints.
-    The `min_distance` field is only used by Protenix.
+    The ``min_distance`` field is used by Protenix and Chai.
 
     Boltz: [[chain, res_idx/atom_name]] res_idx for polymers, atom_name for ligands.
     Chai-1: [chain, {res_name}{res_idx}]; only polymers supported. The chain ID is
@@ -401,7 +404,9 @@ class UniAF3Config(UniAF3BaseConfig):
 
     def to_str(self, **kwargs) -> str:
         """Get YAML string representation of the config."""
-        return self.to_yaml(include={"sequences", "restraints"})
+        return self.to_yaml(
+            include={"sequences", "covalent_bonds", "contact_restraints", "pocket_restraints"}
+        )
 
     def to_files(self, output_dir: str | Path, prefix: str, **kwargs):
         """Dump the config to a YAML file in the specified output directory."""

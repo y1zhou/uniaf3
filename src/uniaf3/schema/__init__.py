@@ -15,8 +15,6 @@ __all__ = [
     "BoltzConfig",
     "ChaiConfig",
     "ProtenixConfig",
-    "dump_config",
-    "write_config",
     "AnyConfig",
 ]
 
