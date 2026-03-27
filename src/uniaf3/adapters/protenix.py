@@ -54,8 +54,6 @@ def _template_hits_to_structural_templates(
     templates: list[StructuralTemplate] = []
     download_tasks: dict[str, Path] = {}
 
-    tmpl_dir = normalize_out_dir(output_dir, "rcsb")
-
     for hit in hits:
         # HHR names may include descriptions: "4V5D_BG some desc"
         identifier = hit.name.split(maxsplit=1)[0]
@@ -68,16 +66,21 @@ def _template_hits_to_structural_templates(
         query_idx = sorted(mapping.keys())
         template_idx = [mapping[q] for q in query_idx]
 
-        cif_path = tmpl_dir / pdb_id[-3:-1] / f"{pdb_id}.cif.gz"
-        download_tasks[f"{PDB_SERVER_URL}/{pdb_id}.cif.gz"] = cif_path
+        cif_filename = f"{pdb_id}.cif.gz"
+        if output_dir is not None:
+            cif_path = output_dir / "templates" / cif_filename
+            download_tasks[f"{PDB_SERVER_URL}/{cif_filename}"] = cif_path
+            path = str(cif_path)
+        else:
+            path = cif_filename
 
         templates.append(
             StructuralTemplate(
-                path=str(cif_path),
+                path=path,
                 query_idx=query_idx,
                 template_idx=template_idx,
                 query_chains=chain_ids,
-                template_chains=list(chain),
+                template_chains=[chain],
             )
         )
 
@@ -175,61 +178,64 @@ def _to_protenix(
                 )
                 if seq.templates:
                     if output_dir is None:
-                        raise ValueError(
-                            "Output directory must be specified to use templates in Protenix."
+                        warn_lossy_conversion(
+                            "Output directory is required to generate A3M templates for Protenix; "
+                            "falling back to first template path."
                         )
-                    output_path = normalize_out_dir(output_dir)
-                    a3m_lines = [f">query\n{seq.sequence}\n"]
-                    for tmpl in seq.templates:
-                        if (
-                            tmpl.query_idx is not None
-                            and tmpl.template_idx is not None
-                            and tmpl.template_chains is not None
-                        ):
-                            q_idx = tmpl.query_idx
-                            t_idx = tmpl.template_idx
-                            t_chain = tmpl.template_chains[0]
-                        else:
-                            from uniaf3.msa import align_seq_to_structure
+                        pc.templatesPath = seq.templates[0].path
+                    else:
+                        output_path = normalize_out_dir(output_dir)
+                        a3m_lines = [f">query\n{seq.sequence}\n"]
+                        for tmpl in seq.templates:
+                            if (
+                                tmpl.query_idx is not None
+                                and tmpl.template_idx is not None
+                                and tmpl.template_chains is not None
+                            ):
+                                q_idx = tmpl.query_idx
+                                t_idx = tmpl.template_idx
+                                t_chain = tmpl.template_chains[0]
+                            else:
+                                from uniaf3.msa import align_seq_to_structure
 
-                            aln = align_seq_to_structure(
-                                seq.sequence,
-                                tmpl.path,
-                                (
-                                    tmpl.template_chains[0]
-                                    if tmpl.template_chains
-                                    else None
-                                ),
+                                aln = align_seq_to_structure(
+                                    seq.sequence,
+                                    tmpl.path,
+                                    (
+                                        tmpl.template_chains[0]
+                                        if tmpl.template_chains
+                                        else None
+                                    ),
+                                )
+                                q_idx = [x - 1 for x in aln.query_idx]
+                                t_idx = [x - 1 for x in aln.struct_idx]
+                                t_chain = aln.struct_chain_id
+
+                            try:
+                                t_seq, t_len = _read_chain_sequence(tmpl.path, t_chain)
+                            except (ValueError, RuntimeError, FileNotFoundError) as e:
+                                warn_lossy_conversion(
+                                    f"Cannot read template structure {tmpl.path}: {e}; skipping."
+                                )
+                                continue
+
+                            pdb_id = Path(tmpl.path).name.split(".")[0].lower()
+                            start = min(t_idx) + 1
+                            end = max(t_idx) + 1
+                            aligned_seq = _build_a3m_gapped_seq(
+                                len(seq.sequence), t_seq, q_idx, t_idx
                             )
-                            q_idx = [x - 1 for x in aln.query_idx]
-                            t_idx = [x - 1 for x in aln.struct_idx]
-                            t_chain = aln.struct_chain_id
-
-                        try:
-                            t_seq, t_len = _read_chain_sequence(tmpl.path, t_chain)
-                        except (ValueError, RuntimeError, FileNotFoundError) as e:
-                            warn_lossy_conversion(
-                                f"Cannot read template structure {tmpl.path}: {e}; skipping."
+                            a3m_lines.append(
+                                f">{pdb_id}_{t_chain}/{start}-{end}"
+                                f" [subseq from] mol:protein"
+                                f" length:{t_len}  \n"
+                                f"{aligned_seq}\n"
                             )
-                            continue
 
-                        pdb_id = Path(tmpl.path).name.split(".")[0].lower()
-                        start = min(t_idx) + 1
-                        end = max(t_idx) + 1
-                        aligned_seq = _build_a3m_gapped_seq(
-                            len(seq.sequence), t_seq, q_idx, t_idx
-                        )
-                        a3m_lines.append(
-                            f">{pdb_id}_{t_chain}/{start}-{end}"
-                            f" [subseq from] mol:protein"
-                            f" length:{t_len}  \n"
-                            f"{aligned_seq}\n"
-                        )
-
-                    if len(a3m_lines) > 1:
-                        a3m_path = output_path / f"entity{entity_idx}_templates.a3m"
-                        a3m_path.write_text("".join(a3m_lines))
-                        pc.templatesPath = str(a3m_path)
+                        if len(a3m_lines) > 1:
+                            a3m_path = output_path / f"entity{entity_idx}_templates.a3m"
+                            a3m_path.write_text("".join(a3m_lines))
+                            pc.templatesPath = str(a3m_path)
 
                     for tmpl in seq.templates:
                         if (
@@ -482,7 +488,10 @@ def _from_protenix(job: ProtenixJob, output_dir: Path | None = None) -> UniAF3Co
                         f"Template in Protenix entry needs to be a3m or hhr: {pc.templatesPath}",
                     )
                 else:
-                    raise FileNotFoundError(f"Template file not found: {tmpl_path}")
+                    err_unsupported_feature(
+                        False,
+                        f"Template file not found: {tmpl_path}; using path-only template.",
+                    )
 
                 if hits:
                     if output_dir is None:
