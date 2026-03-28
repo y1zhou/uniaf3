@@ -54,6 +54,8 @@ def _template_hits_to_structural_templates(
     templates: list[StructuralTemplate] = []
     download_tasks: dict[str, Path] = {}
 
+    tmpl_dir = normalize_out_dir(output_dir, "rcsb")
+
     for hit in hits:
         # HHR names may include descriptions: "4V5D_BG some desc"
         identifier = hit.name.split(maxsplit=1)[0]
@@ -66,17 +68,12 @@ def _template_hits_to_structural_templates(
         query_idx = sorted(mapping.keys())
         template_idx = [mapping[q] for q in query_idx]
 
-        cif_filename = f"{pdb_id}.cif.gz"
-        if output_dir is not None:
-            cif_path = output_dir / "templates" / cif_filename
-            download_tasks[f"{PDB_SERVER_URL}/{cif_filename}"] = cif_path
-            path = str(cif_path)
-        else:
-            path = cif_filename
+        cif_path = tmpl_dir / pdb_id[-3:-1] / f"{pdb_id}.cif.gz"
+        download_tasks[f"{PDB_SERVER_URL}/{pdb_id}.cif.gz"] = cif_path
 
         templates.append(
             StructuralTemplate(
-                path=path,
+                path=str(cif_path),
                 query_idx=query_idx,
                 template_idx=template_idx,
                 query_chains=chain_ids,
@@ -179,10 +176,8 @@ def _to_protenix(
                 if seq.templates:
                     if output_dir is None:
                         warn_lossy_conversion(
-                            "Output directory is required to generate A3M templates for Protenix; "
-                            "falling back to first template path."
+                            "Output directory must be specified to convert templates to Protenix A3M format; templates will not be included."
                         )
-                        pc.templatesPath = seq.templates[0].path
                     else:
                         output_path = normalize_out_dir(output_dir)
                         a3m_lines = [f">query\n{seq.sequence}\n"]
@@ -488,9 +483,8 @@ def _from_protenix(job: ProtenixJob, output_dir: Path | None = None) -> UniAF3Co
                         f"Template in Protenix entry needs to be a3m or hhr: {pc.templatesPath}",
                     )
                 else:
-                    err_unsupported_feature(
-                        False,
-                        f"Template file not found: {tmpl_path}; using path-only template.",
+                    warn_lossy_conversion(
+                        f"Template file not found: {tmpl_path}; falling back to path-only template."
                     )
 
                 if hits:

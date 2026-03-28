@@ -113,6 +113,8 @@ def test_build_a3m_line_empty_alignment():
 
 def test_hits_to_templates_basic():
     """Convert a single TemplateHit to StructuralTemplate."""
+    from uniaf3.utils import normalize_out_dir
+
     hit = TemplateHit(
         index=1,
         name="1abc_A",
@@ -132,8 +134,11 @@ def test_hits_to_templates_basic():
     assert t.template_idx == EXPECTED_TEMPLATE_IDX
     assert t.template_chains == ["A"]
     assert t.query_chains == ["A"]
-    assert t.path == "1ABC.cif.gz"
-    assert tasks == {}  # no output_dir → no downloads
+    # When output_dir is None, uses the default cache directory
+    expected_path = normalize_out_dir(None, "rcsb") / "AB" / "1ABC.cif.gz"
+    assert t.path == str(expected_path)
+    # Download task is still generated to populate the cache
+    assert f"{PDB_SERVER_URL}/1ABC.cif.gz" in tasks
 
 
 def test_hits_to_templates_with_output_dir(tmp_path):
@@ -154,12 +159,14 @@ def test_hits_to_templates_with_output_dir(tmp_path):
     assert len(templates) == 1
     assert len(tasks) == 1
     assert f"{PDB_SERVER_URL}/1ABC.cif.gz" in tasks
-    assert templates[0].path == str(tmp_path / "templates" / "1ABC.cif.gz")
+    assert templates[0].path == str(tmp_path / "rcsb" / "AB" / "1ABC.cif.gz")
     assert templates[0].query_chains == ["A", "B"]
 
 
 def test_hits_to_templates_hhr_name_with_description():
     """HHR hit names include descriptions; only the identifier is used."""
+    from uniaf3.utils import normalize_out_dir
+
     hit = TemplateHit(
         index=1,
         name="4v5d_BG Outer membrane protein",
@@ -175,7 +182,8 @@ def test_hits_to_templates_hhr_name_with_description():
     )
     assert len(templates) == 1
     assert templates[0].template_chains == ["BG"]
-    assert templates[0].path == "4V5D.cif.gz"
+    expected_path = normalize_out_dir(None, "rcsb") / "V5" / "4V5D.cif.gz"
+    assert templates[0].path == str(expected_path)
 
 
 def test_hits_to_templates_skips_empty_mapping():
@@ -352,8 +360,9 @@ def test_from_protenix_unsupported_extension():
         ],
     )
 
-    with pytest.warns(UserWarning, match="a3m or hhr"):
+    with pytest.warns(UserWarning) as records:
         result = _from_protenix(job)
+    assert any("a3m or hhr" in str(w.message) for w in records)
 
     prot = result.sequences[0]
     assert isinstance(prot, ProteinSeq)
@@ -538,7 +547,7 @@ def test_to_protenix_unreadable_template_skipped(tmp_path):
 
 
 def test_to_protenix_without_output_dir_fallback():
-    """Without output_dir, falls back to first template path."""
+    """Without output_dir, templates cannot be converted to A3M; a warning is emitted and templatesPath is left unset."""
     config = UniAF3Config(
         sequences=[
             ProteinSeq(
@@ -557,7 +566,7 @@ def test_to_protenix_without_output_dir_fallback():
 
     pc = result.sequences[0].proteinChain
     assert pc is not None
-    assert pc.templatesPath == "/some/1abc.cif"
+    assert pc.templatesPath is None
 
 
 # ─── Roundtrip test ────────────────────────────────────────────────────
