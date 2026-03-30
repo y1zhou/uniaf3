@@ -13,6 +13,7 @@ from uniaf3.utils import download_files, hash_sequence, normalize_out_dir
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
 
 
+# TODO: edge case where the MSA search returned no hits
 class ColabFoldResponse(BaseModel):
     """Response from ColabFold API."""
 
