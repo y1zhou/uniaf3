@@ -216,6 +216,7 @@ class AF3Config(UniAF3BaseConfig):
         """Dump the config to a JSON file in the specified output directory."""
         output_dir = normalize_out_dir(output_dir)
         output_path = output_dir / f"{prefix}.json"
+        # TODO: keep dialect, version, etc. fields when dumping json
         with open(output_path, "w") as f:
             f.write(self.to_json(**kwargs))
 
