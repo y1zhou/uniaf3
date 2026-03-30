@@ -208,7 +208,7 @@ def query_colabfold(
     if download_num_templates_per_seq != 0:
         template_cache_dir = normalize_out_dir(template_cache_dir, "rcsb")
 
-        if not expected_tmpl_m8_file.exists():
+        if search_templates and not expected_tmpl_m8_file.exists():
             raise FileNotFoundError(
                 f"Expected template hits file not found at {expected_tmpl_m8_file}."
             )
