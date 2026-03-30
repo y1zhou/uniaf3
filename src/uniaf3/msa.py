@@ -24,7 +24,7 @@ class ColabFoldResponse(BaseModel):
     seq_hashes: list[str]  # sha256(seq1), sha256(seq2), ...
     query_ids: list[int]  # ColabFold query IDs, starting from 101
     single_msas: list[Path]
-    paired_msas: list[Path] | None
+    paired_msas: list[Path] | None = None
     templates_m8_file: Path | None = None
     templates_df: pl.DataFrame | None = None
 

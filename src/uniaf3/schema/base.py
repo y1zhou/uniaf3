@@ -130,8 +130,8 @@ class Atom(BaseModel):
 
     chain_id: str  # corresponding to the `id` field for the entity
     residue_idx: NonNegativeInt  # 1-based residue index within the chain
-    atom_name: str | None  # e.g., "CA", "N", "C", etc. Follow rdkit for ligands
-    residue_name: str | None  # Required by Chai when specifying restraints
+    atom_name: str | None = None  # e.g., "CA", "N", "C", etc. Follow rdkit for ligands
+    residue_name: str | None = None  # Required by Chai when specifying restraints
 
 
 class SequenceModification(BaseModel):
