@@ -205,7 +205,7 @@ def query_colabfold(
     # Note that we always go for asymmetric unit files, as biological assemblies can
     # miss chains that are present in the m8 file.
     templates_df = None
-    if download_num_templates_per_seq != 0:
+    if search_templates and download_num_templates_per_seq != 0:
         template_cache_dir = normalize_out_dir(template_cache_dir, "rcsb")
 
         if search_templates and not expected_tmpl_m8_file.exists():
