@@ -13,6 +13,7 @@ from uniaf3.utils import download_files, hash_sequence, normalize_out_dir
 from uniaf3.vendor.colabfold_msa import run_mmseqs2
 
 
+# TODO: edge case where the MSA search returned no hits
 class ColabFoldResponse(BaseModel):
     """Response from ColabFold API."""
 
@@ -24,7 +25,7 @@ class ColabFoldResponse(BaseModel):
     seq_hashes: list[str]  # sha256(seq1), sha256(seq2), ...
     query_ids: list[int]  # ColabFold query IDs, starting from 101
     single_msas: list[Path]
-    paired_msas: list[Path] | None
+    paired_msas: list[Path] | None = None
     templates_m8_file: Path | None = None
     templates_df: pl.DataFrame | None = None
 
@@ -204,10 +205,10 @@ def query_colabfold(
     # Note that we always go for asymmetric unit files, as biological assemblies can
     # miss chains that are present in the m8 file.
     templates_df = None
-    if download_num_templates_per_seq != 0:
+    if search_templates and download_num_templates_per_seq != 0:
         template_cache_dir = normalize_out_dir(template_cache_dir, "rcsb")
 
-        if not expected_tmpl_m8_file.exists():
+        if search_templates and not expected_tmpl_m8_file.exists():
             raise FileNotFoundError(
                 f"Expected template hits file not found at {expected_tmpl_m8_file}."
             )

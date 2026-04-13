@@ -65,7 +65,7 @@ class AF3Protein(BaseModel):
     unpairedMsaPath: str | None = None
     pairedMsa: str | None = None  # inline A3M (mutually exclusive with Path)
     pairedMsaPath: str | None = None
-    templates: list[AF3Template] | None = None
+    templates: list[AF3Template] = []
 
     @model_validator(mode="after")
     def check_modifications_in_range(self):
@@ -216,8 +216,9 @@ class AF3Config(UniAF3BaseConfig):
         """Dump the config to a JSON file in the specified output directory."""
         output_dir = normalize_out_dir(output_dir)
         output_path = output_dir / f"{prefix}.json"
+        # TODO: keep dialect, version, etc. fields when dumping json
         with open(output_path, "w") as f:
-            f.write(self.to_json(**kwargs))
+            f.write(self.to_json(**(kwargs | {"exclude_unset": False})))
 
     @model_validator(mode="after")
     def check_bonds_in_range(self):

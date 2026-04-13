@@ -92,6 +92,7 @@ def to_alphafold3(
                         warn_lossy_conversion(
                             "UniAF3Config.sequences[*].templates.{boltz_enable_force,boltz_template_threshold} are not represented by AF3Config.sequences[*].protein.templates."
                         )
+                    # TODO: extract a single chain from the template structure
                     af3_templates.append(
                         AF3Template(
                             mmcifPath=tmpl.path,

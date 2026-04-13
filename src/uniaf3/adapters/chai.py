@@ -337,6 +337,7 @@ def to_chai(
             restraint_idx += 1
 
     # --- MSA handling ---
+    # TODO: consider effect of sequence modifications on MSA hashing and matching
     chai_msa_directory: str | None = None
     for seq in config.sequences:
         if not (isinstance(seq, ProteinSeq) and seq.unpaired_msa is not None):
@@ -484,6 +485,7 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
     sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
     prot_seq_hashes: dict[str, int] = {}
     for i, entity in enumerate(config.entities, start=1):
+        # TODO: consider effect of sequence modifications on MSA hashing and matching
         if entity.entity_type == ChaiEntityType.Protein:
             seq, mods = _parse_chai_polymer_modifications(entity.sequence)
             prot_seq = ProteinSeq(

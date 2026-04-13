@@ -79,7 +79,7 @@ class ChaiRestraint(BaseModel):
 
     restraint_id: str
     chainA: str
-    res_idxA: str | None  # can be empty for pocket restraints
+    res_idxA: str | None = None  # can be empty for pocket restraints
     chainB: str
     res_idxB: str
     connection_type: ChaiRestraintType

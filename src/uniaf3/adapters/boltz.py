@@ -121,6 +121,7 @@ def merge_colabfold_msa_to_csv(
     return out_file
 
 
+# TODO: regression where unpaired MSAs have duplicate sequences
 def split_boltz_csv_to_a3m(
     csv_file: str | Path, out_dir: str | Path
 ) -> tuple[Path, Path | None]:

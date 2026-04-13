@@ -138,17 +138,14 @@ def test_pocket_constraint(uniaf3_conf: UniAF3Config, ptx: ProtenixConfig):
 
 def test_template_with_boltz_fields_warns():
     """Template with boltz-specific fields should emit warning."""
+    from pathlib import Path
     from tempfile import TemporaryDirectory
 
     from uniaf3.adapters import to_protenix
-    from uniaf3.constant import PDB_SERVER_URL
     from uniaf3.schema.base import PolymerType, ProteinSeq, StructuralTemplate
-    from uniaf3.utils import download_files
 
-    cache_dir = normalize_out_dir(None, "rcsb")
-    tmpl_path = cache_dir / "BZ" / "1BZ1.cif.gz"
-    if not tmpl_path.exists():
-        download_files({f"{PDB_SERVER_URL}/1BZ1.cif.gz": tmpl_path})
+    fixtures_dir = Path(__file__).parent.parent / "fixtures"
+    tmpl_path = fixtures_dir / "1BZ1.cif.gz"
 
     config = UniAF3Config(
         sequences=[

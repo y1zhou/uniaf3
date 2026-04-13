@@ -273,14 +273,12 @@ def test_invalid_template_reconstruction(tmp_path):
 
 def test_template_reconstruction_from_files(tmp_path):
     """StructuralTemplate objects should be reconstructed into an m8 file."""
+    from pathlib import Path
 
     from uniaf3.adapters import to_chai
-    from uniaf3.utils import download_files, normalize_out_dir
 
-    cache_dir = normalize_out_dir(None, "rcsb")
-    tmpl_path = cache_dir / "BZ" / "1BZ1.cif.gz"
-    if not tmpl_path.exists():
-        download_files({f"{PDB_SERVER_URL}/1BZ1.cif.gz": tmpl_path})
+    fixtures_dir = Path(__file__).parent.parent / "fixtures"
+    tmpl_path = fixtures_dir / "1BZ1.cif.gz"
 
     config = UniAF3Config(
         sequences=[
@@ -568,7 +566,8 @@ def test_template_skips_missing_file_when_no_indices(tmp_path):
     out_dir = tmp_path / "chai_out"
     # Should succeed without error, but template_hits_path should be None
     # (since rows would be empty after skipping the missing file)
-    chai = to_chai(config, msa_dir=out_dir)
+    with pytest.warns(UserWarning):
+        chai = to_chai(config, msa_dir=out_dir)
     assert chai.template_hits_path is None
 
 
