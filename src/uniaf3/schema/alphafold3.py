@@ -79,6 +79,15 @@ class AF3Protein(BaseModel):
                     )
         return self
 
+    @model_validator(mode="after")
+    def check_msa_fields(self):
+        """Ensure exactly one of unpairedMsa and unpairedMsaPath is provided, and same for pairedMsa."""
+        if (self.unpairedMsa is not None) and (self.unpairedMsaPath is not None):
+            raise ValueError("Cannot provide both unpairedMsa and unpairedMsaPath.")
+        if (self.pairedMsa is not None) and (self.pairedMsaPath is not None):
+            raise ValueError("Cannot provide both pairedMsa and pairedMsaPath.")
+        return self
+
 
 class AF3RNA(BaseModel):
     """AlphaFold3 RNA chain specification."""
