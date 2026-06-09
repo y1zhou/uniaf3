@@ -6,11 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
-from uniaf3.adapters._helpers import (
-    ensure_list,
-    err_unsupported_feature,
-    warn_lossy_conversion,
-)
+from uniaf3.adapters._helpers import err_unsupported_feature, warn_lossy_conversion
 from uniaf3.schema.base import (
     Atom,
     AuxiliaryParams,
@@ -42,7 +38,7 @@ from uniaf3.schema.boltz import (
     BoltzSequenceEntry,
     BoltzTemplate,
 )
-from uniaf3.utils import hash_sequence, normalize_out_dir
+from uniaf3.utils import ensure_list, hash_sequence, normalize_out_dir
 from uniaf3.vendor.chai1_fasta import read_fasta
 from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
 
@@ -88,7 +84,8 @@ def merge_colabfold_msa_to_csv(
         # ignore headers
         # Boltz also does subsampling here but we skip that for now
         paired_df = (
-            pl.DataFrame(paired_fasta)
+            pl
+            .DataFrame(paired_fasta)
             .with_row_index(name="key")
             # filter out padding rows (rows that are all gaps)
             .filter(
@@ -108,7 +105,8 @@ def merge_colabfold_msa_to_csv(
     combined_df = pl.concat(
         [
             paired_df,
-            pl.DataFrame(unpaired_fasta)
+            pl
+            .DataFrame(unpaired_fasta)
             .with_columns(pl.lit(-1).alias("key"))
             .select("key", "header", "sequence"),
         ],
@@ -141,10 +139,12 @@ def split_boltz_csv_to_a3m(
 
     headers_df = pl.read_parquet(Path(csv_file).with_suffix(".parquet"))
     msa_df = (
-        pl.read_csv(csv_file)
+        pl
+        .read_csv(csv_file)
         .join(headers_df, on="sequence", maintain_order="left")
         .select(
-            pl.when(pl.col("key") == pl.lit(-1))
+            pl
+            .when(pl.col("key") == pl.lit(-1))
             .then(pl.lit("unpaired"))
             .otherwise(pl.lit("paired"))
             .alias("msa_type"),
@@ -176,7 +176,8 @@ def split_boltz_csv_to_a3m(
 
     # Dump .pair.a3m MSA
     paired_df = (
-        msa_df.filter(pl.col("key") != pl.lit(-1))
+        msa_df
+        .filter(pl.col("key") != pl.lit(-1))
         .join(headers_df, on="sequence", maintain_order="left")
         .select("header", "sequence")
     )

@@ -6,7 +6,7 @@ Reference:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, MutableSequence
 from pathlib import Path
 
 from pydantic import (
@@ -39,7 +39,7 @@ class ProtenixProteinChain(BaseModel):
 
     sequence: str  # May contain 20 standard and X (UNK) for unknown residues
     count: PositiveInt = 1
-    modifications: list[ProtenixProteinModification] | None = None
+    modifications: MutableSequence[ProtenixProteinModification] | None = None
     unpairedMsaPath: str | None = None
     pairedMsaPath: str | None = None
     templatesPath: str | None = None  # .a3m and .hhr supported
@@ -68,7 +68,7 @@ class ProtenixDNASequence(BaseModel):
 
     sequence: str
     count: PositiveInt = 1
-    modifications: list[ProtenixNucleotideModification] | None = None
+    modifications: MutableSequence[ProtenixNucleotideModification] | None = None
 
     @model_validator(mode="after")
     def check_modifications_in_range(self):
@@ -87,7 +87,7 @@ class ProtenixRNASequence(BaseModel):
 
     sequence: str
     count: PositiveInt = 1
-    modifications: list[ProtenixNucleotideModification] | None = None
+    modifications: MutableSequence[ProtenixNucleotideModification] | None = None
     unpairedMsaPath: str | None = None
 
     @model_validator(mode="after")
@@ -252,7 +252,7 @@ class ProtenixPocketConstraint(BaseModel):
     """Pocket constraint for binding interface guidance."""
 
     binder_chain: ProtenixPocketBinderChain
-    contact_residues: list[ProtenixPocketContactResidue]
+    contact_residues: MutableSequence[ProtenixPocketContactResidue]
     max_distance: NonNegativeFloat = 6.0
 
     @model_validator(mode="after")
@@ -272,7 +272,7 @@ class ProtenixPocketConstraint(BaseModel):
 class ProtenixConstraint(BaseModel):
     """Constraint section for a Protenix job."""
 
-    contact: list[ProtenixContactConstraint] | None = None
+    contact: MutableSequence[ProtenixContactConstraint] | None = None
     pocket: ProtenixPocketConstraint | None = None
 
 
@@ -283,8 +283,8 @@ class ProtenixJob(BaseModel):
     """A single Protenix inference job."""
 
     name: str
-    sequences: list[ProtenixSequenceEntry]
-    covalent_bonds: list[ProtenixCovalentBond] | None = None
+    sequences: MutableSequence[ProtenixSequenceEntry]
+    covalent_bonds: MutableSequence[ProtenixCovalentBond] | None = None
     constraint: ProtenixConstraint | None = None
 
     @model_validator(mode="after")

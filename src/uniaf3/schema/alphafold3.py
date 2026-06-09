@@ -6,13 +6,14 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import MutableSequence, Sequence
 from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, model_validator
 
 from uniaf3.schema.base import UniAF3BaseConfig
-from uniaf3.utils import normalize_out_dir
+from uniaf3.utils import ensure_list, normalize_out_dir
 
 
 class AF3ProteinModification(BaseModel):
@@ -34,8 +35,8 @@ class AF3Template(BaseModel):
 
     mmcif: str | None = None  # inline mmCIF string (mutually exclusive with mmcifPath)
     mmcifPath: str | None = None  # path to mmCIF file
-    queryIndices: list[NonNegativeInt]  # 0-based query residue indices
-    templateIndices: list[NonNegativeInt]  # 0-based template residue indices
+    queryIndices: Sequence[NonNegativeInt]  # 0-based query residue indices
+    templateIndices: Sequence[NonNegativeInt]  # 0-based template residue indices
 
     @model_validator(mode="after")
     def check_mmcif_fields(self):
@@ -57,15 +58,15 @@ class AF3Template(BaseModel):
 class AF3Protein(BaseModel):
     """AlphaFold3 protein chain specification."""
 
-    id: str | list[str]
+    id: str | MutableSequence[str]
     sequence: str
-    modifications: list[AF3ProteinModification] | None = None
+    modifications: MutableSequence[AF3ProteinModification] | None = None
     description: str | None = None
     unpairedMsa: str | None = None  # inline A3M (mutually exclusive with Path)
     unpairedMsaPath: str | None = None
     pairedMsa: str | None = None  # inline A3M (mutually exclusive with Path)
     pairedMsaPath: str | None = None
-    templates: list[AF3Template] = []
+    templates: MutableSequence[AF3Template] | None = None
 
     @model_validator(mode="after")
     def check_modifications_in_range(self):
@@ -92,9 +93,9 @@ class AF3Protein(BaseModel):
 class AF3RNA(BaseModel):
     """AlphaFold3 RNA chain specification."""
 
-    id: str | list[str]
+    id: str | MutableSequence[str]
     sequence: str
-    modifications: list[AF3NucleotideModification] | None = None
+    modifications: MutableSequence[AF3NucleotideModification] | None = None
     description: str | None = None
     unpairedMsa: str | None = None
     unpairedMsaPath: str | None = None
@@ -115,9 +116,9 @@ class AF3RNA(BaseModel):
 class AF3DNA(BaseModel):
     """AlphaFold3 DNA chain specification."""
 
-    id: str | list[str]
+    id: str | MutableSequence[str]
     sequence: str
-    modifications: list[AF3NucleotideModification] | None = None
+    modifications: MutableSequence[AF3NucleotideModification] | None = None
     description: str | None = None
 
     @model_validator(mode="after")
@@ -139,8 +140,8 @@ class AF3Ligand(BaseModel):
     Each ligand uses either CCD codes or a SMILES string, not both.
     """
 
-    id: str | list[str]
-    ccdCodes: list[str] | None = None
+    id: str | MutableSequence[str]
+    ccdCodes: MutableSequence[str] | None = None
     smiles: str | None = None
     description: str | None = None
 
@@ -185,9 +186,9 @@ class AF3Config(UniAF3BaseConfig):
     """Top-level AlphaFold3 input JSON config."""
 
     name: str
-    modelSeeds: list[int]  # at least one seed required
-    sequences: list[AF3SequenceEntry]
-    bondedAtomPairs: list[tuple[AF3BondedAtom, AF3BondedAtom]] | None = None
+    modelSeeds: MutableSequence[int]  # at least one seed required
+    sequences: MutableSequence[AF3SequenceEntry]
+    bondedAtomPairs: MutableSequence[tuple[AF3BondedAtom, AF3BondedAtom]] | None = None
     userCCD: str | None = None  # string in CCD mmCIF format
     userCCDPath: str | None = None  # mutually exclusive with userCCD
     dialect: Literal["alphafold3"] = "alphafold3"
@@ -239,21 +240,13 @@ class AF3Config(UniAF3BaseConfig):
         entity_lengths = {}
         for entry in self.sequences:
             if entry.protein:
-                for eid in (
-                    entry.protein.id
-                    if isinstance(entry.protein.id, list)
-                    else [entry.protein.id]
-                ):
+                for eid in ensure_list(entry.protein.id):
                     entity_lengths[eid] = len(entry.protein.sequence)
             elif entry.rna:
-                for eid in (
-                    entry.rna.id if isinstance(entry.rna.id, list) else [entry.rna.id]
-                ):
+                for eid in ensure_list(entry.rna.id):
                     entity_lengths[eid] = len(entry.rna.sequence)
             elif entry.dna:
-                for eid in (
-                    entry.dna.id if isinstance(entry.dna.id, list) else [entry.dna.id]
-                ):
+                for eid in ensure_list(entry.dna.id):
                     entity_lengths[eid] = len(entry.dna.sequence)
             elif entry.ligand:
                 if entry.ligand.smiles is not None:
@@ -264,11 +257,7 @@ class AF3Config(UniAF3BaseConfig):
                         if entry.ligand.ccdCodes is not None
                         else -1  # should never happen because SMILES | CCD must exist
                     )
-                for eid in (
-                    entry.ligand.id
-                    if isinstance(entry.ligand.id, list)
-                    else [entry.ligand.id]
-                ):
+                for eid in ensure_list(entry.ligand.id):
                     entity_lengths[eid] = ligand_len
 
         # Check each bonded atom pair

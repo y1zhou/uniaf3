@@ -15,6 +15,7 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import MutableSequence, Sequence
 from enum import StrEnum
 from pathlib import Path
 
@@ -96,8 +97,8 @@ class ChaiConfig(UniAF3BaseConfig):
     ``chai_lab.chai1.run_inference``.
     """
 
-    entities: list[ChaiEntity]
-    restraints: list[ChaiRestraint] | None = None
+    entities: MutableSequence[ChaiEntity]
+    restraints: MutableSequence[ChaiRestraint] | None = None
 
     # Inference parameters
     num_trunk_recycles: int = 3
@@ -296,7 +297,7 @@ def _ensure_valid_restraint(
     connection: ChaiRestraintType,
     entity_type: ChaiEntityType,
     res_idx: str | None,
-    seq: list[str],
+    seq: Sequence[str],
 ):
     """Validate that a restraint refers to valid entities and residue positions."""
     polymer_type = {ChaiEntityType.Protein, ChaiEntityType.DNA, ChaiEntityType.RNA}

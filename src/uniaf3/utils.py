@@ -63,7 +63,7 @@ async def _download_file(session: niquests.AsyncSession, url: str, local_path: P
 
 
 async def _download_files(
-    urls: dict[str, str | Path],
+    urls: Mapping[str, str | Path],
     force: bool = False,
     max_connected_hosts: int = 10,
     max_connections: int = 20,
@@ -107,7 +107,7 @@ async def _download_files(
 
 
 def download_files(
-    urls: dict[str, str | Path],
+    urls: Mapping[str, str | Path],
     force: bool = False,
     max_connected_hosts: int = 10,
     max_connections: int = 20,

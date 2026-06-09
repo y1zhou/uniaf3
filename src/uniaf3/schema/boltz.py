@@ -6,6 +6,7 @@ Reference:
 
 from __future__ import annotations
 
+from collections.abc import MutableSequence, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -18,7 +19,7 @@ from pydantic import (
 
 from uniaf3.constant import RESIDUE_ATOMS
 from uniaf3.schema.base import UniAF3BaseConfig
-from uniaf3.utils import normalize_out_dir
+from uniaf3.utils import ensure_list, normalize_out_dir
 from uniaf3.vendor.chai1_fasta import read_fasta
 
 
@@ -53,10 +54,10 @@ class BoltzModification(BaseModel):
 class BoltzProtein(BaseModel):
     """Boltz protein chain specification."""
 
-    id: str | list[str]
+    id: str | MutableSequence[str]
     sequence: str
     msa: str | None = None  # path to .csv file, or "empty" for single-sequence
-    modifications: list[BoltzModification] | None = None
+    modifications: MutableSequence[BoltzModification] | None = None
     cyclic: bool = False
 
     def __eq__(self, other):
@@ -91,9 +92,9 @@ class BoltzProtein(BaseModel):
 class BoltzDNA(BaseModel):
     """Boltz DNA chain specification."""
 
-    id: str | list[str]
+    id: str | MutableSequence[str]
     sequence: str
-    modifications: list[BoltzModification] | None = None
+    modifications: MutableSequence[BoltzModification] | None = None
     cyclic: bool = False
 
     @model_validator(mode="after")
@@ -112,9 +113,9 @@ class BoltzDNA(BaseModel):
 class BoltzRNA(BaseModel):
     """Boltz RNA chain specification."""
 
-    id: str | list[str]
+    id: str | MutableSequence[str]
     sequence: str
-    modifications: list[BoltzModification] | None = None
+    modifications: MutableSequence[BoltzModification] | None = None
     cyclic: bool = False
 
     @model_validator(mode="after")
@@ -136,7 +137,7 @@ class BoltzLigand(BaseModel):
     Each ligand uses either a CCD code or a SMILES string, not both.
     """
 
-    id: str | list[str]
+    id: str | MutableSequence[str]
     smiles: str | None = None
     ccd: str | None = None
 
@@ -185,7 +186,8 @@ class BoltzPocketConstraint(BaseModel):
     """Pocket constraint specifying binding residues."""
 
     binder: str  # chain ID of the binder
-    contacts: list[tuple[str, int | str]]  # (chain_id, residue index or atom name)
+    # (chain_id, residue index or atom name)
+    contacts: MutableSequence[tuple[str, int | str]]
     max_distance: NonNegativeFloat = 6.0
     force: bool = False
 
@@ -228,12 +230,13 @@ class BoltzTemplate(BaseModel):
 
     cif: str | None = None  # path to CIF file (mutually exclusive with pdb)
     pdb: str | None = None  # path to PDB file
-    chain_id: str | list[str] | None = None  # which chains to template
-    template_id: str | list[str] | None = None  # explicit template chain mapping
+    # which chains to template
+    chain_id: str | Sequence[str] | None = None
+    # explicit template chain mapping
+    template_id: str | Sequence[str] | None = None
     force: bool = False  # use potential to enforce template
-    threshold: NonNegativeFloat | None = (
-        None  # distance threshold for force (Angstroms)
-    )
+    # distance threshold for force (Angstroms)
+    threshold: NonNegativeFloat | None = None
 
     @model_validator(mode="after")
     def check_cif_pdb_fields(self):
@@ -262,10 +265,10 @@ class BoltzConfig(UniAF3BaseConfig):
     """Top-level Boltz input YAML config."""
 
     version: Literal[1] = 1
-    sequences: list[BoltzSequenceEntry]
-    constraints: list[BoltzConstraintEntry] | None = None
-    templates: list[BoltzTemplate] | None = None
-    properties: list[BoltzPropertyEntry] | None = None
+    sequences: MutableSequence[BoltzSequenceEntry]
+    constraints: MutableSequence[BoltzConstraintEntry] | None = None
+    templates: MutableSequence[BoltzTemplate] | None = None
+    properties: MutableSequence[BoltzPropertyEntry] | None = None
 
     @model_validator(mode="after")
     def check_constraints_in_range(self):
@@ -292,7 +295,7 @@ class BoltzConfig(UniAF3BaseConfig):
                 seq = ""  # placeholder since we don't validate ligand residue indices
             else:
                 raise ValueError("Invalid sequence entry with no entity.")
-            ids = entity.id if isinstance(entity.id, list) else [entity.id]
+            ids = ensure_list(entity.id)
             for cid in ids:
                 seq_dict[cid] = seq
 

@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from uniaf3.adapters._helpers import (
-    ensure_list,
-    err_unsupported_feature,
-    warn_lossy_conversion,
-)
+from uniaf3.adapters._helpers import err_unsupported_feature, warn_lossy_conversion
 from uniaf3.constant import KNOWN_ION_CCD_CODES, KNOWN_LIGAND_CCD_CODES
 from uniaf3.schema.alphafold3_server import (
     AF3ServerConfig,
@@ -31,7 +27,7 @@ from uniaf3.schema.base import (
     SequenceModification,
     UniAF3Config,
 )
-from uniaf3.utils import int_to_letters
+from uniaf3.utils import ensure_list, int_to_letters
 
 
 def _to_alphafold3_server(
@@ -209,12 +205,10 @@ def to_alphafold3_server(
         names = [name]
     else:
         names = [f"{name}_{i}" for i in range(1, len(config) + 1)]
-    return AF3ServerConfig(
-        [
-            _to_alphafold3_server(c, name=names[i], strict=strict)
-            for i, c in enumerate(config)
-        ]
-    )
+    return AF3ServerConfig([
+        _to_alphafold3_server(c, name=names[i], strict=strict)
+        for i, c in enumerate(config)
+    ])
 
 
 def _from_alphafold3_server(job: AF3ServerJob) -> UniAF3Config:

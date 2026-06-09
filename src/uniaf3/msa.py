@@ -1,6 +1,7 @@
 """Query MSA and templates for protein sequences."""
 
 import tempfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -70,7 +71,7 @@ class ColabFoldResponse(BaseModel):
 
 
 def query_colabfold(
-    seqs: list[str],
+    seqs: Sequence[str],
     msa_cache_dir: str | Path | None = None,
     search_templates: bool = False,
     download_num_templates_per_seq: int = 0,
@@ -222,14 +223,16 @@ def query_colabfold(
             ).head(download_num_templates_per_seq)
 
         all_templates = all_templates.with_columns(
-            pl.col("subject_id")
+            pl
+            .col("subject_id")
             .str.split("_")
             .list.first()
             .str.to_uppercase()
             .alias("subject_pdb_id")
         )
         template_pdb_ids = (
-            all_templates.select("subject_pdb_id")
+            all_templates
+            .select("subject_pdb_id")
             .unique()
             .with_columns(
                 pl.concat_str(
@@ -281,7 +284,8 @@ def parse_m8_file(fname: str | Path) -> pl.DataFrame:
     Inspired by: chai_lab.data.parsing.templates.m8 import parse_m8_file.
     """
     table = (
-        pl.scan_csv(
+        pl
+        .scan_csv(
             fname,
             separator="\t",
             has_header=False,

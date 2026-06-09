@@ -6,11 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
-from uniaf3.adapters._helpers import (
-    ensure_list,
-    err_unsupported_feature,
-    warn_lossy_conversion,
-)
+from uniaf3.adapters._helpers import err_unsupported_feature, warn_lossy_conversion
 from uniaf3.constant import PDB_SERVER_URL
 from uniaf3.msa import align_seq_to_structure, cigar_to_indices, parse_m8_file
 from uniaf3.schema.base import (
@@ -37,6 +33,7 @@ from uniaf3.schema.chai import (
 )
 from uniaf3.utils import (
     download_files,
+    ensure_list,
     hash_sequence,
     int_to_letters,
     normalize_out_dir,
@@ -112,23 +109,21 @@ def _find_or_reconstruct_m8(
                 continue
             subject_id = f"{pdb_id}_{tmpl_alignment.struct_chain_id}"
             q_start, q_end = tmpl_alignment.query_idx[0], tmpl_alignment.query_idx[-1]
-            rows.append(
-                {
-                    "query_id": seq.seq_hash,
-                    "subject_id": subject_id,
-                    "pident": tmpl_alignment.raw.calculate_identity(),
-                    "length": q_end - q_start + 1,
-                    "mismatch": tmpl_alignment.raw.match_string.count("."),
-                    "gapopen": 0,  # not important
-                    "query_start": q_start,
-                    "query_end": q_end,
-                    "subject_start": tmpl_alignment.struct_idx[0],
-                    "subject_end": tmpl_alignment.struct_idx[-1],
-                    "evalue": 1.0 / tmpl_alignment.raw.score,  # approx.
-                    "bitscore": tmpl_alignment.raw.score,  # approx.
-                    "comment": tmpl_alignment.raw.cigar_str(),
-                }
-            )
+            rows.append({
+                "query_id": seq.seq_hash,
+                "subject_id": subject_id,
+                "pident": tmpl_alignment.raw.calculate_identity(),
+                "length": q_end - q_start + 1,
+                "mismatch": tmpl_alignment.raw.match_string.count("."),
+                "gapopen": 0,  # not important
+                "query_start": q_start,
+                "query_end": q_end,
+                "subject_start": tmpl_alignment.struct_idx[0],
+                "subject_end": tmpl_alignment.struct_idx[-1],
+                "evalue": 1.0 / tmpl_alignment.raw.score,  # approx.
+                "bitscore": tmpl_alignment.raw.score,  # approx.
+                "comment": tmpl_alignment.raw.cigar_str(),
+            })
 
     if not rows:
         return None
@@ -609,7 +604,8 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
             seq_msa_df = pl.scan_parquet(seq_msa_file)
 
             query_entry = (
-                seq_msa_df.filter(pl.col("source_database") == pl.lit("query"))
+                seq_msa_df
+                .filter(pl.col("source_database") == pl.lit("query"))
                 .select("comment", "sequence")
                 .collect()
             )
@@ -621,7 +617,8 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
             q_str = f">{q['comment']}\n{q['sequence']}\n"
 
             single_msa_df = (
-                seq_msa_df.filter(
+                seq_msa_df
+                .filter(
                     (pl.col("pairing_key") == pl.lit(""))
                     & (pl.col("source_database") != pl.lit("query"))
                 )
@@ -639,7 +636,8 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
                 prot_seq.unpaired_msa = str(single_a3m_path)
 
             paired_msa_df = (
-                seq_msa_df.filter(
+                seq_msa_df
+                .filter(
                     (pl.col("pairing_key") != pl.lit(""))
                     & (pl.col("source_database") != pl.lit("query"))
                 )
@@ -682,7 +680,8 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
             .head(4)
             .with_columns(pl.col("subject_id").str.split("_"))
             .with_columns(
-                pl.col("subject_id")
+                pl
+                .col("subject_id")
                 .list.first()
                 .str.to_uppercase()
                 .alias("subject_pdb_id"),
@@ -703,7 +702,7 @@ def from_chai(config: ChaiConfig, msa_dir: str | Path | None = None) -> UniAF3Co
                     f"Expected ProteinSeq for template hit with query_id {query_hash}, got {type(prot_seq)}"
                 )
 
-            tmpl: list[StructuralTemplate] = prot_seq.templates or []
+            tmpl = prot_seq.templates or []
             q_idx, tmpl_idx = cigar_to_indices(
                 r["query_start"], r["subject_start"], r["cigar"]
             )

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
-from uniaf3.adapters._helpers import (
-    ensure_list,
-    err_unsupported_feature,
-    warn_lossy_conversion,
-)
+from uniaf3.adapters._helpers import err_unsupported_feature, warn_lossy_conversion
 from uniaf3.constant import PDB_SERVER_URL
 from uniaf3.schema.base import (
     Atom,
@@ -42,7 +39,7 @@ from uniaf3.schema.protenix import (
     ProtenixRNASequence,
     ProtenixSequenceEntry,
 )
-from uniaf3.utils import normalize_out_dir
+from uniaf3.utils import ensure_list, normalize_out_dir
 from uniaf3.vendor.chai1_glycans import _glycan_string_to_sugars_and_bonds
 from uniaf3.vendor.protenix_template import HHRParser, HmmsearchA3MParser, TemplateHit
 
@@ -102,7 +99,10 @@ def _read_chain_sequence(struct_path: str | Path, chain_id: str) -> tuple[str, i
 
 
 def _build_a3m_gapped_seq(
-    query_seq_len: int, template_seq: str, query_idx: list[int], template_idx: list[int]
+    query_seq_len: int,
+    template_seq: str,
+    query_idx: Sequence[int],
+    template_idx: Sequence[int],
 ) -> str:
     """Build an A3M-format aligned template sequence."""
     q_to_t = dict(zip(query_idx, template_idx, strict=True))
@@ -424,12 +424,10 @@ def to_protenix(
         names = [name]
     else:
         names = [f"{name}_{i}" for i in range(1, len(config) + 1)]
-    return ProtenixConfig(
-        [
-            _to_protenix(c, name=names[i], strict=strict, output_dir=resolved_dir)
-            for i, c in enumerate(config)
-        ]
-    )
+    return ProtenixConfig([
+        _to_protenix(c, name=names[i], strict=strict, output_dir=resolved_dir)
+        for i, c in enumerate(config)
+    ])
 
 
 def _from_protenix(job: ProtenixJob, output_dir: Path | None = None) -> UniAF3Config:

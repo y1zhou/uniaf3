@@ -1,9 +1,10 @@
 """Schemas for UniAF3 input configs."""
 
+from collections.abc import Mapping, MutableSequence, Sequence
 from enum import Enum, StrEnum
 from functools import cached_property
 from pathlib import Path
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 import orjson
 import yaml
@@ -20,7 +21,7 @@ from pydantic import (
 from yaml import representer
 
 from uniaf3.msa import cigar_to_indices, query_colabfold
-from uniaf3.utils import hash_sequence, normalize_out_dir
+from uniaf3.utils import ensure_list, hash_sequence, normalize_out_dir
 
 T = TypeVar("T", bound="UniAF3BaseConfig")
 
@@ -146,11 +147,11 @@ class StructuralTemplate(BaseModel):
 
     path: str  # path to the template structure file (mmCIF or PDB)
     # 0-based indices
-    query_idx: list[NonNegativeInt] | None = None
-    template_idx: list[NonNegativeInt] | None = None
+    query_idx: Sequence[NonNegativeInt] | None = None
+    template_idx: Sequence[NonNegativeInt] | None = None
     # IDs in multi-chain templates (not supported in AF3)
-    query_chains: list[str] | None = None
-    template_chains: list[str] | None = None
+    query_chains: Sequence[str] | None = None
+    template_chains: Sequence[str] | None = None
     # Boltz-specific fields
     boltz_enable_force: bool = False  # use a potential to enforce the template
     boltz_template_threshold: NonNegativeFloat | None = (
@@ -181,10 +182,11 @@ class PolymerType(StrEnum):
 class Polymer(BaseModel):
     """Base schema for polymers (protein, DNA, and RNA)."""
 
-    id: str | list[str]  # A, B, ..., Z, AA, BA, CA, ..., ZA, AB, BB, CB, ..., ZB, ...
+    # A, B, ..., Z, AA, BA, CA, ..., ZA, AB, BB, CB, ..., ZB, ...
+    id: str | MutableSequence[str]
     polymer_type: PolymerType
     sequence: str
-    modifications: list[SequenceModification] | None = None
+    modifications: MutableSequence[SequenceModification] | None = None
     description: str | None = None  # comment describing the chain
     boltz_cyclic: bool = False  # Boltz only
 
@@ -212,7 +214,7 @@ class ProteinSeq(Polymer):
 
     unpaired_msa: str | None = None  # path to unpaired MSA A3M file
     paired_msa: str | None = None  # path to paired MSA A3M file
-    templates: list[StructuralTemplate] | None = None
+    templates: MutableSequence[StructuralTemplate] | None = None
 
 
 class Ligand(BaseModel):
@@ -227,9 +229,9 @@ class Ligand(BaseModel):
     entities as they rely on specific atom names.
     """
 
-    id: str | list[str]  # chain ID(s)
+    id: str | MutableSequence[str]  # chain ID(s)
     smiles: str | None = None  # optional SMILES string defining the ligand
-    ccd: list[str] | None = None  # list of standard CCD codes
+    ccd: MutableSequence[str] | None = None  # list of standard CCD codes
     description: str | None = None  # comment describing the ligand
 
     @model_validator(mode="after")
@@ -246,7 +248,7 @@ class Glycan(BaseModel):
     <https://github.com/chaidiscovery/chai-lab/blob/main/examples/covalent_bonds/README.md>
     """
 
-    id: str | list[str]  # chain ID(s)
+    id: str | MutableSequence[str]  # chain ID(s)
     chai_str: str  # glycan string in Chai notation (modified CCD codes)
     description: str | None = None  # comment describing the glycan
 
@@ -337,7 +339,7 @@ class PocketRestraint(BaseModel):
     """
 
     binder_chain: str  # ID of the chain binding to the pocket
-    contact_tokens: list[Atom]
+    contact_tokens: MutableSequence[Atom]
     max_distance: NonNegativeFloat = 6.0  # maximum distance (Angstroms)
     min_distance: NonNegativeFloat = 0.0  # minimum distance (Angstroms)
     description: str | None = None  # comment describing the restraint
@@ -387,17 +389,17 @@ class AuxiliaryParams(BaseModel):
     # Model-specific settings
     name: str | None = None  # optional name for the config, used in AF3 server
     boltz_affinity_binder_chain: str | None = None
-    seeds: list[int] = Field(default_factory=lambda: [42])
+    seeds: MutableSequence[int] = Field(default_factory=lambda: [42])
 
 
 class UniAF3Config(UniAF3BaseConfig):
     """Config schema for UniAF3."""
 
     # General settings
-    sequences: list[Polymer | ProteinSeq | Ligand | Glycan]
-    covalent_bonds: list[CovalentBond] | None = None
-    contact_restraints: list[ContactRestraint] | None = None
-    pocket_restraints: list[PocketRestraint] | None = None
+    sequences: MutableSequence[Polymer | ProteinSeq | Ligand | Glycan]
+    covalent_bonds: MutableSequence[CovalentBond] | None = None
+    contact_restraints: MutableSequence[ContactRestraint] | None = None
+    pocket_restraints: MutableSequence[PocketRestraint] | None = None
 
     # Inference parameters and model-specific settings
     aux: AuxiliaryParams = AuxiliaryParams()
@@ -435,7 +437,7 @@ class UniAF3Config(UniAF3BaseConfig):
         for i, seq in enumerate(conf.sequences):
             if isinstance(seq, Polymer) and seq.polymer_type == PolymerType.Protein:
                 conf.sequences[i] = ProteinSeq(**seq.model_dump())
-                prot: ProteinSeq = conf.sequences[i]
+                prot: ProteinSeq = conf.sequences[i]  # type: ignore[ty:invalid-assignment]
                 for field in ("unpaired_msa", "paired_msa"):
                     path = getattr(prot, field)
                     if path is not None:
@@ -488,7 +490,7 @@ class UniAF3Config(UniAF3BaseConfig):
     @model_validator(mode="after")
     def check_restraints_in_range(self):
         """Ensure that restraint atom indices are within the corresponding sequence lengths."""
-        restraint_atoms: list[Atom] = []
+        restraint_atoms: Sequence[Atom] = []
         if self.covalent_bonds is not None:
             for bond in self.covalent_bonds:
                 restraint_atoms.extend([bond.atom1, bond.atom2])
@@ -506,7 +508,7 @@ class UniAF3Config(UniAF3BaseConfig):
             # Build chain_id → sequence mapping, handling list[str] ids
             seq_dict: dict[str, Polymer | ProteinSeq | Ligand | Glycan] = {}
             for seq in self.sequences:
-                ids = seq.id if isinstance(seq.id, list) else [seq.id]
+                ids = ensure_list(seq.id)
                 for cid in ids:
                     seq_dict[cid] = seq
 
@@ -560,15 +562,13 @@ class UniAF3Config(UniAF3BaseConfig):
                 c
                 for seq in self.sequences
                 if isinstance(seq, ProteinSeq)
-                for c in (seq.id if isinstance(seq.id, list) else [seq.id])
+                for c in ensure_list(seq.id)
             }
         protein_seqs = [
             seq.sequence
             for seq in self.sequences
             if isinstance(seq, ProteinSeq)
-            and any(
-                c in chains for c in (seq.id if isinstance(seq.id, list) else [seq.id])
-            )
+            and any(c in chains for c in ensure_list(seq.id))
         ]
 
         # Generate MSAs using ColabFold API
@@ -586,11 +586,11 @@ class UniAF3Config(UniAF3BaseConfig):
         # Chai-1 requires the templates to be passed in via a handmade m8 file.
         # AF3-server searches MSA and templates online, and no local files can be fed.
         # Protenix only supports automatically searched templates via the a3m/hhr files.
-        template_map: dict[str, list[StructuralTemplate]] = {}
+        template_map: Mapping[str, Sequence[StructuralTemplate]] = {}
         templates_df: DataFrame | None = msa_data.templates_df
         if templates_df is not None:
-            hash_to_chains: dict[str, list[str]] = {
-                seq.seq_hash: (seq.id if isinstance(seq.id, list) else [seq.id])
+            hash_to_chains: dict[str, Sequence[str]] = {
+                seq.seq_hash: ensure_list(seq.id)
                 for seq in self.sequences
                 if isinstance(seq, ProteinSeq)
             }
@@ -624,7 +624,9 @@ class UniAF3Config(UniAF3BaseConfig):
                 continue
             if isinstance(seq.id, str) and seq.id not in chains:
                 continue
-            elif isinstance(seq.id, list) and not any(c in chains for c in seq.id):
+            elif isinstance(seq.id, MutableSequence) and not any(
+                c in chains for c in seq.id
+            ):
                 continue
 
             seq_msa_res = msa_data[seq.sequence]

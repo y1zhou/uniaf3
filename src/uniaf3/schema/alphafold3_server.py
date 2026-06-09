@@ -5,7 +5,7 @@ Reference:
     https://github.com/google-deepmind/alphafold3/blob/main/docs/input.md#alphafold-server-json-compatibility
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, MutableSequence
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -52,8 +52,8 @@ class AF3ServerProtein(BaseModel):
 
     sequence: str  # only 20 standard amino acids supported
     count: PositiveInt = 1  # number of copies of this protein chain
-    glycans: list[AF3ServerGlycan] | None = None
-    modifications: list[AF3ServerProteinModification] | None = None
+    glycans: MutableSequence[AF3ServerGlycan] | None = None
+    modifications: MutableSequence[AF3ServerProteinModification] | None = None
     useStructureTemplate: bool = True  # whether the model should use PDB templates
     maxTemplateDate: date | None = (
         None  # upper date limit for considering PDB templates
@@ -105,7 +105,7 @@ class AF3ServerRNA(BaseModel):
     """AlphaFold3 Server RNA chain specification."""
 
     sequence: str  # only A,U,G,C allowed
-    modifications: list[AF3ServerRNAModification] | None = None
+    modifications: MutableSequence[AF3ServerRNAModification] | None = None
     count: PositiveInt = 1
 
     @model_validator(mode="after")
@@ -143,7 +143,7 @@ class AF3ServerDNA(BaseModel):
     """AlphaFold3 Server single-stranded DNA chain specification."""
 
     sequence: str  # Only A,T,G,C allowed
-    modifications: list[AF3ServerDNAModification] | None = None
+    modifications: MutableSequence[AF3ServerDNAModification] | None = None
     count: PositiveInt = 1
 
     @model_validator(mode="after")
@@ -226,8 +226,9 @@ class AF3ServerJob(BaseModel):
     """
 
     name: str
-    modelSeeds: list[int]  # can be empty, in which case a single seed will be generated
-    sequences: list[AF3ServerSequenceEntry]
+    # can be empty, in which case a single seed will be generated
+    modelSeeds: MutableSequence[int]
+    sequences: MutableSequence[AF3ServerSequenceEntry]
     dialect: Literal["alphafoldserver"] = "alphafoldserver"
     version: Literal[1] = 1
 
@@ -239,7 +240,7 @@ class AF3ServerConfig(RootModel, UniAF3BaseConfig):
     It also supports an explicit ion type.
     """
 
-    root: list[AF3ServerJob]
+    root: MutableSequence[AF3ServerJob]
 
     def __iter__(self) -> Iterable[AF3ServerJob]:  # ty:ignore[invalid-method-override]
         """Iterate over jobs in the config."""
