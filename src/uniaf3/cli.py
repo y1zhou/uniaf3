@@ -42,6 +42,21 @@ class ConfigFormat(StrEnum):
     AF3Server = "alphafold3server"
 
 
+class SeqSource(StrEnum):
+    """Sequence source for structure-derived configs."""
+
+    Full = "full"
+    Observed = "observed"
+
+
+class NonCovalentConnectionMode(StrEnum):
+    """How to import non-covalent structure connections."""
+
+    Ignore = "ignore"
+    Contacts = "contacts"
+    Pockets = "pockets"
+
+
 def _get_format_to_config() -> dict[str, type[AnyConfig]]:
     """Lazily build format-to-config-class mapping."""
     from uniaf3.schema import (
@@ -213,6 +228,109 @@ def convert_config(
     except Exception as exc:
         console.print_exception(show_locals=True, width=console.width)
         console.print(f"[bold red]Conversion error:[/bold red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+
+@app.command(name="structure")
+def structure_config(
+    input_structure_file: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to a PDB or mmCIF structure file.",
+            exists=True,
+            resolve_path=True,
+        ),
+    ],
+    output_dir: Annotated[Path, typer.Argument(help="Path to the output directory.")],
+    prefix: Annotated[
+        str | None,
+        typer.Argument(
+            help="Prefix for the output config file. Defaults to the structure file name without extension."
+        ),
+    ] = None,
+    seq_source: Annotated[
+        SeqSource,
+        typer.Option(
+            "--seq-source",
+            help="Source for polymer sequences: full declared sequence or observed coordinates.",
+            case_sensitive=False,
+        ),
+    ] = SeqSource.Full,
+    chains: Annotated[
+        str | None,
+        typer.Option(
+            "--chains",
+            "-c",
+            help="Comma-separated author chain IDs to import.",
+        ),
+    ] = None,
+    include_ligands: Annotated[
+        bool | None,
+        typer.Option(
+            "--include-ligands/--exclude-ligands",
+            help=(
+                "Include CCD ligands. By default ligands are included for whole-structure "
+                "imports and excluded when --chains is used."
+            ),
+        ),
+    ] = None,
+    include_waters: Annotated[
+        bool,
+        typer.Option(
+            "--include-waters",
+            help="Include water residues as CCD ligands.",
+        ),
+    ] = False,
+    model_index: Annotated[
+        int,
+        typer.Option(
+            "--model-index",
+            help="0-based model index to use for coordinate-dependent fields.",
+        ),
+    ] = 0,
+    non_covalent_connections: Annotated[
+        NonCovalentConnectionMode,
+        typer.Option(
+            "--non-covalent-connections",
+            help="How to import non-covalent structure connections.",
+            case_sensitive=False,
+        ),
+    ] = NonCovalentConnectionMode.Ignore,
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Raise errors instead of warning when structure fields cannot be imported.",
+        ),
+    ] = False,
+) -> None:
+    """Generate a UniAF3 YAML config from a PDB or mmCIF structure file."""
+    try:
+        uniq_chains = (
+            list({c.strip() for c in chains.split(",") if c.strip()})
+            if chains
+            else None
+        )
+        conf = UniAF3Config.from_structure_file(
+            input_structure_file,
+            seq_source=seq_source.value,
+            chains=uniq_chains,
+            include_ligands=include_ligands,
+            include_waters=include_waters,
+            model_index=model_index,
+            strict=strict,
+            non_covalent_connections=non_covalent_connections.value,
+        )
+        if prefix is None:
+            prefix = input_structure_file.stem
+        conf.to_files(output_dir, prefix)
+        console.print(
+            f"[bold green]Generated UniAF3 config from structure.[/bold green] "
+            f"Output written to: {output_dir / f'{prefix}.yaml'}"
+        )
+    except Exception as exc:
+        console.print_exception(show_locals=True, width=console.width)
+        console.print(f"[bold red]Structure import error:[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
 
 
