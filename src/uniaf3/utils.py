@@ -1,11 +1,17 @@
 """Utility functions for UniAF3."""
 
 import hashlib
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import aiofiles
 import niquests
 from tqdm.asyncio import tqdm_asyncio
+
+
+def ensure_list(val: str | Sequence[str]) -> list[str]:
+    """Normalize id field to a list."""
+    return [val] if isinstance(val, str) else list(val)
 
 
 def hash_sequence(seq: str | bytes) -> str:
