@@ -128,7 +128,7 @@ run_inference(
     fasta_file="input.fasta",
     msa_directory="path/to/msa/",
     use_msa_server=True,
-    msa_server_url="https://api.colabfold.com"
+    msa_server_url="https://api.colabfold.com",
 )
 ```
 

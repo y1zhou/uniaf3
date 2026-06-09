@@ -514,38 +514,34 @@ class TestChaiRestraintValidation:
         from uniaf3.schema.chai import ChaiRestraint, ChaiRestraintType
 
         with pytest.raises(Exception, match="res_idx cannot be empty"):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA=None,
-                        chainB="B",
-                        res_idxB="G1@CA",
-                        connection_type=ChaiRestraintType.Covalent,
-                        max_distance_angstrom=0.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA=None,
+                    chainB="B",
+                    res_idxB="G1@CA",
+                    connection_type=ChaiRestraintType.Covalent,
+                    max_distance_angstrom=0.0,
+                )
+            ])
 
     def test_covalent_invalid_format(self):
         """Covalent restraint with no '@' in res_idx should raise."""
         from uniaf3.schema.chai import ChaiRestraint, ChaiRestraintType
 
         with pytest.raises(Exception, match="Invalid residue index format"):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA="NOATSIGN",  # Missing '@'
-                        chainB="B",
-                        res_idxB="G1@CA",
-                        connection_type=ChaiRestraintType.Covalent,
-                        max_distance_angstrom=0.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA="NOATSIGN",  # Missing '@'
+                    chainB="B",
+                    res_idxB="G1@CA",
+                    connection_type=ChaiRestraintType.Covalent,
+                    max_distance_angstrom=0.0,
+                )
+            ])
 
     def test_covalent_residue_name_mismatch(self):
         """Covalent restraint with wrong residue name should raise."""
@@ -554,38 +550,34 @@ class TestChaiRestraintValidation:
         with pytest.raises(
             Exception, match="Residue name in index does not match sequence"
         ):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA="X1@CA",  # X != M at position 1
-                        chainB="B",
-                        res_idxB="G1@CA",
-                        connection_type=ChaiRestraintType.Covalent,
-                        max_distance_angstrom=0.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA="X1@CA",  # X != M at position 1
+                    chainB="B",
+                    res_idxB="G1@CA",
+                    connection_type=ChaiRestraintType.Covalent,
+                    max_distance_angstrom=0.0,
+                )
+            ])
 
     def test_covalent_empty_atom_name(self):
         """Covalent restraint with empty atom name should raise."""
         from uniaf3.schema.chai import ChaiRestraint, ChaiRestraintType
 
         with pytest.raises(Exception, match="Atom name must be specified"):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA="M1@",  # Empty atom name
-                        chainB="B",
-                        res_idxB="G1@CA",
-                        connection_type=ChaiRestraintType.Covalent,
-                        max_distance_angstrom=0.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA="M1@",  # Empty atom name
+                    chainB="B",
+                    res_idxB="G1@CA",
+                    connection_type=ChaiRestraintType.Covalent,
+                    max_distance_angstrom=0.0,
+                )
+            ])
 
     def test_contact_on_ligand_raises(self):
         """Contact restraint on a ligand entity should raise."""
@@ -631,19 +623,17 @@ class TestChaiRestraintValidation:
         with pytest.raises(
             Exception, match="Residue name in index does not match sequence"
         ):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA="X1",  # X != M at position 1
-                        chainB="B",
-                        res_idxB="G1",
-                        connection_type=ChaiRestraintType.Contact,
-                        max_distance_angstrom=6.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA="X1",  # X != M at position 1
+                    chainB="B",
+                    res_idxB="G1",
+                    connection_type=ChaiRestraintType.Contact,
+                    max_distance_angstrom=6.0,
+                )
+            ])
 
     def test_pocket_residue_name_mismatch(self):
         """Pocket restraint with wrong residue name in contact token should raise."""
@@ -652,19 +642,17 @@ class TestChaiRestraintValidation:
         with pytest.raises(
             Exception, match="Residue name in index does not match sequence"
         ):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA=None,  # binder side is empty
-                        chainB="B",
-                        res_idxB="X1",  # X != G at position 1
-                        connection_type=ChaiRestraintType.Pocket,
-                        max_distance_angstrom=8.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA=None,  # binder side is empty
+                    chainB="B",
+                    res_idxB="X1",  # X != G at position 1
+                    connection_type=ChaiRestraintType.Pocket,
+                    max_distance_angstrom=8.0,
+                )
+            ])
 
     def test_from_file_fasta_with_restraints_csv(self, tmp_path):
         """from_file should discover .restraints file."""
@@ -875,32 +863,28 @@ class TestBoltzSchemaValidators:
         from uniaf3.schema.boltz import BoltzBondConstraint, BoltzConstraintEntry
 
         with pytest.raises(Exception, match="not found in sequences"):
-            self._protein_lig_config(
-                [
-                    BoltzConstraintEntry(
-                        bond=BoltzBondConstraint(
-                            atom1=("Z", 1, "CA"),  # Z not in sequences
-                            atom2=("A", 1, "CA"),
-                        )
+            self._protein_lig_config([
+                BoltzConstraintEntry(
+                    bond=BoltzBondConstraint(
+                        atom1=("Z", 1, "CA"),  # Z not in sequences
+                        atom2=("A", 1, "CA"),
                     )
-                ]
-            )
+                )
+            ])
 
     def test_bond_residue_out_of_range_raises(self):
         """Bond constraint with residue out of range should raise."""
         from uniaf3.schema.boltz import BoltzBondConstraint, BoltzConstraintEntry
 
         with pytest.raises(Exception, match="out of range"):
-            self._protein_lig_config(
-                [
-                    BoltzConstraintEntry(
-                        bond=BoltzBondConstraint(
-                            atom1=("A", 100, "CA"),  # > len(MVLSPADKTNVK)=12
-                            atom2=("A", 1, "CA"),
-                        )
+            self._protein_lig_config([
+                BoltzConstraintEntry(
+                    bond=BoltzBondConstraint(
+                        atom1=("A", 100, "CA"),  # > len(MVLSPADKTNVK)=12
+                        atom2=("A", 1, "CA"),
                     )
-                ]
-            )
+                )
+            ])
 
     def test_bond_ligand_wrong_residue_index_raises(self):
         """Bond constraint on ligand with residue_idx != 1 should raise."""
@@ -909,49 +893,43 @@ class TestBoltzSchemaValidators:
         with pytest.raises(
             Exception, match="Residue index for ligand bond constraint must be 1"
         ):
-            self._protein_lig_config(
-                [
-                    BoltzConstraintEntry(
-                        bond=BoltzBondConstraint(
-                            atom1=("A", 1, "CA"),
-                            atom2=("B", 2, "SD"),  # B is ligand, residue_idx != 1
-                        )
+            self._protein_lig_config([
+                BoltzConstraintEntry(
+                    bond=BoltzBondConstraint(
+                        atom1=("A", 1, "CA"),
+                        atom2=("B", 2, "SD"),  # B is ligand, residue_idx != 1
                     )
-                ]
-            )
+                )
+            ])
 
     def test_bond_invalid_atom_name_raises(self):
         """Bond constraint with invalid atom name should raise."""
         from uniaf3.schema.boltz import BoltzBondConstraint, BoltzConstraintEntry
 
         with pytest.raises(Exception, match="Invalid atom name"):
-            self._protein_lig_config(
-                [
-                    BoltzConstraintEntry(
-                        bond=BoltzBondConstraint(
-                            atom1=("A", 1, "INVALID_ATOM"),  # not a valid atom for Met
-                            atom2=("A", 2, "CA"),
-                        )
+            self._protein_lig_config([
+                BoltzConstraintEntry(
+                    bond=BoltzBondConstraint(
+                        atom1=("A", 1, "INVALID_ATOM"),  # not a valid atom for Met
+                        atom2=("A", 2, "CA"),
                     )
-                ]
-            )
+                )
+            ])
 
     def test_pocket_binder_not_found_raises(self):
         """Pocket constraint with unknown binder should raise."""
         from uniaf3.schema.boltz import BoltzConstraintEntry, BoltzPocketConstraint
 
         with pytest.raises(Exception, match="Binder chain ID .* not found"):
-            self._protein_lig_config(
-                [
-                    BoltzConstraintEntry(
-                        pocket=BoltzPocketConstraint(
-                            binder="Z",  # Z not in sequences
-                            contacts=[("A", 1)],
-                            max_distance=6.0,
-                        )
+            self._protein_lig_config([
+                BoltzConstraintEntry(
+                    pocket=BoltzPocketConstraint(
+                        binder="Z",  # Z not in sequences
+                        contacts=[("A", 1)],
+                        max_distance=6.0,
                     )
-                ]
-            )
+                )
+            ])
 
     def test_rna_entity_in_constraints(self):
         """RNA entity should be handled in check_constraints."""
@@ -1020,76 +998,68 @@ class TestChaiRestraintValidationMore:
         from uniaf3.schema.chai import ChaiRestraint, ChaiRestraintType
 
         with pytest.raises(Exception, match="Failed to parse residue index"):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA="MXYZ@CA",  # 'XYZ' can't be parsed as int for position
-                        chainB="B",
-                        res_idxB="G1@CA",
-                        connection_type=ChaiRestraintType.Covalent,
-                        max_distance_angstrom=0.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA="MXYZ@CA",  # 'XYZ' can't be parsed as int for position
+                    chainB="B",
+                    res_idxB="G1@CA",
+                    connection_type=ChaiRestraintType.Covalent,
+                    max_distance_angstrom=0.0,
+                )
+            ])
 
     def test_contact_missing_res_idx(self):
         """Contact restraint with None res_idx should raise."""
         from uniaf3.schema.chai import ChaiRestraint, ChaiRestraintType
 
         with pytest.raises(Exception, match="res_idx cannot be empty"):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA=None,  # None for contact is not allowed
-                        chainB="B",
-                        res_idxB="G1",
-                        connection_type=ChaiRestraintType.Contact,
-                        max_distance_angstrom=6.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA=None,  # None for contact is not allowed
+                    chainB="B",
+                    res_idxB="G1",
+                    connection_type=ChaiRestraintType.Contact,
+                    max_distance_angstrom=6.0,
+                )
+            ])
 
     def test_contact_parse_residue_failure(self):
         """Contact restraint with unparseable residue should raise."""
         from uniaf3.schema.chai import ChaiRestraint, ChaiRestraintType
 
         with pytest.raises(Exception, match="Failed to parse residue index"):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA="MXYZ",  # can't parse 'XYZ' as int
-                        chainB="B",
-                        res_idxB="G1",
-                        connection_type=ChaiRestraintType.Contact,
-                        max_distance_angstrom=6.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA="MXYZ",  # can't parse 'XYZ' as int
+                    chainB="B",
+                    res_idxB="G1",
+                    connection_type=ChaiRestraintType.Contact,
+                    max_distance_angstrom=6.0,
+                )
+            ])
 
     def test_pocket_parse_residue_failure(self):
         """Pocket restraint with unparseable residue should raise."""
         from uniaf3.schema.chai import ChaiRestraint, ChaiRestraintType
 
         with pytest.raises(Exception, match="Failed to parse residue index"):
-            self._make_protein_config(
-                [
-                    ChaiRestraint(
-                        restraint_id="r0",
-                        chainA="A",
-                        res_idxA=None,  # binder side is empty
-                        chainB="B",
-                        res_idxB="GXYZ",  # can't parse 'XYZ' as int
-                        connection_type=ChaiRestraintType.Pocket,
-                        max_distance_angstrom=8.0,
-                    )
-                ]
-            )
+            self._make_protein_config([
+                ChaiRestraint(
+                    restraint_id="r0",
+                    chainA="A",
+                    res_idxA=None,  # binder side is empty
+                    chainB="B",
+                    res_idxB="GXYZ",  # can't parse 'XYZ' as int
+                    connection_type=ChaiRestraintType.Pocket,
+                    max_distance_angstrom=8.0,
+                )
+            ])
 
 
 class TestBoltzSchemaValidatorsMore:
@@ -1237,101 +1207,89 @@ class TestBoltzSchemaConstraintValidators:
         from uniaf3.schema.boltz import BoltzConstraintEntry, BoltzPocketConstraint
 
         with pytest.raises(Exception, match="should be specified with residue index"):
-            self._make_config(
-                [
-                    BoltzConstraintEntry(
-                        pocket=BoltzPocketConstraint(
-                            binder="B",
-                            contacts=[
-                                ("A", "SG")
-                            ],  # string for polymer chain - should be int
-                            max_distance=6.0,
-                        )
+            self._make_config([
+                BoltzConstraintEntry(
+                    pocket=BoltzPocketConstraint(
+                        binder="B",
+                        contacts=[
+                            ("A", "SG")
+                        ],  # string for polymer chain - should be int
+                        max_distance=6.0,
                     )
-                ]
-            )
+                )
+            ])
 
     def test_pocket_polymer_residue_out_of_range_raises(self):
         """Pocket constraint with polymer residue out of range should raise."""
         from uniaf3.schema.boltz import BoltzConstraintEntry, BoltzPocketConstraint
 
         with pytest.raises(Exception, match="out of range"):
-            self._make_config(
-                [
-                    BoltzConstraintEntry(
-                        pocket=BoltzPocketConstraint(
-                            binder="B",
-                            contacts=[("A", 100)],  # > len("MVLSP")=5
-                            max_distance=6.0,
-                        )
+            self._make_config([
+                BoltzConstraintEntry(
+                    pocket=BoltzPocketConstraint(
+                        binder="B",
+                        contacts=[("A", 100)],  # > len("MVLSP")=5
+                        max_distance=6.0,
                     )
-                ]
-            )
+                )
+            ])
 
     def test_pocket_ligand_contact_wrong_type_raises(self):
         """Pocket constraint with int (not string) for ligand chain should raise."""
         from uniaf3.schema.boltz import BoltzConstraintEntry, BoltzPocketConstraint
 
         with pytest.raises(Exception, match="should be specified with atom name"):
-            self._make_config(
-                [
-                    BoltzConstraintEntry(
-                        pocket=BoltzPocketConstraint(
-                            binder="A",
-                            contacts=[("B", 1)],  # int for ligand - should be str
-                            max_distance=6.0,
-                        )
+            self._make_config([
+                BoltzConstraintEntry(
+                    pocket=BoltzPocketConstraint(
+                        binder="A",
+                        contacts=[("B", 1)],  # int for ligand - should be str
+                        max_distance=6.0,
                     )
-                ]
-            )
+                )
+            ])
 
     def test_contact_polymer_wrong_type_raises(self):
         """Contact constraint with string (not int) for polymer should raise."""
         from uniaf3.schema.boltz import BoltzConstraintEntry, BoltzContactConstraint
 
         with pytest.raises(Exception, match="should be specified with residue index"):
-            self._make_config(
-                [
-                    BoltzConstraintEntry(
-                        contact=BoltzContactConstraint(
-                            token1=("A", "SG"),  # string for polymer - should be int
-                            token2=("A", 1),
-                            max_distance=6.0,
-                        )
+            self._make_config([
+                BoltzConstraintEntry(
+                    contact=BoltzContactConstraint(
+                        token1=("A", "SG"),  # string for polymer - should be int
+                        token2=("A", 1),
+                        max_distance=6.0,
                     )
-                ]
-            )
+                )
+            ])
 
     def test_contact_polymer_residue_out_of_range_raises(self):
         """Contact constraint with polymer residue out of range should raise."""
         from uniaf3.schema.boltz import BoltzConstraintEntry, BoltzContactConstraint
 
         with pytest.raises(Exception, match="out of range"):
-            self._make_config(
-                [
-                    BoltzConstraintEntry(
-                        contact=BoltzContactConstraint(
-                            token1=("A", 100),  # > len("MVLSP")=5
-                            token2=("A", 1),
-                            max_distance=6.0,
-                        )
+            self._make_config([
+                BoltzConstraintEntry(
+                    contact=BoltzContactConstraint(
+                        token1=("A", 100),  # > len("MVLSP")=5
+                        token2=("A", 1),
+                        max_distance=6.0,
                     )
-                ]
-            )
+                )
+            ])
 
     def test_contact_ligand_wrong_type_raises(self):
         """Contact constraint with int (not string) for ligand should raise."""
         from uniaf3.schema.boltz import BoltzConstraintEntry, BoltzContactConstraint
 
         with pytest.raises(Exception, match="should be specified with atom name"):
-            self._make_config(
-                [
-                    BoltzConstraintEntry(
-                        contact=BoltzContactConstraint(
-                            token1=("A", 1),
-                            token2=("B", 1),  # int for ligand - should be str
-                            max_distance=6.0,
-                        )
+            self._make_config([
+                BoltzConstraintEntry(
+                    contact=BoltzContactConstraint(
+                        token1=("A", 1),
+                        token2=("B", 1),  # int for ligand - should be str
+                        max_distance=6.0,
                     )
-                ]
-            )
+                )
+            ])

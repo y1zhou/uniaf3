@@ -20,20 +20,18 @@ def _ligands(config: UniAF3Config) -> list[Ligand]:
 def test_from_structure_file_seq_source_controls_full_vs_observed(tmp_path):
     pdb_file = tmp_path / "missing_residues.pdb"
     pdb_file.write_text(
-        "\n".join(
-            [
-                "HEADER    TEST",
-                "SEQRES   1 A    4  MET GLY ALA SER",
-                "ATOM      1  N   GLY A   2       0.000   0.000   0.000  1.00 20.00           N",
-                "ATOM      2  CA  GLY A   2       1.000   0.000   0.000  1.00 20.00           C",
-                "ATOM      3  C   GLY A   2       1.000   1.000   0.000  1.00 20.00           C",
-                "ATOM      4  N   ALA A   3       2.000   1.000   0.000  1.00 20.00           N",
-                "ATOM      5  CA  ALA A   3       2.000   2.000   0.000  1.00 20.00           C",
-                "TER",
-                "END",
-                "",
-            ]
-        )
+        "\n".join([
+            "HEADER    TEST",
+            "SEQRES   1 A    4  MET GLY ALA SER",
+            "ATOM      1  N   GLY A   2       0.000   0.000   0.000  1.00 20.00           N",
+            "ATOM      2  CA  GLY A   2       1.000   0.000   0.000  1.00 20.00           C",
+            "ATOM      3  C   GLY A   2       1.000   1.000   0.000  1.00 20.00           C",
+            "ATOM      4  N   ALA A   3       2.000   1.000   0.000  1.00 20.00           N",
+            "ATOM      5  CA  ALA A   3       2.000   2.000   0.000  1.00 20.00           C",
+            "TER",
+            "END",
+            "",
+        ])
     )
 
     full = UniAF3Config.from_structure_file(pdb_file)
@@ -46,20 +44,18 @@ def test_from_structure_file_seq_source_controls_full_vs_observed(tmp_path):
 def test_from_structure_file_detects_modification_against_full_sequence(tmp_path):
     pdb_file = tmp_path / "mse_modified.pdb"
     pdb_file.write_text(
-        "\n".join(
-            [
-                "HEADER    TEST",
-                "SEQRES   1 A    2  MET GLY",
-                "HETATM    1  N   MSE A   1       0.000   0.000   0.000  1.00 20.00           N",
-                "HETATM    2  CA  MSE A   1       1.000   0.000   0.000  1.00 20.00           C",
-                "HETATM    3  C   MSE A   1       1.000   1.000   0.000  1.00 20.00           C",
-                "ATOM      4  N   GLY A   2       2.000   1.000   0.000  1.00 20.00           N",
-                "ATOM      5  CA  GLY A   2       2.000   2.000   0.000  1.00 20.00           C",
-                "TER",
-                "END",
-                "",
-            ]
-        )
+        "\n".join([
+            "HEADER    TEST",
+            "SEQRES   1 A    2  MET GLY",
+            "HETATM    1  N   MSE A   1       0.000   0.000   0.000  1.00 20.00           N",
+            "HETATM    2  CA  MSE A   1       1.000   0.000   0.000  1.00 20.00           C",
+            "HETATM    3  C   MSE A   1       1.000   1.000   0.000  1.00 20.00           C",
+            "ATOM      4  N   GLY A   2       2.000   1.000   0.000  1.00 20.00           N",
+            "ATOM      5  CA  GLY A   2       2.000   2.000   0.000  1.00 20.00           C",
+            "TER",
+            "END",
+            "",
+        ])
     )
 
     config = UniAF3Config.from_structure_file(pdb_file)
