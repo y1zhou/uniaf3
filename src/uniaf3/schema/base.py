@@ -451,6 +451,33 @@ class UniAF3Config(UniAF3BaseConfig):
 
         return conf
 
+    @classmethod
+    def from_structure_file(
+        cls,
+        struct_file: str | Path,
+        *,
+        seq_source: Literal["full", "observed"] = "full",
+        chains: Sequence[str] | None = None,
+        include_ligands: bool | None = None,
+        include_waters: bool = False,
+        model_index: int = 0,
+        strict: bool = False,
+        non_covalent_connections: Literal["ignore", "contacts", "pockets"] = "ignore",
+    ) -> "UniAF3Config":
+        """Generate a UniAF3 config from a PDB or mmCIF structure file."""
+        from uniaf3.structure import from_structure_file
+
+        return from_structure_file(
+            struct_file,
+            seq_source=seq_source,
+            chains=chains,
+            include_ligands=include_ligands,
+            include_waters=include_waters,
+            model_index=model_index,
+            strict=strict,
+            non_covalent_connections=non_covalent_connections,
+        )
+
     @model_validator(mode="after")
     def check_has_sequences(self):
         """Ensure that at least one sequence is provided."""

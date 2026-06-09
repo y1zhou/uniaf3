@@ -81,6 +81,43 @@ uniaf3 validate af3_input.json -f alphafold3
 
 For Chai-1 configs, if a `.restraints` or `.csv` file with the same stem exists alongside the FASTA file, it will be loaded automatically.
 
+### Generate a config from a structure file
+
+Generate a UniAF3 YAML config from a PDB or mmCIF coordinate file:
+
+```bash
+uniaf3 structure STRUCTURE_FILE OUTPUT_DIR [PREFIX] [--seq-source full|observed]
+```
+
+**Arguments:**
+
+- `STRUCTURE_FILE` — Path to a PDB or mmCIF file (required).
+- `OUTPUT_DIR` — Directory for the generated UniAF3 YAML file (required).
+- `PREFIX` — Prefix for the output file name. Defaults to the structure file name without extension.
+
+**Options:**
+
+- `--seq-source` — Use the full declared polymer sequence when available (`full`, default) or only observed coordinate residues (`observed`).
+- `--chains`, `-c` — Comma-separated author chain IDs to import.
+- `--include-ligands/--exclude-ligands` — Include CCD ligands. By default ligands are included for whole-structure imports and excluded when `--chains` is used.
+- `--include-waters` — Include waters as CCD ligands.
+- `--model-index` — 0-based model index for coordinate-dependent fields.
+- `--non-covalent-connections` — Import non-covalent structure connections as `ignore`, `contacts`, or `pockets`.
+- `--strict` — Raise errors instead of warning when structure fields cannot be imported.
+
+Generated UniAF3 IDs use entity chain IDs so polymer and ligand copies remain unique. Chain filters use author chain IDs because those are the IDs users normally see in structure files.
+
+**Examples:**
+
+```bash
+# Generate a UniAF3 config from all supported entities in an mmCIF file
+uniaf3 structure 1BZ1.cif.gz output_dir/
+
+# Import author chain A and its CCD ligands using observed coordinate residues
+uniaf3 structure 1BZ1.cif.gz output_dir/ hemoglobin_a \
+  --chains A --include-ligands --seq-source observed
+```
+
 ### Convert between formats
 
 Convert an input config file from one format to another:

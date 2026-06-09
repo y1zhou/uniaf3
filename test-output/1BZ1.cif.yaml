@@ -1,0 +1,21 @@
+sequences:
+- id: [A, C]
+  polymer_type: protein
+  sequence: MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVADALTNAVAHVDDMPNALSALSDLHAHKLRVDPVNFKLLSHCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR
+  description: 1BZ1 chain A
+- id: [B, D]
+  polymer_type: protein
+  sequence: VHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKVKAHGKKVLGAFSDGLAHLDNLKGTFATLSELHCDKLHVDPENFRLLGNVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH
+  description: 1BZ1 chain B
+- id: [E, F, G, H]
+  ccd: [HEM]
+contact_restraints:
+- token1: {chain_id: A, residue_idx: 88, atom_name: NE2, residue_name: H}
+  token2: {chain_id: E, residue_idx: 1, atom_name: FE, residue_name: HEM}
+- token1: {chain_id: B, residue_idx: 92, atom_name: NE2, residue_name: H}
+  token2: {chain_id: F, residue_idx: 1, atom_name: FE, residue_name: HEM}
+- token1: {chain_id: C, residue_idx: 88, atom_name: NE2, residue_name: H}
+  token2: {chain_id: G, residue_idx: 1, atom_name: FE, residue_name: HEM}
+- token1: {chain_id: D, residue_idx: 92, atom_name: NE2, residue_name: H}
+  token2: {chain_id: H, residue_idx: 1, atom_name: FE, residue_name: HEM}
+aux: {name: 1BZ1}
