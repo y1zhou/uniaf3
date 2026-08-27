@@ -16,6 +16,7 @@ from uniaf3.schema.base import (
     AuxiliaryParams,
     ContactRestraint,
     CovalentBond,
+    Glycan,
     Ligand,
     PocketRestraint,
     Polymer,
@@ -103,7 +104,9 @@ def from_structure_file(
     )
 
     model = st[model_index]
-    entity_by_subchain = _entity_by_subchain(st)
+    entity_by_subchain = {
+        subchain: entity for entity in st.entities for subchain in entity.subchains
+    }
     residue_atoms: dict[tuple[str, str, str], _ImportedAtom] = {}
 
     polymer_copies = _collect_polymer_copies(
@@ -124,7 +127,7 @@ def from_structure_file(
         residue_atoms,
     )
 
-    sequences: list[Polymer | ProteinSeq | Ligand] = []
+    sequences: list[Polymer | ProteinSeq | Ligand | Glycan] = []
     sequences.extend(_build_polymer_entries(polymer_copies))
     sequences.extend(_build_ligand_entries(ligand_copies))
 
@@ -142,14 +145,6 @@ def from_structure_file(
         pocket_restraints=pocket_restraints or None,
         aux=AuxiliaryParams(name=st.name or struct_path.stem),
     )
-
-
-def _entity_by_subchain(st: gemmi.Structure) -> dict[str, gemmi.Entity]:
-    result: dict[str, gemmi.Entity] = {}
-    for entity in st.entities:
-        for subchain in entity.subchains:
-            result[subchain] = entity
-    return result
 
 
 def _collect_polymer_copies(
