@@ -242,3 +242,25 @@ def test_roundtrip_covalent_bond(af3_rt: AF3Config, af3_conf: AF3Config):
     ):
         assert a1_rt == a1_src
         assert a2_rt == a2_src
+
+
+@pytest.mark.parametrize("templates", [None, []], ids=["null", "empty"])
+def test_template_presence_preserved_from_af3(templates):
+    from uniaf3.adapters import from_alphafold3
+    from uniaf3.schema.alphafold3 import AF3Protein, AF3SequenceEntry
+
+    config = AF3Config(
+        name="template-presence",
+        modelSeeds=[1],
+        sequences=[
+            AF3SequenceEntry(
+                protein=AF3Protein(id="A", sequence="M", templates=templates)
+            )
+        ],
+    )
+
+    with pytest.warns(UserWarning, match="AF3Config.name"):
+        converted = from_alphafold3(config)
+    protein = converted.sequences[0]
+    assert isinstance(protein, ProteinSeq)
+    assert protein.templates == templates

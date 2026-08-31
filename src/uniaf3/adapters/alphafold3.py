@@ -78,7 +78,7 @@ def to_alphafold3(
                 pairedMsaPath=seq.paired_msa,
             )
             # Templates
-            if seq.templates:
+            if seq.templates is not None:
                 af3_templates = []
                 for tmpl in seq.templates:
                     if tmpl.query_chains or tmpl.template_chains:
@@ -248,7 +248,7 @@ def from_alphafold3(config: AF3Config) -> UniAF3Config:
                 )
 
             templates = None
-            if p.templates:
+            if p.templates is not None:
                 if any(
                     t.mmcif is not None and t.mmcifPath is None for t in p.templates
                 ):
