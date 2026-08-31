@@ -64,10 +64,8 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
       {"ptmType": "HY3", "ptmPosition": 1}
     ],
     "description": "My protein chain",
-    "unpairedMsa": "...",
-    "unpairedMsaPath": "path/to/unpaired.a3m",
-    "pairedMsa": "...",
-    "pairedMsaPath": "path/to/paired.a3m",
+    "unpairedMsa": ">query\\nPVLSCGEWQL",
+    "pairedMsa": "",
     "templates": [
       {
         "mmcif": "...",
@@ -90,15 +88,33 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
 | `unpairedMsaPath` | `str`                          | No       | Path to unpaired MSA file (v2+).                                |
 | `pairedMsa`       | `str`                          | No       | Inline paired MSA (A3M format). Not recommended by DeepMind.    |
 | `pairedMsaPath`   | `str`                          | No       | Path to paired MSA file (v2+).                                  |
-| `templates`       | `list[Template]`               | No       | Structural templates.                                           |
+| `templates`       | `list[Template] \| null`       | No       | Structural templates.                                           |
 
-#### MSA Rules
+#### MSA and Template Search Rules
 
-- Both `unpairedMsa` and `pairedMsa` must be both set or both unset.
+AlphaFold3 distinguishes missing evidence from evidence that is explicitly empty. A
+`null` or omitted field allows the data pipeline to search for that evidence. An
+empty string or list is present and explicitly disables that evidence source; empty
+values are not missing values.
+
+The unpaired and paired MSA sides must be supplied together. Each side may use either
+its inline field or its path field, but not both. An empty inline string counts as a
+supplied side.
+
+| Protein MSA state                            | Template state | Behavior                                                 |
+| -------------------------------------------- | -------------- | -------------------------------------------------------- |
+| Both sides `null` or omitted                 | `null`/omitted | Search MSAs and templates                                |
+| Both sides `null` or omitted                 | `[]`           | Search MSAs only; template search is explicitly disabled |
+| Both sides `null` or omitted                 | Populated      | Invalid partial custom evidence                          |
+| Both sides supplied, including empty strings | `null`/omitted | Use supplied MSA state and search templates only         |
+| Both sides supplied, including empty strings | `[]`           | Use supplied MSA state and do not search templates       |
+| Both sides supplied, including empty strings | Populated      | Use all supplied MSA and template evidence               |
+| Exactly one MSA side `null` or omitted       | Any            | Invalid partial MSA evidence                             |
+
 - Setting `unpairedMsa` to a non-empty A3M and `pairedMsa` to `""` is the recommended custom MSA approach.
-- Setting both to `""` runs MSA-free (single-sequence mode).
-- If both are unset (`null`), the pipeline builds MSAs automatically.
-- The first sequence in the MSA must exactly match the query sequence.
+- Setting both MSA strings to `""` runs MSA-free (single-sequence mode).
+- Populated templates without supplied paired and unpaired MSA state are invalid.
+- The first sequence in a populated MSA must exactly match the query sequence.
 
 #### Templates
 
