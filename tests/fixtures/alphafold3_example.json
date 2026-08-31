@@ -19,6 +19,8 @@
       "protein": {
         "id": "B",
         "sequence": "RPACQLW",
+        "unpairedMsaPath": "./dummy_msa/a3ms/f3513e4c19996aaa8fb4372b70d87dd2c3d285ba8245bf89cff77f63928dfd1f.single.a3m",
+        "pairedMsaPath": "./dummy_msa/a3ms/f3513e4c19996aaa8fb4372b70d87dd2c3d285ba8245bf89cff77f63928dfd1f.pair.a3m",
         "templates": [
           {
             "mmcifPath": "./templates/B_template.cif",
