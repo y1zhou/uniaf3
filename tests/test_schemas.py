@@ -190,6 +190,16 @@ class TestAF3Schema:
                 id="unpaired-path-paired-inline",
             ),
             pytest.param(
+                {"unpairedMsaPath": "", "pairedMsa": ""},
+                "String should have at least 1 character",
+                id="empty-unpaired-path",
+            ),
+            pytest.param(
+                {"unpairedMsa": "", "pairedMsaPath": ""},
+                "String should have at least 1 character",
+                id="empty-paired-path",
+            ),
+            pytest.param(
                 {
                     "unpairedMsa": "",
                     "unpairedMsaPath": "unpaired.a3m",

@@ -62,9 +62,9 @@ class AF3Protein(BaseModel):
     modifications: list[AF3ProteinModification] | None = None
     description: str | None = None
     unpairedMsa: str | None = None  # inline A3M (mutually exclusive with Path)
-    unpairedMsaPath: str | None = None
+    unpairedMsaPath: Annotated[str, Field(min_length=1)] | None = None
     pairedMsa: str | None = None  # inline A3M (mutually exclusive with Path)
-    pairedMsaPath: str | None = None
+    pairedMsaPath: Annotated[str, Field(min_length=1)] | None = None
     templates: list[AF3Template] | None = None
 
     @model_validator(mode="after")

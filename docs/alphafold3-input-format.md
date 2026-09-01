@@ -64,7 +64,7 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
       {"ptmType": "HY3", "ptmPosition": 1}
     ],
     "description": "My protein chain",
-    "unpairedMsa": ">query\\nPVLSCGEWQL",
+    "unpairedMsa": ">query\nPVLSCGEWQL",
     "pairedMsa": "",
     "templates": [
       {
@@ -85,31 +85,32 @@ Each entry in `sequences` must contain exactly one of `protein`, `rna`, `dna`, o
 | `modifications`   | `list[{ptmType, ptmPosition}]` | No       | Post-translational modifications. CCD code + 1-based position.  |
 | `description`     | `str`                          | No       | Textual description (v4+).                                      |
 | `unpairedMsa`     | `str`                          | No       | Inline unpaired MSA (A3M format). Mutually exclusive with path. |
-| `unpairedMsaPath` | `str`                          | No       | Path to unpaired MSA file (v2+).                                |
+| `unpairedMsaPath` | `str`                          | No       | Non-empty path to an unpaired MSA file (v2+).                   |
 | `pairedMsa`       | `str`                          | No       | Inline paired MSA (A3M format). Not recommended by DeepMind.    |
-| `pairedMsaPath`   | `str`                          | No       | Path to paired MSA file (v2+).                                  |
+| `pairedMsaPath`   | `str`                          | No       | Non-empty path to a paired MSA file (v2+).                      |
 | `templates`       | `list[Template] \| null`       | No       | Structural templates.                                           |
 
 #### MSA and Template Search Rules
 
 AlphaFold3 distinguishes missing evidence from evidence that is explicitly empty. A
 `null` or omitted field allows the data pipeline to search for that evidence. An
-empty string or list is present and explicitly disables that evidence source; empty
-values are not missing values.
+empty inline MSA string or template list is present and explicitly disables that
+evidence source; empty values are not missing values. MSA path fields must be
+non-empty.
 
 The unpaired and paired MSA sides must be supplied together. Each side may use either
 its inline field or its path field, but not both. An empty inline string counts as a
 supplied side.
 
-| Protein MSA state                            | Template state | Behavior                                                 |
-| -------------------------------------------- | -------------- | -------------------------------------------------------- |
-| Both sides `null` or omitted                 | `null`/omitted | Search MSAs and templates                                |
-| Both sides `null` or omitted                 | `[]`           | Search MSAs only; template search is explicitly disabled |
-| Both sides `null` or omitted                 | Populated      | Invalid partial custom evidence                          |
-| Both sides supplied, including empty strings | `null`/omitted | Use supplied MSA state and search templates only         |
-| Both sides supplied, including empty strings | `[]`           | Use supplied MSA state and do not search templates       |
-| Both sides supplied, including empty strings | Populated      | Use all supplied MSA and template evidence               |
-| Exactly one MSA side `null` or omitted       | Any            | Invalid partial MSA evidence                             |
+| Protein MSA state                                   | Template state | Behavior                                                 |
+| --------------------------------------------------- | -------------- | -------------------------------------------------------- |
+| Both sides `null` or omitted                        | `null`/omitted | Search MSAs and templates                                |
+| Both sides `null` or omitted                        | `[]`           | Search MSAs only; template search is explicitly disabled |
+| Both sides `null` or omitted                        | Populated      | Invalid partial custom evidence                          |
+| Both sides supplied, including empty inline strings | `null`/omitted | Use supplied MSA state and search templates only         |
+| Both sides supplied, including empty inline strings | `[]`           | Use supplied MSA state and do not search templates       |
+| Both sides supplied, including empty inline strings | Populated      | Use all supplied MSA and template evidence               |
+| Exactly one MSA side `null` or omitted              | Any            | Invalid partial MSA evidence                             |
 
 - Setting `unpairedMsa` to a non-empty A3M and `pairedMsa` to `""` is the recommended custom MSA approach.
 - Setting both MSA strings to `""` runs MSA-free (single-sequence mode).
