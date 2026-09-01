@@ -108,6 +108,204 @@ class TestAF3Schema:
                 dna=AF3DNA(id="B", sequence="G"),
             )
 
+    @pytest.mark.parametrize(
+        ("fields", "error"),
+        [
+            pytest.param({}, None, id="all-omitted"),
+            pytest.param(
+                {"unpairedMsa": None, "pairedMsa": None, "templates": None},
+                None,
+                id="all-null",
+            ),
+            pytest.param({"templates": []}, None, id="msa-omitted-templates-empty"),
+            pytest.param(
+                {
+                    "templates": [
+                        {
+                            "mmcif": "data_template",
+                            "queryIndices": [0],
+                            "templateIndices": [0],
+                        }
+                    ]
+                },
+                "Populated templates require",
+                id="msa-omitted-templates-populated",
+            ),
+            pytest.param(
+                {"unpairedMsa": "", "pairedMsa": "", "templates": None},
+                None,
+                id="msa-empty-templates-null",
+            ),
+            pytest.param(
+                {"unpairedMsa": ">query\\nM", "pairedMsa": "", "templates": None},
+                None,
+                id="unpaired-populated-paired-empty",
+            ),
+            pytest.param(
+                {"unpairedMsa": "", "pairedMsa": ">query\\nM", "templates": []},
+                None,
+                id="unpaired-empty-paired-populated",
+            ),
+            pytest.param(
+                {
+                    "unpairedMsa": ">query\\nM",
+                    "pairedMsa": ">query\\nM",
+                    "templates": [
+                        {
+                            "mmcif": "data_template",
+                            "queryIndices": [0],
+                            "templateIndices": [0],
+                        }
+                    ],
+                },
+                None,
+                id="all-populated",
+            ),
+            pytest.param(
+                {"unpairedMsa": ""},
+                "must be supplied together",
+                id="only-unpaired-present",
+            ),
+            pytest.param(
+                {"pairedMsaPath": "paired.a3m"},
+                "must be supplied together",
+                id="only-paired-present",
+            ),
+            pytest.param(
+                {
+                    "unpairedMsaPath": "unpaired.a3m",
+                    "pairedMsaPath": "paired.a3m",
+                },
+                None,
+                id="both-paths",
+            ),
+            pytest.param(
+                {"unpairedMsa": "", "pairedMsaPath": "paired.a3m"},
+                None,
+                id="unpaired-inline-paired-path",
+            ),
+            pytest.param(
+                {"unpairedMsaPath": "unpaired.a3m", "pairedMsa": ""},
+                None,
+                id="unpaired-path-paired-inline",
+            ),
+            pytest.param(
+                {"unpairedMsaPath": "", "pairedMsa": ""},
+                "String should have at least 1 character",
+                id="empty-unpaired-path",
+            ),
+            pytest.param(
+                {"unpairedMsa": "", "pairedMsaPath": ""},
+                "String should have at least 1 character",
+                id="empty-paired-path",
+            ),
+            pytest.param(
+                {
+                    "unpairedMsa": "",
+                    "unpairedMsaPath": "unpaired.a3m",
+                    "pairedMsa": "",
+                },
+                "Cannot provide both unpairedMsa and unpairedMsaPath",
+                id="inline-and-path-same-side",
+            ),
+        ],
+    )
+    def test_protein_input_semantics(self, fields: dict, error: str | None):
+        from uniaf3.schema.alphafold3 import AF3Protein
+
+        if error is None:
+            AF3Protein(id="A", sequence="M", **fields)
+        else:
+            with pytest.raises(ValueError, match=error):
+                AF3Protein(id="A", sequence="M", **fields)
+
+    @pytest.mark.parametrize(
+        ("fields", "templates"),
+        [({}, None), ({"templates": None}, None), ({"templates": []}, [])],
+        ids=["omitted", "null", "empty"],
+    )
+    def test_templates_json_roundtrip(self, fields: dict, templates):
+        from uniaf3.schema.alphafold3 import AF3Protein, AF3SequenceEntry
+
+        config = AF3Config(
+            name="template-presence",
+            modelSeeds=[1],
+            sequences=[
+                AF3SequenceEntry(protein=AF3Protein(id="A", sequence="M", **fields))
+            ],
+        )
+
+        serialized = config.to_json()
+        serialized_protein = orjson.loads(serialized)["sequences"][0]["protein"]
+        roundtripped = AF3Config.model_validate_json(serialized)
+        roundtripped_protein = roundtripped.sequences[0].protein
+        assert roundtripped_protein is not None
+        if templates is None:
+            assert "templates" not in serialized_protein
+            assert roundtripped_protein.templates is None
+        else:
+            assert serialized_protein["templates"] == []
+            assert roundtripped_protein.templates == []
+
+    def test_empty_msa_strings_json_roundtrip(self):
+        from uniaf3.schema.alphafold3 import AF3Protein, AF3SequenceEntry
+
+        config = AF3Config(
+            name="empty-msas",
+            modelSeeds=[1],
+            sequences=[
+                AF3SequenceEntry(
+                    protein=AF3Protein(
+                        id="A", sequence="M", unpairedMsa="", pairedMsa=""
+                    )
+                )
+            ],
+        )
+
+        serialized = config.to_json()
+        serialized_protein = orjson.loads(serialized)["sequences"][0]["protein"]
+        roundtripped = AF3Config.model_validate_json(serialized)
+        roundtripped_protein = roundtripped.sequences[0].protein
+        assert serialized_protein["unpairedMsa"] == ""
+        assert serialized_protein["pairedMsa"] == ""
+        assert roundtripped_protein is not None
+        assert roundtripped_protein.unpairedMsa == ""
+        assert roundtripped_protein.pairedMsa == ""
+
+    def test_to_files_preserves_empty_and_null_evidence(self, tmp_path: Path):
+        from uniaf3.schema.alphafold3 import AF3Protein, AF3SequenceEntry
+
+        config = AF3Config(
+            name="file-presence",
+            modelSeeds=[1],
+            sequences=[
+                AF3SequenceEntry(protein=AF3Protein(id="A", sequence="M")),
+                AF3SequenceEntry(
+                    protein=AF3Protein(
+                        id="B",
+                        sequence="M",
+                        unpairedMsa="",
+                        pairedMsa="",
+                        templates=[],
+                    )
+                ),
+            ],
+        )
+
+        config.to_files(tmp_path, "input")
+        proteins = [
+            entry["protein"]
+            for entry in orjson.loads((tmp_path / "input.json").read_bytes())[
+                "sequences"
+            ]
+        ]
+        assert "templates" not in proteins[0]
+        assert "unpairedMsa" not in proteins[0]
+        assert "pairedMsa" not in proteins[0]
+        assert proteins[1]["templates"] == []
+        assert proteins[1]["unpairedMsa"] == ""
+        assert proteins[1]["pairedMsa"] == ""
+
 
 # ============================================================
 # AlphaFold3 Server schema

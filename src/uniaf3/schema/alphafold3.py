@@ -62,10 +62,10 @@ class AF3Protein(BaseModel):
     modifications: list[AF3ProteinModification] | None = None
     description: str | None = None
     unpairedMsa: str | None = None  # inline A3M (mutually exclusive with Path)
-    unpairedMsaPath: str | None = None
+    unpairedMsaPath: Annotated[str, Field(min_length=1)] | None = None
     pairedMsa: str | None = None  # inline A3M (mutually exclusive with Path)
-    pairedMsaPath: str | None = None
-    templates: list[AF3Template] = []
+    pairedMsaPath: Annotated[str, Field(min_length=1)] | None = None
+    templates: list[AF3Template] | None = None
 
     @model_validator(mode="after")
     def check_modifications_in_range(self):
@@ -81,11 +81,30 @@ class AF3Protein(BaseModel):
 
     @model_validator(mode="after")
     def check_msa_fields(self):
-        """Ensure exactly one of unpairedMsa and unpairedMsaPath is provided, and same for pairedMsa."""
+        """Validate MSA field exclusivity and evidence completeness."""
         if (self.unpairedMsa is not None) and (self.unpairedMsaPath is not None):
             raise ValueError("Cannot provide both unpairedMsa and unpairedMsaPath.")
         if (self.pairedMsa is not None) and (self.pairedMsaPath is not None):
             raise ValueError("Cannot provide both pairedMsa and pairedMsaPath.")
+
+        has_unpaired_msa = (
+            self.unpairedMsa is not None or self.unpairedMsaPath is not None
+        )
+        has_paired_msa = self.pairedMsa is not None or self.pairedMsaPath is not None
+        if has_unpaired_msa != has_paired_msa:
+            raise ValueError(
+                "unpairedMsa/unpairedMsaPath and pairedMsa/pairedMsaPath "
+                "must be supplied together."
+            )
+        if (
+            not has_unpaired_msa
+            and self.templates is not None
+            and len(self.templates) > 0
+        ):
+            raise ValueError(
+                "Populated templates require unpairedMsa/unpairedMsaPath and "
+                "pairedMsa/pairedMsaPath to be supplied together."
+            )
         return self
 
 

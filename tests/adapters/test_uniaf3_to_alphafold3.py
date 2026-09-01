@@ -110,3 +110,23 @@ def test_only_covalent_bonds(uniaf3_conf: UniAF3Config, af3: AF3Config):
     src = uniaf3_conf.covalent_bonds[0]
     assert a1 == (src.atom1.chain_id, src.atom1.residue_idx, src.atom1.atom_name)
     assert a2 == (src.atom2.chain_id, src.atom2.residue_idx, src.atom2.atom_name)
+
+
+@pytest.mark.parametrize("templates", [None, []], ids=["null", "empty"])
+def test_template_presence_preserved(templates):
+    from uniaf3.adapters import to_alphafold3
+
+    config = UniAF3Config(
+        sequences=[
+            ProteinSeq(
+                id="A",
+                polymer_type="protein",
+                sequence="M",
+                templates=templates,
+            )
+        ]
+    )
+
+    protein = to_alphafold3(config).sequences[0].protein
+    assert protein is not None
+    assert protein.templates == templates
